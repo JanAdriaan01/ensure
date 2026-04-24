@@ -10,43 +10,27 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [showNewJobModal, setShowNewJobModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [attendanceDate, setAttendanceDate] = useState('');
   const [attendanceHours, setAttendanceHours] = useState('');
   const [attendanceNotes, setAttendanceNotes] = useState('');
 
   useEffect(() => {
-    console.log('Component mounted, fetching data...');
     fetchAllData();
   }, []);
 
   const fetchAllData = async () => {
-    console.log('fetchAllData started');
     setLoading(true);
-    setError(null);
-    try {
-      await fetchJobs();
-      await fetchCompletedInvoices();
-      await fetchSummary();
-    } catch (err) {
-      console.error('Error in fetchAllData:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    await Promise.all([fetchJobs(), fetchCompletedInvoices(), fetchSummary()]);
+    setLoading(false);
   };
 
   const fetchJobs = async () => {
     try {
-      console.log('Fetching jobs...');
       const res = await fetch('/api/jobs');
-      console.log('Jobs response status:', res.status);
       const data = await res.json();
-      console.log('Jobs data:', data);
       setJobs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      setError('Failed to fetch jobs: ' + error.message);
       setJobs([]);
     }
   };
@@ -74,16 +58,14 @@ export default function Home() {
   };
 
   const fetchJobDetail = async (id) => {
-    console.log('Fetching job detail for id:', id);
     try {
       const res = await fetch(`/api/jobs/${id}`);
       const data = await res.json();
-      console.log('Job detail:', data);
       setSelectedJob(data);
       setShowModal(true);
     } catch (error) {
       console.error('Error fetching job detail:', error);
-      alert('Failed to load job details: ' + error.message);
+      alert('Failed to load job details');
     }
   };
 
@@ -97,8 +79,6 @@ export default function Home() {
       monthly_work_done: 0,
     };
     
-    console.log('Creating job:', jobData);
-    
     try {
       const res = await fetch('/api/jobs', {
         method: 'POST',
@@ -107,27 +87,24 @@ export default function Home() {
       });
 
       if (res.ok) {
-        console.log('Job created successfully');
         setShowNewJobModal(false);
         fetchAllData();
       } else {
         const error = await res.json();
-        console.error('Create job error:', error);
         alert(error.error || 'Failed to create job');
       }
     } catch (error) {
       console.error('Error creating job:', error);
-      alert('Failed to create job: ' + error.message);
+      alert('Failed to create job');
     }
   };
 
-  const updateJob = async (id, updates) => {
-    console.log('Updating job:', id, updates);
+  const updateJob = async (id, po_status, completion_status) => {
     try {
       await fetch(`/api/jobs/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({ po_status, completion_status }),
       });
       fetchAllData();
       if (showModal) fetchJobDetail(id);
@@ -139,7 +116,6 @@ export default function Home() {
 
   const deleteJob = async (id) => {
     if (confirm('Delete this job and all attendance records?')) {
-      console.log('Deleting job:', id);
       try {
         await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
         fetchAllData();
@@ -157,8 +133,6 @@ export default function Home() {
       return;
     }
 
-    console.log('Adding attendance:', { jobId, attendanceDate, attendanceHours, attendanceNotes });
-    
     try {
       await fetch(`/api/jobs/${jobId}/attendance`, {
         method: 'POST',
@@ -184,138 +158,83 @@ export default function Home() {
 
   const getStatusColor = (status) => {
     const colors = {
-      pending: '#fef3c7',
-      approved: '#d1fae5',
-      rejected: '#fee2e2',
-      not_started: '#e5e7eb',
-      in_progress: '#dbeafe',
-      completed: '#d1fae5',
+      pending: 'status-pending',
+      approved: 'status-approved',
+      rejected: 'status-rejected',
+      not_started: 'status-not_started',
+      in_progress: 'status-in_progress',
+      completed: 'status-completed',
     };
-    return colors[status] || '#e5e7eb';
-  };
-
-  const getStatusTextColor = (status) => {
-    const colors = {
-      pending: '#92400e',
-      approved: '#065f46',
-      rejected: '#991b1b',
-      not_started: '#374151',
-      in_progress: '#1e40af',
-      completed: '#065f46',
-    };
-    return colors[status] || '#374151';
+    return colors[status] || 'status-pending';
   };
 
   const activeJobs = jobs.filter(job => job.completion_status !== 'completed');
   const completedJobsList = jobs.filter(job => job.completion_status === 'completed');
 
   if (loading) {
-    return <div style={{ padding: '50px', textAlign: 'center' }}>Loading ENSURE System...</div>;
-  }
-
-  if (error) {
     return (
-      <div style={{ padding: '50px', textAlign: 'center', color: 'red' }}>
-        <h2>Error Loading System</h2>
-        <p>{error}</p>
-        <button onClick={() => fetchAllData()} style={{ padding: '10px 20px', marginTop: '20px' }}>
-          Retry
-        </button>
+      <div className="loading">
+        <div className="loading-spinner"></div>
+        <div>Loading ENSURE System...</div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      {/* Debug info - remove after working */}
-      <div style={{ background: '#e0f2fe', padding: '10px', marginBottom: '20px', borderRadius: '5px', fontSize: '12px' }}>
-        <strong>Debug Info:</strong> Jobs: {jobs.length} | Active: {activeJobs.length} | Completed: {completedJobsList.length} | Modal: {showModal ? 'Open' : 'Closed'}
+    <div className="container">
+      {/* Header */}
+      <div className="header">
+        <h1>🔧 ENSURE System</h1>
+        <p>Schedule Management & Attendance Tracking</p>
       </div>
 
-      {/* Header */}
-      <h1 style={{ fontSize: '32px', marginBottom: '5px' }}>🔧 ENSURE System</h1>
-      <p style={{ color: '#666', marginBottom: '30px' }}>Schedule Management & Attendance Tracking</p>
-
       {/* Dashboard Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-        <div style={{ background: '#f0f0f0', padding: '20px', borderRadius: '8px' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Total Completed Work</h3>
-          <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>{summary.total_work_done || 0} hrs</p>
+      <div className="dashboard">
+        <div className="card">
+          <h3>Total Completed Work</h3>
+          <div className="value">{summary.total_work_done || 0} hrs</div>
         </div>
-        <div style={{ background: '#f0f0f0', padding: '20px', borderRadius: '8px' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Completed Jobs</h3>
-          <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>{summary.total_jobs_completed || 0}</p>
+        <div className="card">
+          <h3>Completed Jobs</h3>
+          <div className="value">{summary.total_jobs_completed || 0}</div>
         </div>
-        <div style={{ background: '#f0f0f0', padding: '20px', borderRadius: '8px' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Active Jobs</h3>
-          <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>{activeJobs.length}</p>
+        <div className="card">
+          <h3>Active Jobs</h3>
+          <div className="value">{activeJobs.length}</div>
         </div>
       </div>
 
       {/* New Job Button */}
-      <button
-        onClick={() => {
-          console.log('New Job button clicked');
-          setShowNewJobModal(true);
-        }}
-        style={{
-          background: '#0070f3',
-          color: 'white',
-          padding: '10px 20px',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontSize: '16px',
-          marginBottom: '30px'
-        }}
-      >
+      <button className="btn-primary" onClick={() => setShowNewJobModal(true)}>
         + New Job
       </button>
 
       {/* Active Jobs Table */}
-      <div style={{ background: 'white', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '30px', overflow: 'hidden' }}>
-        <h2 style={{ padding: '15px', margin: 0, background: '#fafafa', borderBottom: '1px solid #ddd', fontSize: '18px' }}>
-          📋 Active Jobs {activeJobs.length > 0 ? `(${activeJobs.length})` : ''}
-        </h2>
-        
+      <div className="table-container">
+        <h2>📋 Active Jobs (Click any row for details)</h2>
         {activeJobs.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-            No active jobs. Click "New Job" to get started.
-          </div>
+          <div className="no-data">No active jobs. Click "New Job" to get started.</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table>
             <thead>
               <tr>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', background: '#fafafa' }}>LC Number</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', background: '#fafafa' }}>PO Status</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', background: '#fafafa' }}>Completion</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', background: '#fafafa' }}>Monthly Work</th>
+                <th>LC Number</th>
+                <th>PO Status</th>
+                <th>Completion Status</th>
+                <th>Monthly Work Done</th>
+                <th>Total Hours</th>
+                <th>Logs</th>
               </tr>
             </thead>
             <tbody>
-              {activeJobs.map(job => (
-                <tr 
-                  key={job.id} 
-                  onClick={() => {
-                    console.log('Row clicked:', job.id);
-                    fetchJobDetail(job.id);
-                  }}
-                  style={{ cursor: 'pointer', borderBottom: '1px solid #eee' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#f9f9f9'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                >
-                  <td style={{ padding: '12px' }}><strong>{job.lc_number}</strong></td>
-                  <td style={{ padding: '12px' }}>
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      background: getStatusColor(job.po_status),
-                      color: getStatusTextColor(job.po_status)
-                    }}>{job.po_status}</span>
-                  </td>
-                  <td style={{ padding: '12px' }}>{job.completion_status?.replace('_', ' ') || 'not started'}</td>
-                  <td style={{ padding: '12px' }}>{job.monthly_work_done || 0} hrs</td>
+              {activeJobs.map((job) => (
+                <tr key={job.id} onClick={() => fetchJobDetail(job.id)} className="clickable-row">
+                  <td><strong>{job.lc_number}</strong></td>
+                  <td><span className={`status-badge ${getStatusColor(job.po_status)}`}>{job.po_status}</span></td>
+                  <td><span className={`status-badge ${getStatusColor(job.completion_status)}`}>{job.completion_status?.replace('_', ' ')}</span></td>
+                  <td>{job.monthly_work_done || 0} hrs</td>
+                  <td>{Math.round(job.total_hours || 0)} hrs</td>
+                  <td>{job.log_entries || 0}</td>
                 </tr>
               ))}
             </tbody>
@@ -323,33 +242,28 @@ export default function Home() {
         )}
       </div>
 
-      {/* Completed Jobs Section */}
-      <div style={{ background: 'white', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden' }}>
-        <h2 style={{ padding: '15px', margin: 0, background: '#fafafa', borderBottom: '1px solid #ddd', fontSize: '18px' }}>
-          📄 Month Completed Invoice
-        </h2>
-        
+      {/* Completed Jobs Invoice Section */}
+      <div className="table-container">
+        <h2>📄 Month Completed Invoice</h2>
         {completedJobsList.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-            No completed jobs yet. Complete a job to see it here.
-          </div>
+          <div className="no-data">No completed jobs yet. Complete a job to see it here.</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table>
             <thead>
               <tr>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', background: '#fafafa' }}>LC Number</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', background: '#fafafa' }}>Completion Date</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', background: '#fafafa' }}>Total Work Done</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', background: '#fafafa' }}>Invoice Month</th>
+                <th>LC Number</th>
+                <th>Completion Date</th>
+                <th>Total Work Done</th>
+                <th>Invoice Month</th>
               </tr>
             </thead>
             <tbody>
-              {completedJobsList.map(job => (
+              {completedJobsList.map((job) => (
                 <tr key={job.id}>
-                  <td style={{ padding: '12px' }}><strong>{job.lc_number}</strong></td>
-                  <td style={{ padding: '12px' }}>{job.completed_month || '-'}</td>
-                  <td style={{ padding: '12px' }}>{job.monthly_work_done || 0} hrs</td>
-                  <td style={{ padding: '12px' }}>{job.completed_month || '-'}</td>
+                  <td><strong>{job.lc_number}</strong></td>
+                  <td>{job.completed_month ? new Date(job.completed_month + '-01').toLocaleDateString() : '-'}</td>
+                  <td>{job.monthly_work_done || 0} hrs</td>
+                  <td>{job.completed_month || '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -359,36 +273,25 @@ export default function Home() {
 
       {/* New Job Modal */}
       {showNewJobModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{ background: 'white', padding: '25px', borderRadius: '8px', width: '400px' }}>
-            <h2 style={{ marginTop: 0 }}>Create New Job</h2>
+        <div className="modal">
+          <div className="modal-content">
+            <h2>Create New Job</h2>
             <form onSubmit={createJob}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>LC Number *</label>
-                <input type="text" name="lc_number" required style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+              <div className="form-group">
+                <label>LC Number *</label>
+                <input type="text" name="lc_number" required placeholder="e.g., LC-2024-001" />
               </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>PO Status</label>
-                <select name="po_status" style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
+              <div className="form-group">
+                <label>PO Status</label>
+                <select name="po_status">
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
                 </select>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" style={{ background: '#0070f3', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Create</button>
-                <button type="button" onClick={() => setShowNewJobModal(false)} style={{ background: '#666', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+              <div className="modal-buttons">
+                <button type="submit">Create Job</button>
+                <button type="button" onClick={() => setShowNewJobModal(false)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -397,96 +300,423 @@ export default function Home() {
 
       {/* Job Detail Modal */}
       {showModal && selectedJob && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{ background: 'white', padding: '25px', borderRadius: '8px', width: '500px', maxHeight: '80vh', overflow: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0 }}>Job: {selectedJob.job?.lc_number}</h2>
-              <button onClick={() => setShowModal(false)} style={{ background: '#666', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '5px 10px' }}>×</button>
+        <div className="modal">
+          <div className="modal-content modal-large">
+            <div className="modal-header">
+              <h2>Job: {selectedJob.job?.lc_number}</h2>
+              <button onClick={() => setShowModal(false)} className="modal-close">×</button>
             </div>
 
-            {/* Status Update */}
-            <div style={{ marginBottom: '20px', padding: '15px', background: '#f5f5f5', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Update Status</h3>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <select 
-                  value={selectedJob.job?.po_status} 
+            {/* Update Status Section */}
+            <div className="status-section">
+              <h3>Update Status</h3>
+              <div className="status-controls">
+                <select
+                  value={selectedJob.job?.po_status}
                   onChange={(e) => updateJob(selectedJob.job.id, e.target.value, selectedJob.job.completion_status)}
-                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                 >
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
                 </select>
-                <select 
-                  value={selectedJob.job?.completion_status} 
+                <select
+                  value={selectedJob.job?.completion_status}
                   onChange={(e) => updateJob(selectedJob.job.id, selectedJob.job.po_status, e.target.value)}
-                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                 >
                   <option value="not_started">Not Started</option>
                   <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
                 </select>
-                <button onClick={() => deleteJob(selectedJob.job.id)} style={{ background: '#dc2626', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+                <button onClick={() => deleteJob(selectedJob.job.id)} className="btn-danger">Delete Job</button>
               </div>
             </div>
 
-            {/* Attendance Logs */}
-            <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Attendance Logs</h3>
-              {selectedJob.logs && selectedJob.logs.length > 0 ? (
-                selectedJob.logs.map(log => (
-                  <div key={log.id} style={{ padding: '10px', marginBottom: '8px', background: '#f9f9f9', borderRadius: '4px' }}>
-                    <strong>{log.log_date}</strong> - {log.hours_worked} hours
-                    {log.notes && <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>{log.notes}</div>}
-                  </div>
-                ))
-              ) : (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>No attendance logs yet.</div>
-              )}
+            {/* Attendance Logs Section */}
+            <div className="attendance-section">
+              <h3>Attendance Logs</h3>
+              <div className="logs-container">
+                {selectedJob.logs && selectedJob.logs.length > 0 ? (
+                  selectedJob.logs.map((log) => (
+                    <div key={log.id} className="log-entry">
+                      <div className="log-date">{log.log_date}</div>
+                      <div className="log-hours">{log.hours_worked} hours</div>
+                      {log.notes && <div className="log-notes">{log.notes}</div>}
+                    </div>
+                  ))
+                ) : (
+                  <div className="no-data">No attendance logs yet. Add one below.</div>
+                )}
+              </div>
             </div>
 
-            {/* Add Attendance */}
-            <div>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Add Attendance</h3>
-              <input 
-                type="date" 
-                value={attendanceDate} 
-                onChange={(e) => setAttendanceDate(e.target.value)} 
-                style={{ width: '100%', padding: '8px', marginBottom: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
-              />
-              <input 
-                type="number" 
-                step="0.5" 
-                placeholder="Hours Worked" 
-                value={attendanceHours} 
-                onChange={(e) => setAttendanceHours(e.target.value)} 
-                style={{ width: '100%', padding: '8px', marginBottom: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
-              />
-              <textarea 
-                placeholder="Notes (optional)" 
-                rows="2" 
-                value={attendanceNotes} 
-                onChange={(e) => setAttendanceNotes(e.target.value)} 
-                style={{ width: '100%', padding: '8px', marginBottom: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
-              />
-              <button onClick={() => addAttendance(selectedJob.job.id)} style={{ background: '#10b981', color: 'white', padding: '10px', border: 'none', borderRadius: '4px', cursor: 'pointer', width: '100%' }}>
+            {/* Add Attendance Section */}
+            <div className="add-attendance">
+              <h3>Add Attendance</h3>
+              <div className="form-group">
+                <label>Date</label>
+                <input 
+                  type="date" 
+                  value={attendanceDate} 
+                  onChange={(e) => setAttendanceDate(e.target.value)} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Hours Worked</label>
+                <input 
+                  type="number" 
+                  step="0.5" 
+                  placeholder="Hours" 
+                  value={attendanceHours} 
+                  onChange={(e) => setAttendanceHours(e.target.value)} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Notes (optional)</label>
+                <textarea 
+                  rows="2" 
+                  placeholder="Work completed, notes, etc." 
+                  value={attendanceNotes} 
+                  onChange={(e) => setAttendanceNotes(e.target.value)} 
+                />
+              </div>
+              <button onClick={() => addAttendance(selectedJob.job.id)} className="btn-success">
                 + Add Log
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        /* Layout & Container */
+        .container {
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 2rem;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        /* Loading Spinner */
+        .loading {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          font-size: 1.2rem;
+          color: #6b7280;
+        }
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid #e5e7eb;
+          border-top-color: #2563eb;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 1rem;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        /* Header */
+        .header {
+          margin-bottom: 2rem;
+        }
+        .header h1 {
+          font-size: 2.5rem;
+          font-weight: bold;
+          color: #111827;
+          margin: 0 0 0.5rem 0;
+        }
+        .header p {
+          color: #6b7280;
+          margin: 0;
+        }
+
+        /* Dashboard Cards */
+        .dashboard {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+        .card {
+          background: white;
+          border-radius: 0.5rem;
+          padding: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .card h3 {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #6b7280;
+          margin: 0 0 0.5rem 0;
+        }
+        .card .value {
+          font-size: 2rem;
+          font-weight: bold;
+          color: #111827;
+        }
+
+        /* Buttons */
+        .btn-primary {
+          background: #2563eb;
+          color: white;
+          padding: 0.75rem 1.5rem;
+          border-radius: 0.5rem;
+          border: none;
+          cursor: pointer;
+          font-weight: 500;
+          font-size: 1rem;
+          margin-bottom: 1.5rem;
+          transition: background 0.2s;
+        }
+        .btn-primary:hover {
+          background: #1d4ed8;
+        }
+        .btn-danger {
+          background: #dc2626;
+        }
+        .btn-danger:hover {
+          background: #b91c1c;
+        }
+        .btn-success {
+          background: #10b981;
+          width: 100%;
+        }
+        .btn-success:hover {
+          background: #059669;
+        }
+        .modal-close {
+          background: #6b7280;
+          padding: 0.25rem 0.75rem;
+          font-size: 1.25rem;
+        }
+
+        /* Tables */
+        .table-container {
+          background: white;
+          border-radius: 0.5rem;
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          margin-bottom: 2rem;
+        }
+        .table-container h2 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          padding: 1.25rem 1.5rem;
+          margin: 0;
+          border-bottom: 1px solid #e5e7eb;
+          background: #f9fafb;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th {
+          text-align: left;
+          padding: 0.75rem 1.5rem;
+          background: #f9fafb;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #6b7280;
+          text-transform: uppercase;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        td {
+          padding: 1rem 1.5rem;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        tr:last-child td {
+          border-bottom: none;
+        }
+        .clickable-row {
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .clickable-row:hover {
+          background: #f9fafb;
+        }
+
+        /* Status Badges */
+        .status-badge {
+          display: inline-block;
+          padding: 0.25rem 0.75rem;
+          border-radius: 9999px;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-approved { background: #d1fae5; color: #065f46; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-not_started { background: #e5e7eb; color: #374151; }
+        .status-in_progress { background: #dbeafe; color: #1e40af; }
+        .status-completed { background: #d1fae5; color: #065f46; }
+
+        /* Modals */
+        .modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .modal-content {
+          background: white;
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+          max-width: 500px;
+          width: 90%;
+        }
+        .modal-large {
+          max-width: 650px;
+        }
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+        }
+        .modal-header h2 {
+          margin: 0;
+        }
+        .modal-buttons {
+          display: flex;
+          gap: 0.75rem;
+          margin-top: 1.5rem;
+        }
+        .modal-buttons button {
+          flex: 1;
+        }
+
+        /* Forms */
+        .form-group {
+          margin-bottom: 1rem;
+        }
+        .form-group label {
+          display: block;
+          margin-bottom: 0.375rem;
+          font-weight: 500;
+          font-size: 0.875rem;
+          color: #374151;
+        }
+        input, select, textarea {
+          width: 100%;
+          padding: 0.625rem;
+          border: 1px solid #d1d5db;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus {
+          outline: none;
+          border-color: #2563eb;
+          ring: 2px solid #2563eb;
+        }
+
+        /* Status Section in Modal */
+        .status-section {
+          background: #f3f4f6;
+          padding: 1rem;
+          border-radius: 0.5rem;
+          margin-bottom: 1.5rem;
+        }
+        .status-section h3 {
+          margin: 0 0 0.75rem 0;
+          font-size: 1rem;
+        }
+        .status-controls {
+          display: flex;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+        }
+        .status-controls select {
+          flex: 1;
+          width: auto;
+        }
+
+        /* Attendance Section */
+        .attendance-section {
+          margin-bottom: 1.5rem;
+        }
+        .attendance-section h3 {
+          margin: 0 0 0.75rem 0;
+          font-size: 1rem;
+        }
+        .logs-container {
+          max-height: 280px;
+          overflow-y: auto;
+          border: 1px solid #e5e7eb;
+          border-radius: 0.5rem;
+          padding: 0.5rem;
+        }
+        .log-entry {
+          background: #f9fafb;
+          padding: 0.75rem;
+          margin-bottom: 0.5rem;
+          border-radius: 0.375rem;
+          border-left: 3px solid #2563eb;
+        }
+        .log-date {
+          font-weight: 600;
+          font-size: 0.875rem;
+        }
+        .log-hours {
+          font-size: 0.875rem;
+          color: #6b7280;
+          margin-top: 0.25rem;
+        }
+        .log-notes {
+          font-size: 0.75rem;
+          color: #6b7280;
+          margin-top: 0.5rem;
+          padding-top: 0.5rem;
+          border-top: 1px solid #e5e7eb;
+        }
+
+        /* Add Attendance */
+        .add-attendance {
+          border-top: 1px solid #e5e7eb;
+          padding-top: 1rem;
+        }
+        .add-attendance h3 {
+          margin: 0 0 0.75rem 0;
+          font-size: 1rem;
+        }
+
+        /* No Data */
+        .no-data {
+          text-align: center;
+          padding: 3rem;
+          color: #6b7280;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .container {
+            padding: 1rem;
+          }
+          th, td {
+            padding: 0.75rem;
+            font-size: 0.75rem;
+          }
+          .dashboard {
+            grid-template-columns: 1fr;
+          }
+          .status-controls {
+            flex-direction: column;
+          }
+          .status-controls select {
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }
