@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '../../../../lib/db.js';
+import { query } from '../../../../../lib/db.js';
 
 // GET - Fetch all certifications for a specific employee
 export async function GET(request, { params }) {
@@ -45,28 +45,23 @@ export async function POST(request, { params }) {
     }
 
     const body = await request.json();
-    const { certifications } = body; // Array of certification names or IDs
+    const { certifications } = body;
     
     if (!certifications || !Array.isArray(certifications)) {
       return NextResponse.json({ error: 'Certifications array is required' }, { status: 400 });
     }
 
-    // Start a transaction
     await query('BEGIN');
     
     try {
-      // Delete existing certifications for this employee
       await query('DELETE FROM employee_certifications WHERE employee_id = $1', [employeeId]);
       
-      // Insert new certifications
       for (const cert of certifications) {
         let certId;
         
-        // Check if cert is an ID or name
         if (typeof cert === 'number') {
           certId = cert;
         } else {
-          // Find certification ID by name
           const certResult = await query(
             'SELECT id FROM certifications WHERE certification_name = $1',
             [cert]
@@ -74,7 +69,6 @@ export async function POST(request, { params }) {
           if (certResult.rows.length > 0) {
             certId = certResult.rows[0].id;
           } else {
-            // Optionally create new certification
             const newCert = await query(
               'INSERT INTO certifications (certification_name) VALUES ($1) RETURNING id',
               [cert]
@@ -94,7 +88,6 @@ export async function POST(request, { params }) {
       
       await query('COMMIT');
       
-      // Fetch and return updated certifications
       const updated = await query(`
         SELECT c.certification_name, ec.certified_date
         FROM employee_certifications ec
@@ -117,7 +110,7 @@ export async function POST(request, { params }) {
   }
 }
 
-// PUT - Update a specific certification (e.g., add expiry date)
+// PUT - Update a specific certification
 export async function PUT(request, { params }) {
   try {
     const employeeId = parseInt(params.id);
@@ -131,7 +124,6 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Certification ID is required' }, { status: 400 });
     }
     
-    // Check if employee has this certification
     const exists = await query(
       'SELECT * FROM employee_certifications WHERE employee_id = $1 AND certification_id = $2',
       [employeeId, certification_id]
@@ -141,7 +133,6 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Employee does not have this certification' }, { status: 404 });
     }
     
-    // Update certification details
     await query(
       `UPDATE employee_certifications 
        SET certified_date = COALESCE($1, certified_date),
@@ -157,7 +148,7 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE - Remove a specific certification from an employee
+// DELETE - Remove a certification from an employee
 export async function DELETE(request, { params }) {
   try {
     const employeeId = parseInt(params.id);

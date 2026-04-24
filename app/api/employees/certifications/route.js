@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '../../../lib/db.js';
 
-// GET - Fetch all available certifications (global list)
+// GET - Fetch all available certifications
 export async function GET() {
   try {
     const result = await query(`
@@ -15,7 +15,7 @@ export async function GET() {
   }
 }
 
-// POST - Add a new certification to the global list
+// POST - Add a new certification
 export async function POST(request) {
   try {
     const { certification_name } = await request.json();
