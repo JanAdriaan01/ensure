@@ -22,89 +22,135 @@ export default function Home() {
   };
 
   const fetchJobs = async () => {
-    const res = await fetch('/api/jobs');
-    const data = await res.json();
-    setJobs(data.filter(j => j.completion_status !== 'completed'));
+    try {
+      const res = await fetch('/api/jobs');
+      const data = await res.json();
+      console.log('Jobs fetched:', data);
+      setJobs(Array.isArray(data) ? data.filter(j => j.completion_status !== 'completed') : []);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      setJobs([]);
+    }
   };
 
   const fetchCompletedInvoices = async () => {
-    const res = await fetch('/api/completed-invoices');
-    const data = await res.json();
-    setCompletedJobs(data);
+    try {
+      const res = await fetch('/api/completed-invoices');
+      const data = await res.json();
+      setCompletedJobs(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      setCompletedJobs([]);
+    }
   };
 
   const fetchSummary = async () => {
-    const res = await fetch('/api/total-completed-work');
-    const data = await res.json();
-    setSummary(data);
+    try {
+      const res = await fetch('/api/total-completed-work');
+      const data = await res.json();
+      setSummary(data || { total_work_done: 0, total_jobs_completed: 0 });
+    } catch (error) {
+      console.error('Error fetching summary:', error);
+      setSummary({ total_work_done: 0, total_jobs_completed: 0 });
+    }
   };
 
   const fetchJobDetail = async (id) => {
-    const res = await fetch(`/api/jobs/${id}`);
-    const data = await res.json();
-    setSelectedJob(data);
-    setShowModal(true);
+    try {
+      const res = await fetch(`/api/jobs/${id}`);
+      const data = await res.json();
+      setSelectedJob(data);
+      setShowModal(true);
+    } catch (error) {
+      console.error('Error fetching job detail:', error);
+    }
   };
 
   const createJob = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const res = await fetch('/api/jobs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lc_number: formData.get('lc_number'),
-        po_status: formData.get('po_status'),
-        completion_status: 'not_started',
-        monthly_work_done: 0,
-      }),
-    });
+    const jobData = {
+      lc_number: formData.get('lc_number'),
+      po_status: formData.get('po_status'),
+      completion_status: 'not_started',
+      monthly_work_done: 0,
+    };
+    
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jobData),
+      });
 
-    if (res.ok) {
-      setShowNewJobModal(false);
-      fetchJobs();
-    } else {
-      const error = await res.json();
-      alert(error.error);
+      if (res.ok) {
+        setShowNewJobModal(false);
+        fetchJobs();
+        fetchSummary();
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to create job');
+      }
+    } catch (error) {
+      console.error('Error creating job:', error);
+      alert('Failed to create job');
     }
   };
 
   const updateJob = async (id, updates) => {
-    await fetch(`/api/jobs/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    fetchAllData();
-    if (showModal) fetchJobDetail(id);
+    try {
+      await fetch(`/api/jobs/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      fetchAllData();
+      if (showModal) fetchJobDetail(id);
+    } catch (error) {
+      console.error('Error updating job:', error);
+    }
   };
 
   const deleteJob = async (id) => {
     if (confirm('Delete this job and all attendance records?')) {
-      await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
-      fetchAllData();
-      setShowModal(false);
+      try {
+        await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+        fetchAllData();
+        setShowModal(false);
+      } catch (error) {
+        console.error('Error deleting job:', error);
+      }
     }
   };
 
   const addAttendance = async (jobId) => {
-    const date = document.getElementById('attDate').value;
-    const hours = parseFloat(document.getElementById('attHours').value);
-    const notes = document.getElementById('attNotes').value;
+    const date = document.getElementById('attDate')?.value;
+    const hours = parseFloat(document.getElementById('attHours')?.value);
+    const notes = document.getElementById('attNotes')?.value;
 
     if (!date || !hours) {
       alert('Date and hours are required');
       return;
     }
 
-    await fetch(`/api/jobs/${jobId}/attendance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ log_date: date, hours_worked: hours, notes }),
-    });
-
-    fetchJobDetail(jobId);
-    fetchJobs();
+    try {
+      await fetch(`/api/jobs/${jobId}/attendance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ log_date: date, hours_worked: hours, notes }),
+      });
+      
+      // Clear inputs
+      document.getElementById('attDate').value = '';
+      document.getElementById('attHours').value = '';
+      document.getElementById('attNotes').value = '';
+      
+      fetchJobDetail(jobId);
+      fetchJobs();
+    } catch (error) {
+      console.error('Error adding attendance:', error);
+      alert('Failed to add attendance');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -122,7 +168,7 @@ export default function Home() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Loading ENSURE System...</div>
+        <div className="text-xl text-gray-600">Loading ENSURE System...</div>
       </div>
     );
   }
@@ -138,15 +184,15 @@ export default function Home() {
 
         {/* Dashboard Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-medium text-gray-500">Total Completed Work</h3>
-            <p className="text-3xl font-bold text-gray-900 mt-2">{summary.total_work_done} hrs</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">{summary.total_work_done || 0} hrs</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-medium text-gray-500">Completed Jobs</h3>
-            <p className="text-3xl font-bold text-gray-900 mt-2">{summary.total_jobs_completed}</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">{summary.total_jobs_completed || 0}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
             <h3 className="text-sm font-medium text-gray-500">Active Jobs</h3>
             <p className="text-3xl font-bold text-gray-900 mt-2">{jobs.length}</p>
           </div>
@@ -156,56 +202,57 @@ export default function Home() {
         <div className="mb-6">
           <button
             onClick={() => setShowNewJobModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-md hover:shadow-lg"
           >
             + New Job
           </button>
         </div>
 
         {/* Active Jobs Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
-          <h2 className="text-xl font-semibold p-6 border-b">Active Jobs</h2>
+        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+          <h2 className="text-xl font-semibold p-6 border-b bg-gray-50">Active Jobs</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LC Number</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PO Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completion</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Monthly Work</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Hours</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logs</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LC Number</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Work</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Hours</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logs</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {jobs.map((job) => (
-                  <tr
-                    key={job.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => fetchJobDetail(job.id)}
-                  >
-                    <td className="px-6 py-4 font-medium text-gray-900">{job.lc_number}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.po_status)}`}>
-                        {job.po_status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.completion_status)}`}>
-                        {job.completion_status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{job.monthly_work_done} hrs</td>
-                    <td className="px-6 py-4">{Math.round(job.total_hours)} hrs</td>
-                    <td className="px-6 py-4">{job.log_entries}</td>
-                  </tr>
-                ))}
-                {jobs.length === 0 && (
+                {jobs.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                       No active jobs. Click "New Job" to get started.
                     </td>
                   </tr>
+                ) : (
+                  jobs.map((job) => (
+                    <tr
+                      key={job.id}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => fetchJobDetail(job.id)}
+                    >
+                      <td className="px-6 py-4 font-medium text-gray-900">{job.lc_number}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.po_status)}`}>
+                          {job.po_status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.completion_status)}`}>
+                          {job.completion_status?.replace('_', ' ') || 'not started'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">{job.monthly_work_done || 0} hrs</td>
+                      <td className="px-6 py-4">{Math.round(job.total_hours || 0)} hrs</td>
+                      <td className="px-6 py-4">{job.log_entries || 0}</td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -213,33 +260,34 @@ export default function Home() {
         </div>
 
         {/* Completed Jobs & Invoices */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <h2 className="text-xl font-semibold p-6 border-b">📄 Month Completed Invoice</h2>
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <h2 className="text-xl font-semibold p-6 border-b bg-gray-50">📄 Month Completed Invoice</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LC Number</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completion Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Work Done</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice Month</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LC Number</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Work Done</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Month</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {completedJobs.map((invoice) => (
-                  <tr key={invoice.id}>
-                    <td className="px-6 py-4 font-medium text-gray-900">{invoice.lc_number}</td>
-                    <td className="px-6 py-4">{new Date(invoice.completion_date).toLocaleDateString()}</td>
-                    <td className="px-6 py-4">{invoice.total_work_done} hrs</td>
-                    <td className="px-6 py-4">{invoice.invoice_month}</td>
-                  </tr>
-                ))}
-                {completedJobs.length === 0 && (
+                {completedJobs.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
                       No completed jobs yet. Complete a job to see it here.
                     </td>
                   </tr>
+                ) : (
+                  completedJobs.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td className="px-6 py-4 font-medium text-gray-900">{invoice.lc_number}</td>
+                      <td className="px-6 py-4">{new Date(invoice.completion_date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4">{invoice.total_work_done} hrs</td>
+                      <td className="px-6 py-4">{invoice.invoice_month}</td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -277,14 +325,14 @@ export default function Home() {
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >
                   Create Job
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowNewJobModal(false)}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium"
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium transition-colors"
                 >
                   Cancel
                 </button>
@@ -300,7 +348,10 @@ export default function Home() {
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-2xl font-bold text-gray-900">Job: {selectedJob.job?.lc_number}</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl transition-colors"
+              >
                 ×
               </button>
             </div>
@@ -310,7 +361,7 @@ export default function Home() {
               <h3 className="font-semibold mb-3">Update Status</h3>
               <div className="flex gap-3 flex-wrap">
                 <select
-                  className="border border-gray-300 rounded-lg px-3 py-2"
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                   value={selectedJob.job?.po_status}
                   onChange={(e) =>
                     updateJob(selectedJob.job.id, {
@@ -324,7 +375,7 @@ export default function Home() {
                   <option value="rejected">Rejected</option>
                 </select>
                 <select
-                  className="border border-gray-300 rounded-lg px-3 py-2"
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                   value={selectedJob.job?.completion_status}
                   onChange={(e) =>
                     updateJob(selectedJob.job.id, {
@@ -339,7 +390,7 @@ export default function Home() {
                 </select>
                 <button
                   onClick={() => deleteJob(selectedJob.job.id)}
-                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg"
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg transition-colors"
                 >
                   Delete Job
                 </button>
@@ -350,18 +401,19 @@ export default function Home() {
             <div className="mb-6">
               <h3 className="font-semibold mb-3">Attendance Logs</h3>
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {selectedJob.logs?.map((log) => (
-                  <div key={log.id} className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="font-medium">{log.log_date}</span>
-                        <span className="ml-2 text-sm text-gray-600">{log.hours_worked} hours</span>
+                {selectedJob.logs && selectedJob.logs.length > 0 ? (
+                  selectedJob.logs.map((log) => (
+                    <div key={log.id} className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="font-medium">{log.log_date}</span>
+                          <span className="ml-2 text-sm text-gray-600">{log.hours_worked} hours</span>
+                        </div>
                       </div>
+                      {log.notes && <p className="text-sm text-gray-600 mt-1">{log.notes}</p>}
                     </div>
-                    {log.notes && <p className="text-sm text-gray-600 mt-1">{log.notes}</p>}
-                  </div>
-                ))}
-                {(!selectedJob.logs || selectedJob.logs.length === 0) && (
+                  ))
+                ) : (
                   <p className="text-gray-500 text-center py-4">No attendance logs yet.</p>
                 )}
               </div>
@@ -374,24 +426,24 @@ export default function Home() {
                 <input
                   type="date"
                   id="attDate"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
                 <input
                   type="number"
                   id="attHours"
                   placeholder="Hours Worked"
                   step="0.5"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
                 <textarea
                   id="attNotes"
                   placeholder="Notes (optional)"
                   rows="2"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
                 <button
                   onClick={() => addAttendance(selectedJob.job.id)}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >
                   + Add Log
                 </button>

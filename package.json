@@ -1,8 +1,13 @@
 {
   "dependencies": {
     "next": "latest",
+    "pg": "^8.11.3",
     "react": "latest",
-    "react-dom": "latest",
-    "pg": "^8.11.3"
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^4.2.4"
   }
 }
