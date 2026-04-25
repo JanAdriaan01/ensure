@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useCurrency } from '@/app/context/CurrencyContext';
+import CurrencyAmount from '@/app/components/CurrencyAmount';
 
 export default function Home() {
+  const { formatAmount } = useCurrency();
   const [summary, setSummary] = useState({
     monthlyInvoiced: 0,
     productiveHours: 0,
@@ -26,23 +29,18 @@ export default function Home() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch monthly summary data
       const summaryRes = await fetch('/api/reports/monthly');
       const summaryData = await summaryRes.json();
       
-      // Fetch jobs
       const jobsRes = await fetch('/api/jobs');
       const jobs = await jobsRes.json();
       
-      // Fetch employees
       const employeesRes = await fetch('/api/employees');
       const employees = await employeesRes.json();
       
-      // Fetch clients
       const clientsRes = await fetch('/api/clients');
       const clients = await clientsRes.json();
       
-      // Fetch quotes
       const quotesRes = await fetch('/api/quotes');
       const quotes = await quotesRes.json();
       
@@ -81,7 +79,6 @@ export default function Home() {
 
   return (
     <div className="dashboard-container">
-      {/* Header */}
       <div className="dashboard-header">
         <div>
           <h1>🔧 ENSURE System</h1>
@@ -95,7 +92,9 @@ export default function Home() {
         <div className="stat-card">
           <div className="stat-icon">💰</div>
           <div className="stat-info">
-            <div className="stat-value">R {summary.monthlyInvoiced.toLocaleString()}</div>
+            <div className="stat-value">
+              <CurrencyAmount amount={summary.monthlyInvoiced} />
+            </div>
             <div className="stat-label">Total Monthly Invoicing</div>
             <div className="stat-sub">1st to last day of month</div>
           </div>
@@ -115,7 +114,9 @@ export default function Home() {
           <div className="stat-info">
             <div className="stat-value">{summary.poPercentage}%</div>
             <div className="stat-label">PO vs Invoiced</div>
-            <div className="stat-sub">R {summary.invoicedTotal.toLocaleString()} / R {summary.poTotal.toLocaleString()}</div>
+            <div className="stat-sub">
+              <CurrencyAmount amount={summary.invoicedTotal} /> / <CurrencyAmount amount={summary.poTotal} />
+            </div>
           </div>
         </div>
       </div>
@@ -223,11 +224,10 @@ export default function Home() {
 
       {/* Recent Activity */}
       <div className="recent-grid">
-        {/* Recent Jobs */}
         <div className="recent-card">
           <div className="recent-header">
             <h3>📋 Recent Jobs</h3>
-            <Link href="/jobs" className="view-all" style={{ fontSize: '0.7rem', color: '#2563eb', textDecoration: 'none' }}>View All →</Link>
+            <Link href="/jobs" className="view-all">View All →</Link>
           </div>
           <div className="recent-list">
             {recentJobs.length === 0 ? (
@@ -239,18 +239,19 @@ export default function Home() {
                     <div className="recent-title">{job.lc_number}</div>
                     <div className="recent-meta">{job.completion_status?.replace('_', ' ')}</div>
                   </div>
-                  <div className="recent-value">R {job.total_invoiced?.toLocaleString() || 0}</div>
+                  <div className="recent-value">
+                    <CurrencyAmount amount={job.total_invoiced || 0} />
+                  </div>
                 </Link>
               ))
             )}
           </div>
         </div>
 
-        {/* Recent Employees */}
         <div className="recent-card">
           <div className="recent-header">
             <h3>👥 Recent Employees</h3>
-            <Link href="/employees" className="view-all" style={{ fontSize: '0.7rem', color: '#2563eb', textDecoration: 'none' }}>View All →</Link>
+            <Link href="/employees" className="view-all">View All →</Link>
           </div>
           <div className="recent-list">
             {recentEmployees.length === 0 ? (
@@ -269,11 +270,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Recent Quotes */}
         <div className="recent-card">
           <div className="recent-header">
             <h3>💰 Recent Quotes</h3>
-            <Link href="/quotes" className="view-all" style={{ fontSize: '0.7rem', color: '#2563eb', textDecoration: 'none' }}>View All →</Link>
+            <Link href="/quotes" className="view-all">View All →</Link>
           </div>
           <div className="recent-list">
             {recentQuotes.length === 0 ? (
@@ -285,13 +285,26 @@ export default function Home() {
                     <div className="recent-title">{quote.quote_number}</div>
                     <div className="recent-meta">{quote.client_name || 'No client'}</div>
                   </div>
-                  <div className="recent-value">R {quote.quote_amount?.toLocaleString()}</div>
+                  <div className="recent-value">
+                    <CurrencyAmount amount={quote.quote_amount || 0} />
+                  </div>
                 </Link>
               ))
             )}
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .view-all {
+          font-size: 0.7rem;
+          color: #2563eb;
+          text-decoration: none;
+        }
+        .view-all:hover {
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   );
 }
