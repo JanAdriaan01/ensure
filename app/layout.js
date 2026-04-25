@@ -1,4 +1,5 @@
 import './globals.css';
+import Link from 'next/link';
 
 export const metadata = {
   title: 'ENSURE System',
@@ -28,7 +29,6 @@ export default function RootLayout({ children }) {
         </nav>
         <main>{children}</main>
       </body>
-    </style>
     </html>
   );
 }
