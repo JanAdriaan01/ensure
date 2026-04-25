@@ -14,7 +14,7 @@ import CurrencyAmount from '@/app/components/CurrencyAmount';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
 import EmptyState from '@/app/components/ui/EmptyState/EmptyState';
 import Modal from '@/app/components/ui/Modal/Modal';
-import { FormInput, FormSelect, FormTextarea, FormCurrencyInput } from '@/app/components/ui/Form';
+import { FormInput, FormTextarea, FormCurrencyInput } from '@/app/components/ui/Form';
 import EmployeeSelect from '@/app/components/common/EmployeeSelect';
 
 export default function JobDetailPage({ params }) {
@@ -27,11 +27,11 @@ export default function JobDetailPage({ params }) {
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [summary, setSummary] = useState({ total_quoted: 0, total_actual: 0, completed_value: 0 });
   
-  const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [showEditItemModal, setShowEditItemModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showAddAttendanceModal, setShowAddAttendanceModal] = useState(false);
   
-  const [newItem, setNewItem] = useState({ item_name: '', description: '', quoted_quantity: '', quoted_unit_price: '' });
   const [newAssignment, setNewAssignment] = useState({ employee_id: '', role: '', estimated_hours: '' });
   const [newAttendance, setNewAttendance] = useState({ date: '', hours: '', notes: '' });
 
@@ -62,25 +62,33 @@ export default function JobDetailPage({ params }) {
     setAttendanceLogs(data.logs || []);
   };
 
-  const createJobItem = async (e) => {
-    e.preventDefault();
-    const res = await fetch(`/api/jobs/${params.id}/items`, {
-      method: 'POST',
+  const updateJobItem = async (itemId, updates) => {
+    const res = await fetch(`/api/jobs/${params.id}/items/${itemId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        item_name: newItem.item_name,
-        description: newItem.description,
-        quoted_quantity: parseFloat(newItem.quoted_quantity),
-        quoted_unit_price: parseFloat(newItem.quoted_unit_price)
-      })
+      body: JSON.stringify(updates)
     });
     if (res.ok) {
-      success('Item added');
-      setShowAddItemModal(false);
-      setNewItem({ item_name: '', description: '', quoted_quantity: '', quoted_unit_price: '' });
+      success('Item updated');
+      setShowEditItemModal(false);
+      setEditingItem(null);
       fetchJobItems();
     } else {
-      toastError('Failed to add item');
+      toastError('Failed to update item');
+    }
+  };
+
+  const completeItem = async (itemId, actualQuantity, actualCost) => {
+    const res = await fetch(`/api/jobs/${params.id}/items/${itemId}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actual_quantity: actualQuantity, actual_cost: actualCost })
+    });
+    if (res.ok) {
+      success('Item marked as completed');
+      fetchJobItems();
+    } else {
+      toastError('Failed to complete item');
     }
   };
 
@@ -129,6 +137,21 @@ export default function JobDetailPage({ params }) {
   const budgetUtilization = summary.total_quoted > 0 ? (summary.total_actual / summary.total_quoted * 100).toFixed(1) : 0;
   const isOverBudget = summary.total_actual > summary.total_quoted;
 
+  const handleEditItem = (item) => {
+    setEditingItem({ ...item });
+    setShowEditItemModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingItem) {
+      updateJobItem(editingItem.id, {
+        quoted_quantity: editingItem.quoted_quantity,
+        quoted_unit_price: editingItem.quoted_unit_price,
+        description: editingItem.description
+      });
+    }
+  };
+
   if (loading) return <LoadingSpinner text="Loading job details..." />;
   if (!job) return <EmptyState title="Job not found" message="The job you're looking for doesn't exist." />;
 
@@ -144,7 +167,7 @@ export default function JobDetailPage({ params }) {
     <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
       <PageHeader 
         title={`📋 ${job.lc_number}`}
-        description={`Client: ${job.client_name || 'N/A'} | Created: ${new Date(job.created_at).toLocaleDateString()}`}
+        description={`Client: ${job.client_name || 'N/A'} | Created from approved quote | Jobs cannot be deleted - only line items can be edited`}
         action={<Link href="/jobs"><Button variant="secondary">← Back to Jobs</Button></Link>}
       />
 
@@ -164,7 +187,7 @@ export default function JobDetailPage({ params }) {
         {isOverBudget && <div style={{ marginTop: '0.5rem', color: '#dc2626', fontSize: '0.75rem' }}>⚠️ OVER BUDGET! Actual costs exceed quoted amount.</div>}
       </Card>
 
-      <Tabs tabs={tabs} defaultTab="overview">
+      <Tabs tabs={tabs} defaultTab="items">
         {/* Overview Tab */}
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
@@ -174,15 +197,27 @@ export default function JobDetailPage({ params }) {
           </div>
         </div>
 
-        {/* Items Tab */}
+        {/* Items Tab - Editable Table */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3>Quoted Items</h3>
-            <Button onClick={() => setShowAddItemModal(true)}>+ Add Item</Button>
+            <h3>Job Items (from quote)</h3>
+            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Click Edit to modify quantities or costs</div>
           </div>
-          {jobItems.length === 0 ? <EmptyState message="No items added yet." /> : (
+          {jobItems.length === 0 ? (
+            <EmptyState message="No items added yet. Items are copied from the original quote." />
+          ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Quoted Total</th><th>Actual Cost</th><th>Status</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Unit Price</th>
+                  <th>Quoted Total</th>
+                  <th>Actual Cost</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
               <tbody>
                 {jobItems.map(item => (
                   <tr key={item.id} style={{ background: item.is_over_budget ? '#fee2e2' : 'transparent' }}>
@@ -192,6 +227,18 @@ export default function JobDetailPage({ params }) {
                     <td><CurrencyAmount amount={item.quoted_total} /></td>
                     <td><CurrencyAmount amount={item.actual_cost || 0} /></td>
                     <td><StatusBadge status={item.completion_status === 'completed' ? 'completed' : 'pending'} /></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <Button variant="outline" size="sm" onClick={() => handleEditItem(item)}>Edit</Button>
+                        {item.completion_status !== 'completed' && (
+                          <Button variant="success" size="sm" onClick={() => {
+                            const qty = prompt('Enter actual quantity completed:', item.quoted_quantity);
+                            const cost = prompt('Enter actual cost:', item.quoted_total);
+                            if (qty && cost) completeItem(item.id, parseFloat(qty), parseFloat(cost));
+                          }}>Complete</Button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -235,26 +282,52 @@ export default function JobDetailPage({ params }) {
           )}
         </div>
 
-        {/* Invoicing Tab - placeholder for now */}
+        {/* Invoicing Tab */}
         <div>
-          <Card><h3>Invoicing Summary</h3><p>Completed Work Value: <CurrencyAmount amount={summary.completed_value} /></p><p>Available to Invoice: <CurrencyAmount amount={summary.completed_value} /></p><Button>Generate Invoice</Button></Card>
+          <Card>
+            <h3>Invoicing Summary</h3>
+            <p>Completed Work Value: <CurrencyAmount amount={summary.completed_value} /></p>
+            <p>Available to Invoice: <CurrencyAmount amount={summary.completed_value} /></p>
+            <Button>Generate Invoice</Button>
+          </Card>
         </div>
       </Tabs>
 
-      {/* Modals */}
-      <Modal isOpen={showAddItemModal} onClose={() => setShowAddItemModal(false)} title="Add Job Item">
-        <form onSubmit={createJobItem}>
-          <FormInput label="Item Name" value={newItem.item_name} onChange={e => setNewItem({...newItem, item_name: e.target.value})} required />
-          <FormTextarea label="Description" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
-          <FormInput label="Quantity" type="number" step="0.01" value={newItem.quoted_quantity} onChange={e => setNewItem({...newItem, quoted_quantity: e.target.value})} required />
-          <FormCurrencyInput label="Unit Price" value={newItem.quoted_unit_price} onChange={e => setNewItem({...newItem, quoted_unit_price: e.target.value})} required />
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <Button type="submit">Add Item</Button>
-            <Button variant="secondary" onClick={() => setShowAddItemModal(false)}>Cancel</Button>
+      {/* Edit Item Modal */}
+      <Modal isOpen={showEditItemModal} onClose={() => setShowEditItemModal(false)} title="Edit Job Item">
+        {editingItem && (
+          <div>
+            <FormInput
+              label="Item Name"
+              value={editingItem.item_name}
+              onChange={(e) => setEditingItem({...editingItem, item_name: e.target.value})}
+            />
+            <FormTextarea
+              label="Description"
+              value={editingItem.description || ''}
+              onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
+            />
+            <FormInput
+              label="Quantity"
+              type="number"
+              step="0.01"
+              value={editingItem.quoted_quantity}
+              onChange={(e) => setEditingItem({...editingItem, quoted_quantity: e.target.value})}
+            />
+            <FormCurrencyInput
+              label="Unit Price"
+              value={editingItem.quoted_unit_price}
+              onChange={(e) => setEditingItem({...editingItem, quoted_unit_price: e.target.value})}
+            />
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <Button onClick={handleSaveEdit}>Save Changes</Button>
+              <Button variant="secondary" onClick={() => setShowEditItemModal(false)}>Cancel</Button>
+            </div>
           </div>
-        </form>
+        )}
       </Modal>
 
+      {/* Assign Employee Modal */}
       <Modal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} title="Assign Employee">
         <form onSubmit={assignEmployee}>
           <EmployeeSelect value={newAssignment.employee_id} onChange={e => setNewAssignment({...newAssignment, employee_id: e.target.value})} required />
@@ -267,6 +340,7 @@ export default function JobDetailPage({ params }) {
         </form>
       </Modal>
 
+      {/* Add Attendance Modal */}
       <Modal isOpen={showAddAttendanceModal} onClose={() => setShowAddAttendanceModal(false)} title="Add Attendance">
         <form onSubmit={addAttendance}>
           <FormInput label="Date" type="date" value={newAttendance.date} onChange={e => setNewAttendance({...newAttendance, date: e.target.value})} required />
