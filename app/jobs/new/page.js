@@ -1,169 +1,122 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useFetch } from '@/app/hooks/useFetch';
+import { useToast } from '@/app/context/ToastContext';
+import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
+import Button from '@/app/components/ui/Button/Button';
+import { FormInput, FormSelect, FormCurrencyInput } from '@/app/components/ui/Form';
+import ClientSelect from '@/app/components/common/ClientSelect';
 
-// Component that uses useSearchParams - must be wrapped in Suspense
-function NewJobForm() {
+export default function NewJobPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const presetClientId = searchParams.get('client_id');
-  
+  const { success, error: toastError } = useToast();
+  const { data: clients } = useFetch('/api/clients');
   const [loading, setLoading] = useState(false);
-  const [clients, setClients] = useState([]);
   const [formData, setFormData] = useState({
     lc_number: '',
+    client_id: '',
     po_status: 'pending',
     completion_status: 'not_started',
-    client_id: presetClientId || '',
+    po_amount: '',
     total_budget: ''
   });
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const fetchClients = async () => {
-    try {
-      const res = await fetch('/api/clients');
-      const data = await res.json();
-      setClients(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
-    const jobData = {
+    const payload = {
       lc_number: formData.lc_number,
+      client_id: formData.client_id || null,
       po_status: formData.po_status,
       completion_status: 'not_started',
-      monthly_work_done: 0,
-      client_id: formData.client_id || null,
+      po_amount: formData.po_amount ? parseFloat(formData.po_amount) : null,
       total_budget: formData.total_budget ? parseFloat(formData.total_budget) : null
     };
     
-    const res = await fetch('/api/jobs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(jobData)
-    });
-    
-    if (res.ok) {
-      const newJob = await res.json();
-      router.push(`/jobs/${newJob.id}`);
-    } else {
-      const error = await res.json();
-      alert(error.error || 'Failed to create job');
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        const newJob = await res.json();
+        success('Job created successfully');
+        router.push(`/jobs/${newJob.id}`);
+      } else {
+        const err = await res.json();
+        toastError(err.error || 'Failed to create job');
+      }
+    } catch (err) {
+      toastError('Error creating job');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const poStatusOptions = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' }
+  ];
 
   return (
-    <div className="container">
-      <div className="page-header">
-        <div>
-          <Link href="/jobs" className="back-link">← Back to Jobs</Link>
-          <h1>➕ Create New Job</h1>
-          <p>Enter project details to get started</p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="job-form">
-        <div className="form-grid">
-          <div className="form-group">
-            <label>LC Number (Job Number) *</label>
-            <input
-              type="text"
-              name="lc_number"
-              value={formData.lc_number}
-              onChange={handleChange}
-              required
-              placeholder="e.g., LC-2024-001"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Client</label>
-            <select name="client_id" value={formData.client_id} onChange={handleChange}>
-              <option value="">-- Select Client --</option>
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>
-                  {client.client_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>PO Status</label>
-            <select name="po_status" value={formData.po_status} onChange={handleChange}>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Total Budget ($)</label>
-            <input
-              type="number"
-              step="0.01"
-              name="total_budget"
-              value={formData.total_budget}
-              onChange={handleChange}
-              placeholder="0.00"
-            />
-          </div>
-        </div>
-
-        <div className="form-actions">
-          <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? 'Creating...' : 'Create Job'}
-          </button>
-          <Link href="/jobs" className="btn-secondary">Cancel</Link>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
+      <PageHeader 
+        title="➕ Create New Job"
+        description="Enter project details"
+        action={<Link href="/jobs"><Button variant="secondary">← Back</Button></Link>}
+      />
+      
+      <form onSubmit={handleSubmit} style={{ background: 'white', padding: '2rem', borderRadius: '0.75rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <FormInput
+          label="LC Number (Job Number)"
+          name="lc_number"
+          value={formData.lc_number}
+          onChange={(e) => setFormData({...formData, lc_number: e.target.value})}
+          required
+          placeholder="e.g., LC-2024-001"
+        />
+        
+        <ClientSelect
+          value={formData.client_id}
+          onChange={(e) => setFormData({...formData, client_id: e.target.value})}
+        />
+        
+        <FormSelect
+          label="PO Status"
+          name="po_status"
+          value={formData.po_status}
+          onChange={(e) => setFormData({...formData, po_status: e.target.value})}
+          options={poStatusOptions}
+        />
+        
+        <FormCurrencyInput
+          label="PO Amount (ZAR)"
+          name="po_amount"
+          value={formData.po_amount}
+          onChange={(e) => setFormData({...formData, po_amount: e.target.value})}
+          placeholder="0.00"
+        />
+        
+        <FormCurrencyInput
+          label="Total Budget (ZAR)"
+          name="total_budget"
+          value={formData.total_budget}
+          onChange={(e) => setFormData({...formData, total_budget: e.target.value})}
+          placeholder="0.00"
+        />
+        
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+          <Button type="submit" loading={loading}>Create Job</Button>
+          <Link href="/jobs"><Button variant="secondary">Cancel</Button></Link>
         </div>
       </form>
-
-      <style jsx>{`
-        .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
-        .page-header { margin-bottom: 2rem; }
-        .back-link { color: #6b7280; text-decoration: none; display: inline-block; margin-bottom: 0.5rem; }
-        .back-link:hover { color: #2563eb; }
-        .page-header h1 { margin: 0; }
-        .page-header p { color: #6b7280; margin: 0.25rem 0 0 0; }
-        
-        .job-form { background: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
-        .form-group label { display: block; margin-bottom: 0.375rem; font-weight: 500; font-size: 0.875rem; color: #374151; }
-        .form-group input, .form-group select { width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: #2563eb; }
-        
-        .form-actions { display: flex; gap: 1rem; justify-content: flex-end; }
-        .btn-primary { background: #2563eb; color: white; padding: 0.625rem 1.25rem; border-radius: 0.375rem; border: none; cursor: pointer; font-weight: 500; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-secondary { background: #6b7280; color: white; padding: 0.625rem 1.25rem; border-radius: 0.375rem; text-decoration: none; }
-        .btn-secondary:hover { background: #4b5563; }
-        
-        @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .container { padding: 1rem; } }
-      `}</style>
     </div>
-  );
-}
-
-// Main page component with Suspense boundary
-export default function NewJobPage() {
-  return (
-    <Suspense fallback={<div className="loading">Loading...</div>}>
-      <NewJobForm />
-    </Suspense>
   );
 }
