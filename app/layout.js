@@ -13,21 +13,22 @@ export default function RootLayout({ children }) {
         <nav className="navbar">
           <div className="nav-container">
             <div className="nav-brand">
-              <a href="/">🔧 ENSURE System</a>
+              <Link href="/">🔧 ENSURE</Link>
             </div>
             <div className="nav-links">
-              <a href="/">Dashboard</a>
-              <a href="/jobs">Jobs</a>
-              <a href="/employees">Employees</a>
-              <a href="/clients">Clients</a>
-              <a href="/quotes">Quotes</a>
+              <Link href="/">Dashboard</Link>
+              <Link href="/jobs">Jobs</Link>
+              <Link href="/employees">Employees</Link>
+              <Link href="/clients">Clients</Link>
+              <Link href="/quotes">Quotes</Link>
+              <Link href="/reports/monthly">Reports</Link>
             </div>
             <div className="nav-actions">
-              <Link href="/employees/time" className="nav-time-btn">⏰ Log Time</Link>
+              <Link href="/employees/time" className="time-btn">⏰ Log Time</Link>
             </div>
           </div>
         </nav>
-        <main>{children}</main>
+        <main className="main-content">{children}</main>
       </body>
     </html>
   );
