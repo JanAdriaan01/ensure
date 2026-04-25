@@ -3,17 +3,16 @@
 import { useState } from 'react';
 import styles from './Form.module.css';
 
-export default function FormInput({
+export default function FormDatePicker({
   label,
   name,
-  type = 'text',
   value,
   onChange,
   required = false,
-  placeholder = '',
   error = '',
   disabled = false,
-  helper = ''
+  min,
+  max
 }) {
   const [touched, setTouched] = useState(false);
   const showError = touched && error;
@@ -28,16 +27,16 @@ export default function FormInput({
       <input
         id={name}
         name={name}
-        type={type}
+        type="date"
         value={value}
         onChange={onChange}
         onBlur={() => setTouched(true)}
         required={required}
-        placeholder={placeholder}
         disabled={disabled}
+        min={min}
+        max={max}
         className={`${styles.input} ${showError ? styles.error : ''}`}
       />
-      {helper && !showError && <div className={styles.helper}>{helper}</div>}
       {showError && <div className={styles.errorMessage}>{error}</div>}
     </div>
   );

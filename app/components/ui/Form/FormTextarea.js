@@ -3,17 +3,16 @@
 import { useState } from 'react';
 import styles from './Form.module.css';
 
-export default function FormInput({
+export default function FormTextarea({
   label,
   name,
-  type = 'text',
   value,
   onChange,
   required = false,
   placeholder = '',
+  rows = 3,
   error = '',
-  disabled = false,
-  helper = ''
+  disabled = false
 }) {
   const [touched, setTouched] = useState(false);
   const showError = touched && error;
@@ -25,19 +24,18 @@ export default function FormInput({
           {label} {required && <span className={styles.required}>*</span>}
         </label>
       )}
-      <input
+      <textarea
         id={name}
         name={name}
-        type={type}
         value={value}
         onChange={onChange}
         onBlur={() => setTouched(true)}
         required={required}
         placeholder={placeholder}
+        rows={rows}
         disabled={disabled}
-        className={`${styles.input} ${showError ? styles.error : ''}`}
+        className={`${styles.textarea} ${showError ? styles.error : ''}`}
       />
-      {helper && !showError && <div className={styles.helper}>{helper}</div>}
       {showError && <div className={styles.errorMessage}>{error}</div>}
     </div>
   );

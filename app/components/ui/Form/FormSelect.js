@@ -3,17 +3,16 @@
 import { useState } from 'react';
 import styles from './Form.module.css';
 
-export default function FormInput({
+export default function FormSelect({
   label,
   name,
-  type = 'text',
   value,
   onChange,
+  options = [],
   required = false,
-  placeholder = '',
+  placeholder = 'Select an option',
   error = '',
-  disabled = false,
-  helper = ''
+  disabled = false
 }) {
   const [touched, setTouched] = useState(false);
   const showError = touched && error;
@@ -25,19 +24,23 @@ export default function FormInput({
           {label} {required && <span className={styles.required}>*</span>}
         </label>
       )}
-      <input
+      <select
         id={name}
         name={name}
-        type={type}
         value={value}
         onChange={onChange}
         onBlur={() => setTouched(true)}
         required={required}
-        placeholder={placeholder}
         disabled={disabled}
-        className={`${styles.input} ${showError ? styles.error : ''}`}
-      />
-      {helper && !showError && <div className={styles.helper}>{helper}</div>}
+        className={`${styles.select} ${showError ? styles.error : ''}`}
+      >
+        <option value="">{placeholder}</option>
+        {options.map(option => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
       {showError && <div className={styles.errorMessage}>{error}</div>}
     </div>
   );

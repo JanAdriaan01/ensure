@@ -2,8 +2,20 @@
 
 import { useEffect } from 'react';
 import Button from '../Button/Button';
+import styles from './Modal.module.css';
 
-const Modal = ({ isOpen, onClose, title, children, size = 'md', showClose = true }) => {
+export default function Modal({ 
+  isOpen, 
+  onClose, 
+  title, 
+  children, 
+  size = 'md',
+  showClose = true,
+  showFooter = false,
+  onConfirm,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel'
+}) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -19,69 +31,35 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', showClose = true
     sm: '400px',
     md: '500px',
     lg: '700px',
-    xl: '900px'
+    xl: '900px',
+    full: '95%'
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ width: sizes[size] }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
+    <div className={styles.overlay} onClick={onClose}>
+      <div 
+        className={styles.content} 
+        style={{ width: sizes[size] }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={styles.header}>
           <h2>{title}</h2>
           {showClose && (
-            <button className="modal-close" onClick={onClose}>×</button>
+            <button className={styles.close} onClick={onClose}>×</button>
           )}
         </div>
-        <div className="modal-body">
+        
+        <div className={styles.body}>
           {children}
         </div>
+        
+        {showFooter && (
+          <div className={styles.footer}>
+            <Button variant="secondary" onClick={onClose}>{cancelText}</Button>
+            <Button onClick={onConfirm}>{confirmText}</Button>
+          </div>
+        )}
       </div>
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-        .modal-content {
-          background: white;
-          border-radius: 0.75rem;
-          max-height: 85vh;
-          display: flex;
-          flex-direction: column;
-        }
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .modal-header h2 {
-          margin: 0;
-          font-size: 1.25rem;
-        }
-        .modal-close {
-          background: none;
-          border: none;
-          font-size: 1.5rem;
-          cursor: pointer;
-          color: #6b7280;
-          padding: 0;
-          line-height: 1;
-        }
-        .modal-body {
-          padding: 1.5rem;
-          overflow-y: auto;
-        }
-      `}</style>
     </div>
   );
-};
-
-export default Modal;
+}
