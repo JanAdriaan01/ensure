@@ -7,8 +7,6 @@ import { useToast } from '@/app/context/ToastContext';
 import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
 import Button from '@/app/components/ui/Button/Button';
 import Card from '@/app/components/ui/Card/Card';
-import { FormInput, FormSelect, FormTextarea } from '@/app/components/ui/Form';
-import CurrencyAmount from '@/app/components/CurrencyAmount';
 
 export default function NewQuotePage() {
   const router = useRouter();
@@ -48,14 +46,14 @@ export default function NewQuotePage() {
     try {
       const res = await fetch('/api/clients');
       const data = await res.json();
-      setClients(data);
+      setClients(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
   };
 
   const addItem = () => {
-    if (!currentItem.description) {
+    if (!currentItem.description.trim()) {
       toastError('Item description is required');
       return;
     }
@@ -75,9 +73,9 @@ export default function NewQuotePage() {
       description: currentItem.description,
       additional_description: currentItem.additional_description,
       unit: currentItem.unit,
-      quantity: currentItem.quantity,
+      quantity: parseFloat(currentItem.quantity),
       unit_of_measure: currentItem.unit_of_measure,
-      price_ex_vat: currentItem.price_ex_vat
+      price_ex_vat: parseFloat(currentItem.price_ex_vat)
     }]);
     
     // Reset current item
@@ -100,7 +98,7 @@ export default function NewQuotePage() {
 
   const updateItemField = (index, field, value) => {
     const updated = [...items];
-    updated[index][field] = value;
+    updated[index][field] = field === 'quantity' || field === 'price_ex_vat' ? parseFloat(value) || 0 : value;
     setItems(updated);
   };
 
@@ -122,7 +120,7 @@ export default function NewQuotePage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (formData.client_id === '') {
+    if (!formData.client_id) {
       toastError('Please select a client');
       return;
     }
@@ -143,7 +141,7 @@ export default function NewQuotePage() {
       quote_prepared_by: formData.quote_prepared_by,
       scope_subject: formData.scope_subject,
       status: formData.status,
-      subtotal,
+      subtotal: subtotal,
       vat_amount: vatAmount,
       total_amount: total,
       items: items.map(item => ({
@@ -193,7 +191,7 @@ export default function NewQuotePage() {
       <form onSubmit={handleSubmit}>
         {/* Quote Details Section */}
         <Card>
-          <h3 style={{ marginBottom: '1rem' }}>Quote Information</h3>
+          <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Quote Information</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
             <div className="form-group">
               <label>Client *</label>
@@ -201,7 +199,7 @@ export default function NewQuotePage() {
                 value={formData.client_id}
                 onChange={(e) => setFormData({...formData, client_id: e.target.value})}
                 required
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               >
                 <option value="">-- Select Client --</option>
                 {clients.map(c => (
@@ -216,7 +214,7 @@ export default function NewQuotePage() {
                 value={formData.site_name}
                 onChange={(e) => setFormData({...formData, site_name: e.target.value})}
                 placeholder="e.g., Cape Town Main Site"
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               />
             </div>
             <div className="form-group">
@@ -225,7 +223,7 @@ export default function NewQuotePage() {
                 type="text"
                 value={formData.contact_person}
                 onChange={(e) => setFormData({...formData, contact_person: e.target.value})}
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               />
             </div>
             <div className="form-group">
@@ -235,7 +233,7 @@ export default function NewQuotePage() {
                 value={formData.quote_date}
                 onChange={(e) => setFormData({...formData, quote_date: e.target.value})}
                 required
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               />
             </div>
             <div className="form-group">
@@ -245,7 +243,7 @@ export default function NewQuotePage() {
                 value={formData.quote_prepared_by}
                 onChange={(e) => setFormData({...formData, quote_prepared_by: e.target.value})}
                 placeholder="Your name"
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               />
             </div>
             <div className="form-group">
@@ -253,7 +251,7 @@ export default function NewQuotePage() {
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({...formData, status: e.target.value})}
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               >
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
@@ -261,21 +259,21 @@ export default function NewQuotePage() {
               </select>
             </div>
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ marginTop: '1rem' }}>
             <label>Scope / Subject</label>
             <textarea
               value={formData.scope_subject}
               onChange={(e) => setFormData({...formData, scope_subject: e.target.value})}
               rows="3"
               placeholder="Describe the scope of work..."
-              style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+              style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
             />
           </div>
         </Card>
 
         {/* Line Items Section */}
         <Card style={{ marginTop: '1.5rem' }}>
-          <h3 style={{ marginBottom: '1rem' }}>Quote Items</h3>
+          <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Quote Items</h3>
           
           {/* Add Item Form */}
           <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
@@ -378,7 +376,7 @@ export default function NewQuotePage() {
                           type="number"
                           step="0.01"
                           value={item.quantity}
-                          onChange={(e) => updateItemField(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => updateItemField(idx, 'quantity', e.target.value)}
                           style={{ width: '70px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
                         />
                       </td>
@@ -409,7 +407,7 @@ export default function NewQuotePage() {
                           type="number"
                           step="0.01"
                           value={item.price_ex_vat}
-                          onChange={(e) => updateItemField(idx, 'price_ex_vat', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => updateItemField(idx, 'price_ex_vat', e.target.value)}
                           style={{ width: '90px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
                         />
                       </td>
@@ -425,17 +423,23 @@ export default function NewQuotePage() {
                 <tfoot>
                   <tr style={{ background: '#f9fafb' }}>
                     <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal Ex VAT:</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>R {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>
+                      R {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
                     <td></td>
                   </tr>
                   <tr>
                     <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right' }}>VAT (15%):</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>R {vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                      R {vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
                     <td></td>
                   </tr>
                   <tr style={{ background: '#f0fdf4' }}>
                     <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>Total:</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>R {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                      R {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -464,6 +468,12 @@ export default function NewQuotePage() {
           font-weight: 500;
           font-size: 0.75rem;
           color: #374151;
+        }
+        table th {
+          text-align: left;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #6b7280;
         }
       `}</style>
     </div>

@@ -46,35 +46,57 @@ export async function POST(request) {
     if (!client_id) {
       return NextResponse.json({ error: 'Client is required' }, { status: 400 });
     }
+    if (!quote_date) {
+      return NextResponse.json({ error: 'Quote date is required' }, { status: 400 });
+    }
     
     // Start transaction
     await query('BEGIN');
     
-    // Insert quote - note: quote_amount is set to total_amount for backward compatibility
+    // Insert quote
     const quoteResult = await query(
       `INSERT INTO quotes (
         quote_number, client_id, site_name, contact_person, 
         quote_date, quote_prepared_by, scope_subject, status,
         subtotal, vat_amount, total_amount, quote_amount, version
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 1) RETURNING *`,
-      [quote_number, client_id, site_name || null, contact_person || null, 
-       quote_date, quote_prepared_by || null, scope_subject || null, status || 'pending',
-       subtotal || 0, vat_amount || 0, total_amount || 0, total_amount || 0]
+      [
+        quote_number, 
+        client_id, 
+        site_name || null, 
+        contact_person || null, 
+        quote_date, 
+        quote_prepared_by || null, 
+        scope_subject || null, 
+        status || 'pending',
+        subtotal || 0, 
+        vat_amount || 0, 
+        total_amount || 0, 
+        total_amount || 0
+      ]
     );
     
     const quoteId = quoteResult.rows[0].id;
     console.log('Quote created with ID:', quoteId);
     
     // Insert line items
-    if (items && items.length > 0) {
+    if (items && Array.isArray(items) && items.length > 0) {
       for (const item of items) {
         await query(
           `INSERT INTO quote_items (
             quote_id, item_number, description, additional_description,
             unit, quantity, unit_of_measure, price_ex_vat
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [quoteId, item.item_number, item.description, item.additional_description || null,
-           item.unit || null, item.quantity, item.unit_of_measure || 'each', item.price_ex_vat]
+          [
+            quoteId, 
+            item.item_number, 
+            item.description, 
+            item.additional_description || null,
+            item.unit || null, 
+            item.quantity, 
+            item.unit_of_measure || 'each', 
+            item.price_ex_vat
+          ]
         );
       }
       console.log(`Added ${items.length} line items`);
@@ -94,13 +116,15 @@ export async function POST(request) {
       await query('UPDATE quotes SET job_id = $1 WHERE id = $2', [jobId, quoteId]);
       
       // Copy quote items to job items
-      for (const item of items) {
-        await query(
-          `INSERT INTO job_items (
-            job_id, item_name, description, quoted_quantity, quoted_unit_price
-          ) VALUES ($1, $2, $3, $4, $5)`,
-          [jobId, item.description, item.additional_description || null, item.quantity, item.price_ex_vat]
-        );
+      if (items && Array.isArray(items) && items.length > 0) {
+        for (const item of items) {
+          await query(
+            `INSERT INTO job_items (
+              job_id, item_name, description, quoted_quantity, quoted_unit_price
+            ) VALUES ($1, $2, $3, $4, $5)`,
+            [jobId, item.description, item.additional_description || null, item.quantity, item.price_ex_vat]
+          );
+        }
       }
       console.log('Auto-created job with ID:', jobId);
     }
