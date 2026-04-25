@@ -22,6 +22,8 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
+    console.log('Received quote data:', JSON.stringify(body, null, 2));
+    
     const {
       quote_number,
       client_id,
@@ -37,23 +39,31 @@ export async function POST(request) {
       items
     } = body;
     
-    console.log('Creating quote with items:', { quote_number, client_id, itemsCount: items?.length });
+    // Validate required fields
+    if (!quote_number) {
+      return NextResponse.json({ error: 'Quote number is required' }, { status: 400 });
+    }
+    if (!client_id) {
+      return NextResponse.json({ error: 'Client is required' }, { status: 400 });
+    }
     
     // Start transaction
     await query('BEGIN');
     
-    // Insert quote
+    // Insert quote - note: quote_amount is set to total_amount for backward compatibility
     const quoteResult = await query(
       `INSERT INTO quotes (
         quote_number, client_id, site_name, contact_person, 
         quote_date, quote_prepared_by, scope_subject, status,
-        subtotal, vat_amount, total_amount, version
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1) RETURNING *`,
-      [quote_number, client_id, site_name, contact_person, quote_date, 
-       quote_prepared_by, scope_subject, status, subtotal, vat_amount, total_amount]
+        subtotal, vat_amount, total_amount, quote_amount, version
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 1) RETURNING *`,
+      [quote_number, client_id, site_name || null, contact_person || null, 
+       quote_date, quote_prepared_by || null, scope_subject || null, status || 'pending',
+       subtotal || 0, vat_amount || 0, total_amount || 0, total_amount || 0]
     );
     
     const quoteId = quoteResult.rows[0].id;
+    console.log('Quote created with ID:', quoteId);
     
     // Insert line items
     if (items && items.length > 0) {
@@ -63,10 +73,11 @@ export async function POST(request) {
             quote_id, item_number, description, additional_description,
             unit, quantity, unit_of_measure, price_ex_vat
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [quoteId, item.item_number, item.description, item.additional_description,
-           item.unit, item.quantity, item.unit_of_measure, item.price_ex_vat]
+          [quoteId, item.item_number, item.description, item.additional_description || null,
+           item.unit || null, item.quantity, item.unit_of_measure || 'each', item.price_ex_vat]
         );
       }
+      console.log(`Added ${items.length} line items`);
     }
     
     // If approved, auto-create job
@@ -76,7 +87,7 @@ export async function POST(request) {
       const jobResult = await query(
         `INSERT INTO jobs (lc_number, client_id, po_status, completion_status, po_amount)
          VALUES ($1, $2, 'approved', 'not_started', $3) RETURNING id`,
-        [lcNumber, client_id, total_amount]
+        [lcNumber, client_id, total_amount || 0]
       );
       jobId = jobResult.rows[0].id;
       
@@ -88,9 +99,10 @@ export async function POST(request) {
           `INSERT INTO job_items (
             job_id, item_name, description, quoted_quantity, quoted_unit_price
           ) VALUES ($1, $2, $3, $4, $5)`,
-          [jobId, item.description, item.additional_description, item.quantity, item.price_ex_vat]
+          [jobId, item.description, item.additional_description || null, item.quantity, item.price_ex_vat]
         );
       }
+      console.log('Auto-created job with ID:', jobId);
     }
     
     await query('COMMIT');
@@ -99,40 +111,10 @@ export async function POST(request) {
       ...quoteResult.rows[0], 
       job_id: jobId 
     }, { status: 201 });
+    
   } catch (error) {
     await query('ROLLBACK');
     console.error('Error creating quote:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// GET single quote with items
-export async function GET_BY_ID(request, { params }) {
-  try {
-    const { id } = params;
-    
-    const quoteResult = await query(`
-      SELECT q.*, c.client_name, j.lc_number as job_lc_number
-      FROM quotes q
-      LEFT JOIN clients c ON q.client_id = c.id
-      LEFT JOIN jobs j ON q.job_id = j.id
-      WHERE q.id = $1
-    `, [id]);
-    
-    if (quoteResult.rows.length === 0) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
-    }
-    
-    const itemsResult = await query(`
-      SELECT * FROM quote_items WHERE quote_id = $1 ORDER BY item_number
-    `, [id]);
-    
-    return NextResponse.json({
-      ...quoteResult.rows[0],
-      items: itemsResult.rows
-    });
-  } catch (error) {
-    console.error('Error fetching quote:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

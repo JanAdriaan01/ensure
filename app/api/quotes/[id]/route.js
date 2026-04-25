@@ -32,7 +32,7 @@ export async function GET(request, { params }) {
   }
 }
 
-// PATCH update quote status
+// PATCH update quote status only (for PO/invoice status)
 export async function PATCH(request, { params }) {
   try {
     const { id } = params;
