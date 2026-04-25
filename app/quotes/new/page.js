@@ -1,252 +1,471 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/app/context/ToastContext';
+import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
+import Button from '@/app/components/ui/Button/Button';
+import Card from '@/app/components/ui/Card/Card';
+import { FormInput, FormSelect, FormTextarea } from '@/app/components/ui/Form';
+import CurrencyAmount from '@/app/components/CurrencyAmount';
 
-// Component that uses useSearchParams - must be wrapped in Suspense
-function NewQuoteForm() {
+export default function NewQuotePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const presetClientId = searchParams.get('client_id');
-  
+  const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState([]);
-  const [jobs, setJobs] = useState([]);
+  
+  // Form state
   const [formData, setFormData] = useState({
-    quote_number: '',
-    client_id: presetClientId || '',
-    job_number: '',
+    client_id: '',
+    site_name: '',
+    contact_person: '',
     quote_date: new Date().toISOString().split('T')[0],
-    quote_amount: '',
-    currency: 'USD',
-    status: 'pending',
-    notes: ''
+    quote_prepared_by: '',
+    scope_subject: '',
+    status: 'pending'
+  });
+  
+  // Line items
+  const [items, setItems] = useState([]);
+  
+  // Current item being added
+  const [currentItem, setCurrentItem] = useState({
+    description: '',
+    additional_description: '',
+    unit: '',
+    quantity: 1,
+    unit_of_measure: 'each',
+    price_ex_vat: 0
   });
 
   useEffect(() => {
     fetchClients();
-    fetchJobs();
   }, []);
 
   const fetchClients = async () => {
     try {
       const res = await fetch('/api/clients');
       const data = await res.json();
-      setClients(Array.isArray(data) ? data : []);
+      setClients(data);
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
   };
 
-  const fetchJobs = async () => {
-    try {
-      const res = await fetch('/api/jobs');
-      const data = await res.json();
-      setJobs(Array.isArray(data) ? data.filter(j => j.completion_status !== 'completed') : []);
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
+  const addItem = () => {
+    if (!currentItem.description) {
+      toastError('Item description is required');
+      return;
     }
+    
+    if (currentItem.quantity <= 0) {
+      toastError('Quantity must be greater than 0');
+      return;
+    }
+    
+    if (currentItem.price_ex_vat < 0) {
+      toastError('Price cannot be negative');
+      return;
+    }
+    
+    setItems([...items, { 
+      item_number: items.length + 1,
+      description: currentItem.description,
+      additional_description: currentItem.additional_description,
+      unit: currentItem.unit,
+      quantity: currentItem.quantity,
+      unit_of_measure: currentItem.unit_of_measure,
+      price_ex_vat: currentItem.price_ex_vat
+    }]);
+    
+    // Reset current item
+    setCurrentItem({
+      description: '',
+      additional_description: '',
+      unit: '',
+      quantity: 1,
+      unit_of_measure: 'each',
+      price_ex_vat: 0
+    });
+  };
+
+  const removeItem = (index) => {
+    const newItems = items.filter((_, i) => i !== index);
+    // Renumber items
+    const renumbered = newItems.map((item, idx) => ({ ...item, item_number: idx + 1 }));
+    setItems(renumbered);
+  };
+
+  const updateItemField = (index, field, value) => {
+    const updated = [...items];
+    updated[index][field] = value;
+    setItems(updated);
+  };
+
+  const calculateTotals = () => {
+    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price_ex_vat), 0);
+    const vatAmount = subtotal * 0.15;
+    const total = subtotal + vatAmount;
+    return { subtotal, vatAmount, total };
+  };
+
+  const { subtotal, vatAmount, total } = calculateTotals();
+
+  const generateQuoteNumber = () => {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    return `Q-${year}-${random}`;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (formData.client_id === '') {
+      toastError('Please select a client');
+      return;
+    }
+    
+    if (items.length === 0) {
+      toastError('Please add at least one item to the quote');
+      return;
+    }
+    
     setLoading(true);
     
-    const quoteData = {
-      quote_number: formData.quote_number,
-      client_id: formData.client_id || null,
-      job_number: formData.job_number || null,
+    const payload = {
+      quote_number: generateQuoteNumber(),
+      client_id: parseInt(formData.client_id),
+      site_name: formData.site_name,
+      contact_person: formData.contact_person,
       quote_date: formData.quote_date,
-      quote_amount: parseFloat(formData.quote_amount),
-      currency: formData.currency,
+      quote_prepared_by: formData.quote_prepared_by,
+      scope_subject: formData.scope_subject,
       status: formData.status,
-      notes: formData.notes
+      subtotal,
+      vat_amount: vatAmount,
+      total_amount: total,
+      items: items.map(item => ({
+        item_number: item.item_number,
+        description: item.description,
+        additional_description: item.additional_description,
+        unit: item.unit,
+        quantity: item.quantity,
+        unit_of_measure: item.unit_of_measure,
+        price_ex_vat: item.price_ex_vat
+      }))
     };
     
-    const res = await fetch('/api/quotes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(quoteData)
-    });
+    console.log('Submitting quote:', payload);
     
-    if (res.ok) {
-      const newQuote = await res.json();
-      router.push(`/quotes/${newQuote.id}`);
-    } else {
-      const error = await res.json();
-      alert(error.error || 'Failed to create quote');
+    try {
+      const res = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        success('Quote created successfully');
+        router.push(`/quotes/${data.id}`);
+      } else {
+        toastError(data.error || 'Failed to create quote');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      toastError('Error creating quote');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const generateQuoteNumber = () => {
-    const year = new Date().getFullYear();
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `Q-${year}-${random}`;
   };
 
   return (
-    <div className="container">
-      <div className="page-header">
-        <div>
-          <Link href="/quotes" className="back-link">← Back to Quotes</Link>
-          <h1>➕ Create New Quote</h1>
-          <p>Generate a quote for a client</p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="quote-form">
-        <div className="form-grid">
-          <div className="form-group">
-            <label>Quote Number *</label>
-            <div className="input-with-hint">
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+      <PageHeader 
+        title="➕ Create New Quote"
+        description="Fill in quote details and add line items"
+        action={<Link href="/quotes"><Button variant="secondary">← Back to Quotes</Button></Link>}
+      />
+      
+      <form onSubmit={handleSubmit}>
+        {/* Quote Details Section */}
+        <Card>
+          <h3 style={{ marginBottom: '1rem' }}>Quote Information</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+            <div className="form-group">
+              <label>Client *</label>
+              <select
+                value={formData.client_id}
+                onChange={(e) => setFormData({...formData, client_id: e.target.value})}
+                required
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+              >
+                <option value="">-- Select Client --</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.client_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Site Name</label>
               <input
                 type="text"
-                name="quote_number"
-                value={formData.quote_number}
-                onChange={handleChange}
-                required
-                placeholder="e.g., Q-2024-001"
+                value={formData.site_name}
+                onChange={(e) => setFormData({...formData, site_name: e.target.value})}
+                placeholder="e.g., Cape Town Main Site"
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
               />
-              <button type="button" onClick={() => setFormData({...formData, quote_number: generateQuoteNumber()})} className="btn-generate">
-                Generate
-              </button>
             </div>
-          </div>
-
-          <div className="form-group">
-            <label>Client *</label>
-            <select name="client_id" value={formData.client_id} onChange={handleChange} required>
-              <option value="">-- Select Client --</option>
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>
-                  {client.client_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Related Job (Optional)</label>
-            <select name="job_number" value={formData.job_number} onChange={handleChange}>
-              <option value="">-- No Job Linked --</option>
-              {jobs.map(job => (
-                <option key={job.id} value={job.lc_number}>
-                  {job.lc_number} - {job.completion_status?.replace('_', ' ')}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Quote Date *</label>
-            <input
-              type="date"
-              name="quote_date"
-              value={formData.quote_date}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Quote Amount *</label>
-            <div className="amount-input">
-              <span className="currency-symbol">$</span>
+            <div className="form-group">
+              <label>Contact Person</label>
               <input
-                type="number"
-                step="0.01"
-                name="quote_amount"
-                value={formData.quote_amount}
-                onChange={handleChange}
-                required
-                placeholder="0.00"
+                type="text"
+                value={formData.contact_person}
+                onChange={(e) => setFormData({...formData, contact_person: e.target.value})}
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
               />
             </div>
+            <div className="form-group">
+              <label>Quote Date *</label>
+              <input
+                type="date"
+                value={formData.quote_date}
+                onChange={(e) => setFormData({...formData, quote_date: e.target.value})}
+                required
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+              />
+            </div>
+            <div className="form-group">
+              <label>Quote Prepared By</label>
+              <input
+                type="text"
+                value={formData.quote_prepared_by}
+                onChange={(e) => setFormData({...formData, quote_prepared_by: e.target.value})}
+                placeholder="Your name"
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+              />
+            </div>
+            <div className="form-group">
+              <label>Status</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({...formData, status: e.target.value})}
+                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+              >
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
           </div>
-
           <div className="form-group">
-            <label>Currency</label>
-            <select name="currency" value={formData.currency} onChange={handleChange}>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
-              <option value="ZAR">ZAR (R)</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Status</label>
-            <select name="status" value={formData.status} onChange={handleChange}>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="invoiced">Invoiced</option>
-            </select>
-          </div>
-
-          <div className="form-group full-width">
-            <label>Notes (Optional)</label>
+            <label>Scope / Subject</label>
             <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
+              value={formData.scope_subject}
+              onChange={(e) => setFormData({...formData, scope_subject: e.target.value})}
               rows="3"
-              placeholder="Scope of work, payment terms, validity period..."
+              placeholder="Describe the scope of work..."
+              style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
             />
           </div>
-        </div>
+        </Card>
 
-        <div className="form-actions">
-          <button type="submit" disabled={loading} className="btn-primary">
+        {/* Line Items Section */}
+        <Card style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>Quote Items</h3>
+          
+          {/* Add Item Form */}
+          <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>Description *</label>
+                <input
+                  type="text"
+                  value={currentItem.description}
+                  onChange={(e) => setCurrentItem({...currentItem, description: e.target.value})}
+                  placeholder="Item description"
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>Additional Description</label>
+                <input
+                  type="text"
+                  value={currentItem.additional_description}
+                  onChange={(e) => setCurrentItem({...currentItem, additional_description: e.target.value})}
+                  placeholder="Optional details"
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>Unit</label>
+                <input
+                  type="text"
+                  value={currentItem.unit}
+                  onChange={(e) => setCurrentItem({...currentItem, unit: e.target.value})}
+                  placeholder="e.g., Hour, Day, Meter"
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>Quantity *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={currentItem.quantity}
+                  onChange={(e) => setCurrentItem({...currentItem, quantity: parseFloat(e.target.value) || 0})}
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>Unit of Measure</label>
+                <select
+                  value={currentItem.unit_of_measure}
+                  onChange={(e) => setCurrentItem({...currentItem, unit_of_measure: e.target.value})}
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                >
+                  <option value="each">Each</option>
+                  <option value="hour">Hour</option>
+                  <option value="day">Day</option>
+                  <option value="meter">Meter</option>
+                  <option value="kg">KG</option>
+                  <option value="lot">Lot</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>Price Ex VAT *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={currentItem.price_ex_vat}
+                  onChange={(e) => setCurrentItem({...currentItem, price_ex_vat: parseFloat(e.target.value) || 0})}
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                />
+              </div>
+            </div>
+            <Button type="button" onClick={addItem} style={{ marginTop: '1rem' }}>+ Add Item</Button>
+          </div>
+          
+          {/* Items Table */}
+          {items.length > 0 && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>#</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Description</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Qty</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Unit</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>UoM</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Unit Price</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'right' }}>Total Ex VAT</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '0.75rem' }}>{item.item_number}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <strong>{item.description}</strong>
+                        {item.additional_description && <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{item.additional_description}</div>}
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) => updateItemField(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                          style={{ width: '70px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <input
+                          type="text"
+                          value={item.unit || ''}
+                          onChange={(e) => updateItemField(idx, 'unit', e.target.value)}
+                          style={{ width: '80px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <select
+                          value={item.unit_of_measure}
+                          onChange={(e) => updateItemField(idx, 'unit_of_measure', e.target.value)}
+                          style={{ width: '80px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
+                        >
+                          <option value="each">Each</option>
+                          <option value="hour">Hour</option>
+                          <option value="day">Day</option>
+                          <option value="meter">Meter</option>
+                          <option value="kg">KG</option>
+                          <option value="lot">Lot</option>
+                        </select>
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={item.price_ex_vat}
+                          onChange={(e) => updateItemField(idx, 'price_ex_vat', parseFloat(e.target.value) || 0)}
+                          style={{ width: '90px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                        R {(item.quantity * item.price_ex_vat).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                        <button type="button" onClick={() => removeItem(idx)} style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: '0.25rem', padding: '0.25rem 0.5rem', cursor: 'pointer' }}>×</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#f9fafb' }}>
+                    <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal Ex VAT:</td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>R {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right' }}>VAT (15%):</td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>R {vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td></td>
+                  </tr>
+                  <tr style={{ background: '#f0fdf4' }}>
+                    <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>Total:</td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>R {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+          <button type="submit" disabled={loading} style={{ background: '#2563eb', color: 'white', padding: '0.625rem 1.25rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
             {loading ? 'Creating...' : 'Create Quote'}
           </button>
-          <Link href="/quotes" className="btn-secondary">Cancel</Link>
+          <Link href="/quotes">
+            <button type="button" style={{ background: '#6b7280', color: 'white', padding: '0.625rem 1.25rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>Cancel</button>
+          </Link>
         </div>
       </form>
 
       <style jsx>{`
-        .container { max-width: 900px; margin: 0 auto; padding: 2rem; }
-        .page-header { margin-bottom: 2rem; }
-        .back-link { color: #6b7280; text-decoration: none; display: inline-block; margin-bottom: 0.5rem; }
-        .back-link:hover { color: #2563eb; }
-        .page-header h1 { margin: 0; }
-        .page-header p { color: #6b7280; margin: 0.25rem 0 0 0; }
-        
-        .quote-form { background: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
-        .full-width { grid-column: span 2; }
-        .form-group label { display: block; margin-bottom: 0.375rem; font-weight: 500; font-size: 0.875rem; color: #374151; }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
-        
-        .input-with-hint { display: flex; gap: 0.5rem; }
-        .input-with-hint input { flex: 1; }
-        .btn-generate { background: #f3f4f6; border: 1px solid #d1d5db; padding: 0.625rem 1rem; border-radius: 0.375rem; cursor: pointer; font-size: 0.75rem; white-space: nowrap; }
-        
-        .amount-input { display: flex; align-items: center; gap: 0.25rem; }
-        .currency-symbol { background: #f3f4f6; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 0.375rem 0 0 0.375rem; font-weight: 500; }
-        .amount-input input { border-radius: 0 0.375rem 0.375rem 0; }
-        
-        .form-actions { display: flex; gap: 1rem; justify-content: flex-end; }
-        .btn-primary { background: #2563eb; color: white; padding: 0.625rem 1.25rem; border-radius: 0.375rem; border: none; cursor: pointer; font-weight: 500; }
-        .btn-secondary { background: #6b7280; color: white; padding: 0.625rem 1.25rem; border-radius: 0.375rem; text-decoration: none; }
-        
-        @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .full-width { grid-column: span 1; } .container { padding: 1rem; } }
+        .form-group {
+          margin-bottom: 0;
+        }
+        .form-group label {
+          display: block;
+          margin-bottom: 0.25rem;
+          font-weight: 500;
+          font-size: 0.75rem;
+          color: #374151;
+        }
       `}</style>
     </div>
-  );
-}
-
-// Main page component with Suspense boundary
-export default function NewQuotePage() {
-  return (
-    <Suspense fallback={<div className="loading">Loading...</div>}>
-      <NewQuoteForm />
-    </Suspense>
   );
 }

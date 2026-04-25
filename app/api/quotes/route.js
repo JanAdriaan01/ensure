@@ -1,39 +1,96 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
-// POST create quote - also creates job if approved
+// GET all quotes
+export async function GET() {
+  try {
+    const result = await query(`
+      SELECT q.*, c.client_name, j.lc_number as job_lc_number
+      FROM quotes q
+      LEFT JOIN clients c ON q.client_id = c.id
+      LEFT JOIN jobs j ON q.job_id = j.id
+      ORDER BY q.created_at DESC
+    `);
+    return NextResponse.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching quotes:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// POST create quote with line items
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { quote_number, client_id, job_number, quote_date, quote_amount, currency, status, notes } = body;
+    const {
+      quote_number,
+      client_id,
+      site_name,
+      contact_person,
+      quote_date,
+      quote_prepared_by,
+      scope_subject,
+      status,
+      subtotal,
+      vat_amount,
+      total_amount,
+      items
+    } = body;
+    
+    console.log('Creating quote with items:', { quote_number, client_id, itemsCount: items?.length });
     
     // Start transaction
     await query('BEGIN');
     
     // Insert quote
     const quoteResult = await query(
-      `INSERT INTO quotes (quote_number, client_id, job_number, quote_date, quote_amount, currency, status, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [quote_number, client_id, job_number, quote_date, quote_amount, currency || 'ZAR', status || 'pending', notes]
+      `INSERT INTO quotes (
+        quote_number, client_id, site_name, contact_person, 
+        quote_date, quote_prepared_by, scope_subject, status,
+        subtotal, vat_amount, total_amount, version
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1) RETURNING *`,
+      [quote_number, client_id, site_name, contact_person, quote_date, 
+       quote_prepared_by, scope_subject, status, subtotal, vat_amount, total_amount]
     );
     
-    let jobId = null;
+    const quoteId = quoteResult.rows[0].id;
     
-    // If quote is approved, auto-create job
+    // Insert line items
+    if (items && items.length > 0) {
+      for (const item of items) {
+        await query(
+          `INSERT INTO quote_items (
+            quote_id, item_number, description, additional_description,
+            unit, quantity, unit_of_measure, price_ex_vat
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [quoteId, item.item_number, item.description, item.additional_description,
+           item.unit, item.quantity, item.unit_of_measure, item.price_ex_vat]
+        );
+      }
+    }
+    
+    // If approved, auto-create job
+    let jobId = null;
     if (status === 'approved') {
       const lcNumber = `JOB-${quote_number}`;
       const jobResult = await query(
         `INSERT INTO jobs (lc_number, client_id, po_status, completion_status, po_amount)
          VALUES ($1, $2, 'approved', 'not_started', $3) RETURNING id`,
-        [lcNumber, client_id, quote_amount]
+        [lcNumber, client_id, total_amount]
       );
       jobId = jobResult.rows[0].id;
       
-      // Update quote with job reference
-      await query(
-        'UPDATE quotes SET job_id = $1 WHERE id = $2',
-        [jobId, quoteResult.rows[0].id]
-      );
+      await query('UPDATE quotes SET job_id = $1 WHERE id = $2', [jobId, quoteId]);
+      
+      // Copy quote items to job items
+      for (const item of items) {
+        await query(
+          `INSERT INTO job_items (
+            job_id, item_name, description, quoted_quantity, quoted_unit_price
+          ) VALUES ($1, $2, $3, $4, $5)`,
+          [jobId, item.description, item.additional_description, item.quantity, item.price_ex_vat]
+        );
+      }
     }
     
     await query('COMMIT');
@@ -45,52 +102,37 @@ export async function POST(request) {
   } catch (error) {
     await query('ROLLBACK');
     console.error('Error creating quote:', error);
-    if (error.code === '23505') {
-      return NextResponse.json({ error: 'Quote number already exists' }, { status: 409 });
-    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// PUT update quote status - can auto-create job when approved
-export async function PUT(request) {
+// GET single quote with items
+export async function GET_BY_ID(request, { params }) {
   try {
-    const url = new URL(request.url);
-    const id = url.searchParams.get('id');
-    const body = await request.json();
-    const { status } = body;
+    const { id } = params;
     
-    await query('BEGIN');
+    const quoteResult = await query(`
+      SELECT q.*, c.client_name, j.lc_number as job_lc_number
+      FROM quotes q
+      LEFT JOIN clients c ON q.client_id = c.id
+      LEFT JOIN jobs j ON q.job_id = j.id
+      WHERE q.id = $1
+    `, [id]);
     
-    // Get current quote
-    const quote = await query('SELECT * FROM quotes WHERE id = $1', [id]);
-    if (quote.rows.length === 0) {
+    if (quoteResult.rows.length === 0) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
     
-    // Update quote status
-    await query('UPDATE quotes SET status = $1 WHERE id = $2', [status, id]);
+    const itemsResult = await query(`
+      SELECT * FROM quote_items WHERE quote_id = $1 ORDER BY item_number
+    `, [id]);
     
-    let jobId = quote.rows[0].job_id;
-    
-    // If approved and no job exists, create job automatically
-    if (status === 'approved' && !jobId) {
-      const lcNumber = `JOB-${quote.rows[0].quote_number}`;
-      const jobResult = await query(
-        `INSERT INTO jobs (lc_number, client_id, po_status, completion_status, po_amount)
-         VALUES ($1, $2, 'approved', 'not_started', $3) RETURNING id`,
-        [lcNumber, quote.rows[0].client_id, quote.rows[0].quote_amount]
-      );
-      jobId = jobResult.rows[0].id;
-      
-      await query('UPDATE quotes SET job_id = $1 WHERE id = $2', [jobId, id]);
-    }
-    
-    await query('COMMIT');
-    
-    return NextResponse.json({ success: true, job_id: jobId });
+    return NextResponse.json({
+      ...quoteResult.rows[0],
+      items: itemsResult.rows
+    });
   } catch (error) {
-    await query('ROLLBACK');
+    console.error('Error fetching quote:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
