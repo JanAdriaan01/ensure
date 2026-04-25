@@ -9,15 +9,13 @@ export default function Card({
   className = '',
   onClick 
 }) {
-  const cardClasses = [
-    styles.card,
-    styles[variant],
-    hover && styles.hover,
-    className
-  ].filter(Boolean).join(' ');
-
+  const variantClass = variant === 'stat' ? styles.statCard : styles.defaultCard;
+  
   return (
-    <div className={cardClasses} onClick={onClick}>
+    <div 
+      className={`${styles.card} ${variantClass} ${hover ? styles.hoverCard : ''} ${className}`}
+      onClick={onClick}
+    >
       {children}
     </div>
   );

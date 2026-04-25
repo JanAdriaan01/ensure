@@ -34,7 +34,7 @@ export default function Table({
                 <th 
                   key={idx} 
                   style={{ width: col.width }}
-                  className={col.align === 'right' ? styles.right : col.align === 'center' ? styles.center : ''}
+                  className={`${styles.tableHeader} ${col.align === 'right' ? styles.right : col.align === 'center' ? styles.center : ''}`}
                 >
                   {col.header}
                 </th>
@@ -47,12 +47,12 @@ export default function Table({
             <tr 
               key={row.id || rowIdx} 
               onClick={() => onRowClick?.(row)}
-              className={onRowClick ? styles.clickable : ''}
+              className={`${onRowClick ? styles.clickable : ''} ${rowIdx === data.length - 1 ? styles.lastRow : ''}`}
             >
               {columns.map((col, colIdx) => (
                 <td 
                   key={colIdx}
-                  className={col.align === 'right' ? styles.right : col.align === 'center' ? styles.center : ''}
+                  className={`${styles.tableCell} ${col.align === 'right' ? styles.right : col.align === 'center' ? styles.center : ''}`}
                 >
                   {col.render ? col.render(row[col.accessor], row) : row[col.accessor]}
                 </td>
