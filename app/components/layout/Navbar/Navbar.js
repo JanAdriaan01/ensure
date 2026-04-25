@@ -13,7 +13,9 @@ export default function Navbar() {
     { href: '/employees', label: 'Employees' },
     { href: '/clients', label: 'Clients' },
     { href: '/quotes', label: 'Quotes' },
-    { href: '/reports/monthly', label: 'Reports' }
+    { href: '/reports/monthly', label: 'Reports' },
+    { href: '/stock', label: 'Stock' },
+    { href: '/tools', label: 'Tools' }
   ];
 
   return (
@@ -24,11 +26,7 @@ export default function Navbar() {
         </div>
         <div className="nav-links">
           {navLinks.map(link => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`nav-link ${pathname === link.href ? 'active' : ''}`}
-            >
+            <Link key={link.href} href={link.href} className={`nav-link ${pathname === link.href ? 'active' : ''}`}>
               {link.label}
             </Link>
           ))}
@@ -39,79 +37,16 @@ export default function Navbar() {
         </div>
       </div>
       <style jsx>{`
-        .navbar {
-          background: #1f2937;
-          color: white;
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .nav-container {
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 0.75rem 2rem;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-        .nav-brand a {
-          color: white;
-          font-size: 1.25rem;
-          font-weight: bold;
-          text-decoration: none;
-        }
-        .nav-brand a:hover {
-          color: #e5e7eb;
-        }
-        .nav-links {
-          display: flex;
-          gap: 1.5rem;
-          flex-wrap: wrap;
-        }
-        .nav-link {
-          color: #e5e7eb;
-          text-decoration: none;
-          font-size: 0.875rem;
-          font-weight: 500;
-          transition: color 0.2s ease;
-        }
-        .nav-link:hover {
-          color: white;
-        }
-        .nav-link.active {
-          color: white;
-          border-bottom: 2px solid #2563eb;
-        }
-        .nav-actions {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-        .time-btn {
-          background: #10b981;
-          color: white;
-          padding: 0.5rem 1rem;
-          border-radius: 0.5rem;
-          text-decoration: none;
-          font-size: 0.875rem;
-          font-weight: 500;
-          transition: background 0.2s ease;
-        }
-        .time-btn:hover {
-          background: #059669;
-        }
-        @media (max-width: 768px) {
-          .nav-container {
-            flex-direction: column;
-            padding: 0.75rem;
-          }
-          .nav-links {
-            justify-content: center;
-          }
-        }
+        .navbar { background: #1f2937; color: white; position: sticky; top: 0; z-index: 100; }
+        .nav-container { max-width: 1400px; margin: 0 auto; padding: 0.75rem 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .nav-brand a { color: white; font-size: 1.25rem; font-weight: bold; text-decoration: none; }
+        .nav-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+        .nav-link { color: #e5e7eb; text-decoration: none; font-size: 0.875rem; font-weight: 500; transition: color 0.2s; }
+        .nav-link:hover { color: white; }
+        .nav-link.active { color: white; border-bottom: 2px solid #2563eb; }
+        .nav-actions { display: flex; align-items: center; gap: 1rem; }
+        .time-btn { background: #10b981; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.875rem; font-weight: 500; }
+        @media (max-width: 768px) { .nav-container { flex-direction: column; padding: 0.75rem; } .nav-links { justify-content: center; } }
       `}</style>
     </nav>
   );
