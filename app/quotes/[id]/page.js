@@ -1,343 +1,197 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useFetch } from '@/app/hooks/useFetch';
+import { useToast } from '@/app/context/ToastContext';
+import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
+import Card from '@/app/components/ui/Card/Card';
+import Button from '@/app/components/ui/Button/Button';
+import StatusBadge from '@/app/components/common/StatusBadge';
+import CurrencyAmount from '@/app/components/CurrencyAmount';
+import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
+import EmptyState from '@/app/components/ui/EmptyState/EmptyState';
 
 export default function QuoteDetailPage({ params }) {
   const router = useRouter();
-  const [quote, setQuote] = useState(null);
-  const [client, setClient] = useState(null);
-  const [job, setJob] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({});
+  const { success, error: toastError } = useToast();
+  const { data: quote, loading, refetch } = useFetch(`/api/quotes/${params.id}`);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [versions, setVersions] = useState([]);
 
-  useEffect(() => {
-    fetchQuoteData();
-  }, [params.id]);
-
-  const fetchQuoteData = async () => {
-    try {
-      const res = await fetch(`/api/quotes/${params.id}`);
-      const data = await res.json();
-      setQuote(data);
-      setFormData(data);
-      
-      // Fetch client details
-      if (data.client_id) {
-        const clientRes = await fetch(`/api/clients/${data.client_id}`);
-        setClient(await clientRes.json());
-      }
-      
-      // Fetch job details if linked
-      if (data.job_number) {
-        const jobsRes = await fetch('/api/jobs');
-        const jobs = await jobsRes.json();
-        const linkedJob = jobs.find(j => j.lc_number === data.job_number);
-        setJob(linkedJob);
-      }
-    } catch (error) {
-      console.error('Error fetching quote:', error);
-    } finally {
-      setLoading(false);
-    }
+  const fetchVersions = async () => {
+    const res = await fetch(`/api/quotes/${params.id}/versions`);
+    setVersions(await res.json());
+    setShowVersionHistory(true);
   };
 
-  const updateQuote = async () => {
+  const updatePoStatus = async (status) => {
     const res = await fetch(`/api/quotes/${params.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
+      body: JSON.stringify({ po_status: status })
     });
-    
     if (res.ok) {
-      setEditing(false);
-      fetchQuoteData();
+      success('PO Status updated');
+      refetch();
     } else {
-      alert('Failed to update quote');
+      toastError('Failed to update status');
     }
   };
 
-  const updateStatus = async (newStatus) => {
-    const res = await fetch(`/api/quotes/${params.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...quote, status: newStatus })
-    });
-    
-    if (res.ok) {
-      fetchQuoteData();
-    } else {
-      alert('Failed to update status');
-    }
+  const createNewVersion = async () => {
+    // Redirect to edit page with copy of current quote
+    router.push(`/quotes/${params.id}/edit`);
   };
 
-  const deleteQuote = async () => {
-    if (confirm(`Delete quote "${quote?.quote_number}"?`)) {
-      await fetch(`/api/quotes/${params.id}`, { method: 'DELETE' });
-      router.push('/quotes');
-    }
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: '#fef3c7',
-      approved: '#d1fae5',
-      rejected: '#fee2e2',
-      invoiced: '#dbeafe'
-    };
-    return colors[status] || '#f3f4f6';
-  };
-
-  const getStatusTextColor = (status) => {
-    const colors = {
-      pending: '#92400e',
-      approved: '#065f46',
-      rejected: '#991b1b',
-      invoiced: '#1e40af'
-    };
-    return colors[status] || '#374151';
-  };
-
-  if (loading) {
-    return (
-      <div className="loading">
-        <div className="loading-spinner"></div>
-        <div>Loading quote details...</div>
-      </div>
-    );
-  }
-
-  if (!quote) {
-    return (
-      <div className="container">
-        <div className="error">Quote not found</div>
-        <Link href="/quotes" className="btn-secondary">← Back to Quotes</Link>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner text="Loading quote..." />;
+  if (!quote) return <EmptyState title="Quote not found" />;
 
   return (
-    <div className="container">
-      <div className="page-header">
-        <div>
-          <Link href="/quotes" className="back-link">← Back to Quotes</Link>
-          <h1>💰 Quote: {quote.quote_number}</h1>
-        </div>
-        <div className="header-actions">
-          <button onClick={() => setEditing(!editing)} className="btn-edit">
-            {editing ? 'Cancel' : 'Edit'}
-          </button>
-          <button onClick={deleteQuote} className="btn-delete">Delete</button>
-        </div>
-      </div>
-
-      {/* Status Bar */}
-      <div className="status-bar" style={{ background: getStatusColor(quote.status) }}>
-        <span className="status-label">Current Status:</span>
-        <span className="status-value" style={{ color: getStatusTextColor(quote.status) }}>
-          {quote.status?.toUpperCase()}
-        </span>
-        <div className="status-actions">
-          {quote.status !== 'approved' && (
-            <button onClick={() => updateStatus('approved')} className="status-btn approve">✓ Approve</button>
-          )}
-          {quote.status !== 'rejected' && (
-            <button onClick={() => updateStatus('rejected')} className="status-btn reject">✗ Reject</button>
-          )}
-          {quote.status !== 'invoiced' && quote.status === 'approved' && (
-            <button onClick={() => updateStatus('invoiced')} className="status-btn invoice">📄 Mark Invoiced</button>
-          )}
-        </div>
-      </div>
-
-      {/* Quote Details Card */}
-      <div className="detail-card">
-        <h3>Quote Information</h3>
-        {editing ? (
-          <div className="edit-form">
-            <div className="form-group">
-              <label>Quote Number</label>
-              <input value={formData.quote_number} onChange={e => setFormData({...formData, quote_number: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Quote Date</label>
-              <input type="date" value={formData.quote_date?.split('T')[0]} onChange={e => setFormData({...formData, quote_date: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Quote Amount</label>
-              <input type="number" step="0.01" value={formData.quote_amount} onChange={e => setFormData({...formData, quote_amount: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Currency</label>
-              <select value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})}>
-                <option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="ZAR">ZAR (R)</option>
-              </select>
-            </div>
-            <div className="form-group full-width">
-              <label>Notes</label>
-              <textarea value={formData.notes || ''} onChange={e => setFormData({...formData, notes: e.target.value})} rows="3" />
-            </div>
-            <button onClick={updateQuote} className="btn-primary">Save Changes</button>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+      <PageHeader 
+        title={`💰 Quote: ${quote.quote_number}`}
+        description={`Version ${quote.version} | Created: ${new Date(quote.quote_date).toLocaleDateString()}`}
+        action={
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Button onClick={createNewVersion} variant="secondary">✏️ Create New Version</Button>
+            <Button onClick={fetchVersions} variant="outline">📋 Version History</Button>
+            <Link href="/quotes"><Button variant="secondary">← Back</Button></Link>
           </div>
+        }
+      />
+
+      {/* Quote Details */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+        <Card>
+          <h3>Quote Information</h3>
+          <p><strong>Client:</strong> {quote.client_name}</p>
+          <p><strong>Site:</strong> {quote.site_name || '-'}</p>
+          <p><strong>Contact Person:</strong> {quote.contact_person || '-'}</p>
+          <p><strong>Prepared By:</strong> {quote.quote_prepared_by || '-'}</p>
+          <p><strong>Status:</strong> <StatusBadge status={quote.status} /></p>
+        </Card>
+        <Card>
+          <h3>Financial Summary</h3>
+          <p><strong>Subtotal Ex VAT:</strong> <CurrencyAmount amount={quote.subtotal || 0} /></p>
+          <p><strong>VAT (15%):</strong> <CurrencyAmount amount={quote.vat_amount || 0} /></p>
+          <p><strong>Total:</strong> <strong><CurrencyAmount amount={quote.total_amount || 0} /></strong></p>
+        </Card>
+        <Card>
+          <h3>Job Status</h3>
+          <p><strong>PO Status:</strong> 
+            <select value={quote.po_status} onChange={(e) => updatePoStatus(e.target.value)} style={{ marginLeft: '0.5rem', padding: '0.25rem' }}>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </p>
+          <p><strong>Invoice Status:</strong> <StatusBadge status={quote.invoice_status} /></p>
+          {quote.job_id && <p><strong>Linked Job:</strong> <Link href={`/jobs/${quote.job_id}`}>{quote.job_lc_number}</Link></p>}
+        </Card>
+      </div>
+
+      {/* Scope */}
+      {quote.scope_subject && (
+        <Card style={{ marginBottom: '1rem' }}>
+          <h3>Scope of Work</h3>
+          <p>{quote.scope_subject}</p>
+        </Card>
+      )}
+
+      {/* Items Table */}
+      <Card>
+        <h3>Quote Items</h3>
+        {quote.items?.length === 0 ? (
+          <p>No items found.</p>
         ) : (
-          <div className="details-grid">
-            <div className="detail-item">
-              <span className="label">Quote Number:</span>
-              <span className="value">{quote.quote_number}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Quote Date:</span>
-              <span className="value">{new Date(quote.quote_date).toLocaleDateString()}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Amount:</span>
-              <span className="value amount">{quote.currency} {quote.quote_amount?.toLocaleString()}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Status:</span>
-              <span className={`status-badge status-${quote.status}`}>{quote.status}</span>
-            </div>
-            {quote.notes && (
-              <div className="detail-item full-width">
-                <span className="label">Notes:</span>
-                <span className="value">{quote.notes}</span>
-              </div>
-            )}
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th>#</th><th>Description</th><th>Qty</th><th>Unit</th><th>UoM</th><th>Unit Price</th><th>Total Ex VAT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {quote.items?.map((item, idx) => (
+                <tr key={idx}>
+                  <td>{item.item_number}</td>
+                  <td>
+                    <strong>{item.description}</strong>
+                    {item.additional_description && <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{item.additional_description}</div>}
+                  </td>
+                  <td>{item.quantity}</td>
+                  <td>{item.unit || '-'}</td>
+                  <td>{item.unit_of_measure}</td>
+                  <td><CurrencyAmount amount={item.price_ex_vat} /></td>
+                  <td style={{ textAlign: 'right' }}><CurrencyAmount amount={item.quantity * item.price_ex_vat} /></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr><td colSpan="6" style={{ textAlign: 'right' }}>Subtotal:</td><td style={{ textAlign: 'right' }}><CurrencyAmount amount={quote.subtotal} /></td></tr>
+              <tr><td colSpan="6" style={{ textAlign: 'right' }}>VAT (15%):</td><td style={{ textAlign: 'right' }}><CurrencyAmount amount={quote.vat_amount} /></td></tr>
+              <tr><td colSpan="6" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total:</td><td style={{ textAlign: 'right', fontWeight: 'bold' }}><CurrencyAmount amount={quote.total_amount} /></td></tr>
+            </tfoot>
+          </table>
         )}
-      </div>
+      </Card>
 
-      {/* Client Information */}
-      <div className="detail-card">
-        <h3>🏢 Client Information</h3>
-        {client ? (
-          <div className="details-grid">
-            <div className="detail-item">
-              <span className="label">Client Name:</span>
-              <Link href={`/clients/${client.id}`} className="client-link">{client.client_name}</Link>
-            </div>
-            <div className="detail-item">
-              <span className="label">Contact Person:</span>
-              <span className="value">{client.contact_person || '-'}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Email:</span>
-              <span className="value">{client.email || '-'}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Phone:</span>
-              <span className="value">{client.phone || '-'}</span>
-            </div>
-            {client.client_address && (
-              <div className="detail-item full-width">
-                <span className="label">Address:</span>
-                <span className="value">{client.client_address}</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="no-data">No client linked to this quote.</p>
-        )}
-      </div>
-
-      {/* Linked Job Information */}
-      {job && (
-        <div className="detail-card">
-          <h3>📋 Linked Job</h3>
-          <div className="details-grid">
-            <div className="detail-item">
-              <span className="label">Job Number:</span>
-              <Link href={`/jobs/${job.id}`} className="job-link">{job.lc_number}</Link>
-            </div>
-            <div className="detail-item">
-              <span className="label">PO Status:</span>
-              <span className={`status-badge status-${job.po_status}`}>{job.po_status}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Completion:</span>
-              <span className={`status-badge status-${job.completion_status?.replace('_', '-')}`}>{job.completion_status}</span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Total Hours:</span>
-              <span className="value">{Math.round(job.total_hours || 0)} hrs</span>
-            </div>
+      {/* Version History Modal */}
+      {showVersionHistory && (
+        <div className="modal-overlay" onClick={() => setShowVersionHistory(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <h3>Version History</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr><th>Version</th><th>Date</th><th>Total</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {versions.map(v => (
+                  <tr key={v.id}>
+                    <td>v{v.version}</td>
+                    <td>{new Date(v.created_at).toLocaleDateString()}</td>
+                    <td><CurrencyAmount amount={v.total_amount} /></td>
+                    <td><StatusBadge status={v.status} /></td>
+                    <td><Link href={`/quotes/${v.id}`}>View</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <Button onClick={() => setShowVersionHistory(false)} style={{ marginTop: '1rem' }}>Close</Button>
           </div>
         </div>
       )}
 
-      {/* Quote Actions */}
-      <div className="action-buttons">
-        {quote.status === 'approved' && !quote.job_number && (
-          <Link href={`/jobs/new?quote_id=${quote.id}`} className="btn-primary">
-            Convert to Job →
-          </Link>
-        )}
-        <button onClick={() => window.print()} className="btn-secondary">
-          🖨️ Print Quote
-        </button>
-      </div>
-
       <style jsx>{`
-        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
-        .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
-        .back-link { color: #6b7280; text-decoration: none; display: inline-block; margin-bottom: 0.5rem; }
-        .back-link:hover { color: #2563eb; }
-        .page-header h1 { margin: 0; }
-        .header-actions { display: flex; gap: 0.75rem; }
-        
-        .status-bar { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; border-radius: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-        .status-label { font-weight: 600; font-size: 0.875rem; }
-        .status-value { font-weight: bold; font-size: 1rem; }
-        .status-actions { display: flex; gap: 0.5rem; margin-left: auto; }
-        .status-btn { padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.75rem; font-weight: 500; }
-        .status-btn.approve { background: #10b981; color: white; }
-        .status-btn.reject { background: #ef4444; color: white; }
-        .status-btn.invoice { background: #2563eb; color: white; }
-        
-        .detail-card { background: white; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .detail-card h3 { margin: 0 0 1rem 0; font-size: 1rem; }
-        
-        .details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-        .detail-item { display: flex; padding: 0.5rem; border-bottom: 1px solid #f3f4f6; }
-        .detail-item .label { width: 120px; font-weight: 500; color: #6b7280; font-size: 0.875rem; }
-        .detail-item .value { flex: 1; font-size: 0.875rem; }
-        .detail-item .value.amount { font-weight: bold; color: #111827; font-size: 1rem; }
-        .full-width { grid-column: span 2; }
-        
-        .client-link, .job-link { color: #2563eb; text-decoration: none; }
-        .client-link:hover, .job-link:hover { text-decoration: underline; }
-        
-        .edit-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-        .edit-form .form-group { margin-bottom: 0; }
-        .edit-form .full-width { grid-column: span 2; }
-        .edit-form label { display: block; margin-bottom: 0.25rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
-        .edit-form input, .edit-form select, .edit-form textarea { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.375rem; font-size: 0.875rem; }
-        
-        .action-buttons { display: flex; gap: 1rem; margin-top: 1rem; }
-        
-        .btn-primary { background: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; display: inline-block; border: none; cursor: pointer; }
-        .btn-secondary { background: #6b7280; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; display: inline-block; border: none; cursor: pointer; }
-        .btn-edit { background: #10b981; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; }
-        .btn-delete { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; }
-        
-        .status-badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
-        .status-pending { background: #fef3c7; color: #92400e; }
-        .status-approved { background: #d1fae5; color: #065f46; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
-        .status-invoiced { background: #dbeafe; color: #1e40af; }
-        
-        .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; }
-        .loading-spinner { width: 40px; height: 40px; border: 3px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .no-data { text-align: center; padding: 2rem; color: #6b7280; }
-        .error { text-align: center; padding: 2rem; color: #ef4444; }
-        
-        @media (max-width: 768px) { .container { padding: 1rem; } .details-grid { grid-template-columns: 1fr; } .full-width { grid-column: span 1; } .edit-form { grid-template-columns: 1fr; } .edit-form .full-width { grid-column: span 1; } .status-actions { margin-left: 0; width: 100%; } }
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .modal-content {
+          background: white;
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+          max-width: 600px;
+          width: 90%;
+          max-height: 80vh;
+          overflow-y: auto;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th, td {
+          padding: 0.5rem;
+          text-align: left;
+          border-bottom: 1px solid #e5e7eb;
+        }
       `}</style>
     </div>
   );
