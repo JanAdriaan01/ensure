@@ -17,8 +17,7 @@ export default function QuotesPage() {
   const { success, error: toastError } = useToast();
   const { data: quotes, loading, refetch } = useFetch('/api/quotes');
   const [search, setSearch] = useState('');
-  const [poFilter, setPoFilter] = useState('all');
-  const [invoiceFilter, setInvoiceFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -28,14 +27,14 @@ export default function QuotesPage() {
     success('Quotes refreshed');
   };
 
-  const updatePoStatus = async (id, status) => {
+  const updateQuoteStatus = async (id, newStatus) => {
     const res = await fetch(`/api/quotes/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ po_status: status })
+      body: JSON.stringify({ status: newStatus })
     });
     if (res.ok) {
-      success('PO Status updated');
+      success(`Quote status updated to ${newStatus}`);
       refetch();
     } else {
       toastError('Failed to update status');
@@ -45,26 +44,24 @@ export default function QuotesPage() {
   const filteredQuotes = quotes?.filter(quote => {
     const matchesSearch = quote.quote_number?.toLowerCase().includes(search.toLowerCase()) ||
       quote.client_name?.toLowerCase().includes(search.toLowerCase());
-    const matchesPo = poFilter === 'all' || quote.po_status === poFilter;
-    const matchesInvoice = invoiceFilter === 'all' || quote.invoice_status === invoiceFilter;
-    return matchesSearch && matchesPo && matchesInvoice;
+    const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
+    return matchesSearch && matchesStatus;
   }) || [];
 
   const columns = [
     { header: 'Quote #', accessor: 'quote_number', width: '12%' },
     { header: 'Date', accessor: 'quote_date', width: '10%', render: (v) => new Date(v).toLocaleDateString() },
     { header: 'Client', accessor: 'client_name', width: '15%' },
-    { header: 'Site', accessor: 'site_name', width: '12%' },
-    { header: 'Scope', accessor: 'scope_subject', width: '15%', render: (v) => v?.substring(0, 30) + (v?.length > 30 ? '...' : '') },
+    { header: 'Scope', accessor: 'scope_subject', width: '20%', render: (v) => v?.substring(0, 30) + (v?.length > 30 ? '...' : '') },
     { header: 'Amount', accessor: 'total_amount', width: '12%', align: 'right', render: (v) => <CurrencyAmount amount={v || 0} /> },
     { 
-      header: 'PO Status', 
-      accessor: 'po_status', 
-      width: '10%',
+      header: 'Status', 
+      accessor: 'status', 
+      width: '12%',
       render: (value, row) => (
         <select
           value={value}
-          onChange={(e) => updatePoStatus(row.id, e.target.value)}
+          onChange={(e) => updateQuoteStatus(row.id, e.target.value)}
           style={{ padding: '0.25rem', fontSize: '0.7rem', borderRadius: '0.25rem' }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -74,8 +71,16 @@ export default function QuotesPage() {
         </select>
       )
     },
-    { header: 'Invoice Status', accessor: 'invoice_status', width: '10%', render: (v) => <StatusBadge status={v} size="sm" /> },
-    { header: 'Version', accessor: 'version', width: '6%', align: 'center' }
+    { 
+      header: 'Linked Job', 
+      accessor: 'job_lc_number', 
+      width: '12%',
+      render: (value, row) => value ? (
+        <Link href={`/jobs/${row.job_id}`} onClick={(e) => e.stopPropagation()} style={{ color: '#2563eb', textDecoration: 'none' }}>
+          {value}
+        </Link>
+      ) : row.status === 'approved' ? 'Creating...' : '-'
+    }
   ];
 
   if (loading) return <LoadingSpinner text="Loading quotes..." />;
@@ -84,7 +89,7 @@ export default function QuotesPage() {
     <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
       <PageHeader 
         title="💰 Quote Management"
-        description="Create and manage quotes. Quotes cannot be deleted - only versioned."
+        description="Create quotes. When approved, jobs are automatically created."
         action={
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <Link href="/quotes/new">
@@ -103,13 +108,9 @@ export default function QuotesPage() {
         padding: '0.75rem 1rem', 
         borderRadius: '0.5rem', 
         marginBottom: '1rem',
-        fontSize: '0.875rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem'
+        fontSize: '0.875rem'
       }}>
-        <span>ℹ️</span>
-        Quotes cannot be deleted. When edited, a new version is created. Approved quotes automatically create Jobs.
+        <span>ℹ️ When you change a quote status to "Approved", a Job is automatically created.</span>
       </div>
 
       {/* Search and Filters */}
@@ -121,33 +122,21 @@ export default function QuotesPage() {
           onChange={(e) => setSearch(e.target.value)}
           style={{ flex: 1, padding: '0.5rem', border: '1px solid #ddd', borderRadius: '0.5rem' }}
         />
-        <select value={poFilter} onChange={(e) => setPoFilter(e.target.value)} style={{ padding: '0.5rem', borderRadius: '0.5rem' }}>
-          <option value="all">All PO Status</option>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: '0.5rem', borderRadius: '0.5rem' }}>
+          <option value="all">All Status</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </select>
-        <select value={invoiceFilter} onChange={(e) => setInvoiceFilter(e.target.value)} style={{ padding: '0.5rem', borderRadius: '0.5rem' }}>
-          <option value="all">All Invoice Status</option>
-          <option value="pending">Pending</option>
-          <option value="invoiced">Invoiced</option>
-        </select>
       </div>
 
-      {/* Quotes Table - No Delete Button */}
+      {/* Quotes Table */}
       <Table 
         columns={columns} 
         data={filteredQuotes} 
         onRowClick={(row) => router.push(`/quotes/${row.id}`)}
         emptyMessage="No quotes found. Click 'New Quote' to create one."
       />
-
-      <style jsx>{`
-        select {
-          border: 1px solid #ddd;
-          background: white;
-        }
-      `}</style>
     </div>
   );
 }
