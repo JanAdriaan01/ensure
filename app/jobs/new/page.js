@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function NewJobPage() {
+// Component that uses useSearchParams - must be wrapped in Suspense
+function NewJobForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const presetClientId = searchParams.get('client_id');
@@ -155,5 +156,14 @@ export default function NewJobPage() {
         @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .container { padding: 1rem; } }
       `}</style>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function NewJobPage() {
+  return (
+    <Suspense fallback={<div className="loading">Loading...</div>}>
+      <NewJobForm />
+    </Suspense>
   );
 }

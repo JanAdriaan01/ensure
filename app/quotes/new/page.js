@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function NewQuotePage() {
+// Component that uses useSearchParams - must be wrapped in Suspense
+function NewQuoteForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const presetClientId = searchParams.get('client_id');
@@ -42,7 +43,6 @@ export default function NewQuotePage() {
     try {
       const res = await fetch('/api/jobs');
       const data = await res.json();
-      // Only show active jobs that aren't completed
       setJobs(Array.isArray(data) ? data.filter(j => j.completion_status !== 'completed') : []);
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -84,7 +84,6 @@ export default function NewQuotePage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Generate a unique quote number suggestion
   const generateQuoteNumber = () => {
     const year = new Date().getFullYear();
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -224,12 +223,10 @@ export default function NewQuotePage() {
         .full-width { grid-column: span 2; }
         .form-group label { display: block; margin-bottom: 0.375rem; font-weight: 500; font-size: 0.875rem; color: #374151; }
         .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #2563eb; }
         
         .input-with-hint { display: flex; gap: 0.5rem; }
         .input-with-hint input { flex: 1; }
         .btn-generate { background: #f3f4f6; border: 1px solid #d1d5db; padding: 0.625rem 1rem; border-radius: 0.375rem; cursor: pointer; font-size: 0.75rem; white-space: nowrap; }
-        .btn-generate:hover { background: #e5e7eb; }
         
         .amount-input { display: flex; align-items: center; gap: 0.25rem; }
         .currency-symbol { background: #f3f4f6; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 0.375rem 0 0 0.375rem; font-weight: 500; }
@@ -237,12 +234,19 @@ export default function NewQuotePage() {
         
         .form-actions { display: flex; gap: 1rem; justify-content: flex-end; }
         .btn-primary { background: #2563eb; color: white; padding: 0.625rem 1.25rem; border-radius: 0.375rem; border: none; cursor: pointer; font-weight: 500; }
-        .btn-primary:hover { background: #1d4ed8; }
         .btn-secondary { background: #6b7280; color: white; padding: 0.625rem 1.25rem; border-radius: 0.375rem; text-decoration: none; }
-        .btn-secondary:hover { background: #4b5563; }
         
         @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .full-width { grid-column: span 1; } .container { padding: 1rem; } }
       `}</style>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function NewQuotePage() {
+  return (
+    <Suspense fallback={<div className="loading">Loading...</div>}>
+      <NewQuoteForm />
+    </Suspense>
   );
 }
