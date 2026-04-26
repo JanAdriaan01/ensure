@@ -404,6 +404,7 @@ export default function JobDetailPage({ params }) {
         ))}
       </div>
 
+      {/* Tab: Job Items */}
       {activeTab === 'items' && (
         <div>
           <div style={{ marginBottom: '1rem' }}>
@@ -412,7 +413,7 @@ export default function JobDetailPage({ params }) {
             </p>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Item</th>
@@ -426,7 +427,11 @@ export default function JobDetailPage({ params }) {
               </thead>
               <tbody>
                 {jobItems.length === 0 ? (
-                  <tr><td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No items for this job yet. Click "Add Item" to create one.</td></tr>
+                  <tr>
+                    <td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                      No items for this job yet. Click "Add Item" to create one.
+                    </td>
+                  </tr>
                 ) : (
                   jobItems.map(item => (
                     <tr key={item.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
@@ -436,7 +441,11 @@ export default function JobDetailPage({ params }) {
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quoted_unit_price} /></td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quoted_total} /></td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        {item.is_finalized ? <span style={{ color: '#10b981' }}>✓ Ready for Invoice</span> : <StatusBadge status="pending" />}
+                        {item.is_finalized ? (
+                          <span style={{ color: '#10b981' }}>✓ Ready for Invoice</span>
+                        ) : (
+                          <StatusBadge status="pending" />
+                        )}
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
@@ -446,10 +455,12 @@ export default function JobDetailPage({ params }) {
                               <Button variant="success" size="sm" onClick={() => finalizeItem(item)}>Finalize</Button>
                             </>
                           )}
-                          {item.is_finalized && <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>Invoicing Ready</span>}
+                          {item.is_finalized && (
+                            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>Invoicing Ready</span>
+                          )}
                         </div>
                       </td>
-                    </table>
+                    </tr>
                   ))
                 )}
               </tbody>
@@ -458,6 +469,7 @@ export default function JobDetailPage({ params }) {
         </div>
       )}
 
+      {/* Tab: Original Quote */}
       {activeTab === 'quote' && (
         <Card>
           {quote ? (
@@ -481,11 +493,23 @@ export default function JobDetailPage({ params }) {
                 <h4>Original Quote Items (Reference Only)</h4>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr style={{ background: '#f9fafb' }}><th style={{ padding: '0.75rem', textAlign: 'left' }}>Item</th><th style={{ padding: '0.75rem', textAlign: 'right' }}>Qty</th><th style={{ padding: '0.75rem', textAlign: 'right' }}>Unit Price</th><th style={{ padding: '0.75rem', textAlign: 'right' }}>Total</th></tr></thead>
+                    <thead>
+                      <tr style={{ background: '#f9fafb' }}>
+                        <th style={{ padding: '0.75rem', textAlign: 'left' }}>Item</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Qty</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Unit Price</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Total</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {quote.items?.map((item, idx) => (
                         <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                          <td style={{ padding: '0.75rem' }}><strong>{item.description}</strong>{item.additional_description && <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{item.additional_description}</div>}</td>
+                          <td style={{ padding: '0.75rem' }}>
+                            <strong>{item.description}</strong>
+                            {item.additional_description && (
+                              <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{item.additional_description}</div>
+                            )}
+                          </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}>{item.quantity}</td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.price_ex_vat} /></td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quantity * item.price_ex_vat} /></td>
@@ -493,34 +517,102 @@ export default function JobDetailPage({ params }) {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr style={{ background: '#f9fafb' }}><td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>Original Subtotal:</td><td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}><CurrencyAmount amount={quote.subtotal || 0} /></td></tr>
-                      <tr><td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right' }}>VAT (15%):</td><td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={quote.vat_amount || 0} /></td></tr>
-                      <tr style={{ background: '#f0fdf4' }}><td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Original Total:</td><td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}><CurrencyAmount amount={quote.total_amount || 0} /></td></tr>
+                      <tr style={{ background: '#f9fafb' }}>
+                        <td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>Original Subtotal:</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}><CurrencyAmount amount={quote.subtotal || 0} /></td>
+                      </tr>
+                      <tr>
+                        <td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right' }}>VAT (15%):</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={quote.vat_amount || 0} /></td>
+                      </tr>
+                      <tr style={{ background: '#f0fdf4' }}>
+                        <td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Original Total:</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>
+                          <CurrencyAmount amount={quote.total_amount || 0} />
+                        </td>
+                      </tr>
                     </tfoot>
                   </table>
                 </div>
               </div>
             </>
           ) : (
-            <div style={{ textAlign: 'center', padding: '2rem' }}><p>No quote linked to this job.</p></div>
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <p>No quote linked to this job.</p>
+            </div>
           )}
         </Card>
       )}
 
+      {/* Tab: Progress */}
       {activeTab === 'progress' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-          <Card><h3>💰 Financial Progress</h3><div><strong>PO Amount:</strong> {quote?.po_amount ? <CurrencyAmount amount={quote.po_amount} /> : 'Not received'}</div><div><strong>Current Total:</strong> <CurrencyAmount amount={summary.total_actual} /></div><div><strong>Finalized:</strong> <CurrencyAmount amount={summary.completed_value} /></div><div><strong>Remaining:</strong> <CurrencyAmount amount={summary.total_actual - summary.completed_value} /></div></Card>
-          <Card><h3>📋 Item Status</h3><div><strong>Total Items:</strong> {jobItems.length}</div><div><strong>Finalized:</strong> {jobItems.filter(i => i.is_finalized).length}</div><div><strong>In Progress:</strong> {jobItems.filter(i => !i.is_finalized).length}</div></Card>
-          <Card><h3>📈 Job Status</h3><div><strong>Current Status:</strong> <StatusBadge status={jobStatus} /></div><div><strong>PO Status:</strong> {poDisplayStatus === 'pending_receipt' ? 'Awaiting PO' : poDisplayStatus === 'po_received' ? 'PO Received' : poDisplayStatus === 'partial_invoiced' ? 'Partial Invoiced' : 'Fully Invoiced'}</div><div><strong>Completion:</strong> {progressPercentage}%</div></Card>
+          <Card>
+            <h3 style={{ marginBottom: '1rem' }}>💰 Financial Progress</h3>
+            <div><strong>PO Amount:</strong> {quote?.po_amount ? <CurrencyAmount amount={quote.po_amount} /> : 'Not received'}</div>
+            <div><strong>Current Total:</strong> <CurrencyAmount amount={summary.total_actual} /></div>
+            <div><strong>Finalized:</strong> <CurrencyAmount amount={summary.completed_value} /></div>
+            <div><strong>Remaining:</strong> <CurrencyAmount amount={summary.total_actual - summary.completed_value} /></div>
+          </Card>
+
+          <Card>
+            <h3 style={{ marginBottom: '1rem' }}>📋 Item Status</h3>
+            <div><strong>Total Items:</strong> {jobItems.length}</div>
+            <div><strong>Finalized:</strong> {jobItems.filter(i => i.is_finalized).length}</div>
+            <div><strong>In Progress:</strong> {jobItems.filter(i => !i.is_finalized).length}</div>
+          </Card>
+
+          <Card>
+            <h3 style={{ marginBottom: '1rem' }}>📈 Job Status</h3>
+            <div><strong>Current Status:</strong> <StatusBadge status={jobStatus} /></div>
+            <div><strong>PO Status:</strong> {
+              poDisplayStatus === 'pending_receipt' ? 'Awaiting PO' : 
+              poDisplayStatus === 'po_received' ? 'PO Received' : 
+              poDisplayStatus === 'partial_invoiced' ? 'Partial Invoiced' : 'Fully Invoiced'
+            }</div>
+            <div><strong>Completion:</strong> {progressPercentage}%</div>
+          </Card>
         </div>
       )}
 
+      {/* Tab: Quick Actions */}
       {activeTab === 'actions' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-          <Link href={`/jobs/${params.id}/hours`} style={{ textDecoration: 'none' }}><Card hover><div style={{ textAlign: 'center' }}>⏰<br/><strong>Book Employee Hours</strong></div></Card></Link>
-          <Link href={`/jobs/${params.id}/financial`} style={{ textDecoration: 'none' }}><Card hover><div style={{ textAlign: 'center' }}>💰<br/><strong>Financial / Invoicing</strong></div></Card></Link>
-          <Link href={`/jobs/${params.id}/stock`} style={{ textDecoration: 'none' }}><Card hover><div style={{ textAlign: 'center' }}>📦<br/><strong>Stock Management</strong></div></Card></Link>
-          <Link href={`/jobs/${params.id}/tools`} style={{ textDecoration: 'none' }}><Card hover><div style={{ textAlign: 'center' }}>🔧<br/><strong>Tools Management</strong></div></Card></Link>
+          <Link href={`/jobs/${params.id}/hours`} style={{ textDecoration: 'none' }}>
+            <Card hover>
+              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏰</div>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Book Employee Hours</strong>
+              </div>
+            </Card>
+          </Link>
+
+          <Link href={`/jobs/${params.id}/financial`} style={{ textDecoration: 'none' }}>
+            <Card hover>
+              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💰</div>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Financial / Invoicing</strong>
+              </div>
+            </Card>
+          </Link>
+
+          <Link href={`/jobs/${params.id}/stock`} style={{ textDecoration: 'none' }}>
+            <Card hover>
+              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📦</div>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Stock Management</strong>
+              </div>
+            </Card>
+          </Link>
+
+          <Link href={`/jobs/${params.id}/tools`} style={{ textDecoration: 'none' }}>
+            <Card hover>
+              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔧</div>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Tools Management</strong>
+              </div>
+            </Card>
+          </Link>
         </div>
       )}
 
@@ -531,22 +623,67 @@ export default function JobDetailPage({ params }) {
             <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
               Original: {selectedItem.original_quantity} @ <CurrencyAmount amount={selectedItem.original_price} />
             </div>
-            <FormInput label="Item Name" value={selectedItem.item_name} onChange={e => setSelectedItem({...selectedItem, item_name: e.target.value})} />
-            <FormTextarea label="Description" value={selectedItem.description} onChange={e => setSelectedItem({...selectedItem, description: e.target.value})} />
-            <FormInput label="Quantity" type="number" step="0.01" value={selectedItem.quoted_quantity} onChange={e => setSelectedItem({...selectedItem, quoted_quantity: parseFloat(e.target.value)})} />
-            <FormCurrencyInput label="Unit Price" value={selectedItem.quoted_unit_price} onChange={e => setSelectedItem({...selectedItem, quoted_unit_price: parseFloat(e.target.value)})} />
-            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem' }}><Button onClick={saveItemEdit}>Save Changes</Button><Button variant="secondary" onClick={() => setShowEditItemModal(false)}>Cancel</Button></div>
+            <FormInput 
+              label="Item Name" 
+              value={selectedItem.item_name} 
+              onChange={e => setSelectedItem({...selectedItem, item_name: e.target.value})} 
+            />
+            <FormTextarea 
+              label="Description" 
+              value={selectedItem.description} 
+              onChange={e => setSelectedItem({...selectedItem, description: e.target.value})} 
+            />
+            <FormInput 
+              label="Quantity" 
+              type="number" 
+              step="0.01" 
+              value={selectedItem.quoted_quantity} 
+              onChange={e => setSelectedItem({...selectedItem, quoted_quantity: parseFloat(e.target.value)})} 
+            />
+            <FormCurrencyInput 
+              label="Unit Price" 
+              value={selectedItem.quoted_unit_price} 
+              onChange={e => setSelectedItem({...selectedItem, quoted_unit_price: parseFloat(e.target.value)})} 
+            />
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem' }}>
+              <Button onClick={saveItemEdit}>Save Changes</Button>
+              <Button variant="secondary" onClick={() => setShowEditItemModal(false)}>Cancel</Button>
+            </div>
           </div>
         )}
       </Modal>
 
       {/* Add Item Modal */}
       <Modal isOpen={showAddItemModal} onClose={() => setShowAddItemModal(false)} title="Add New Item">
-        <FormInput label="Item Name" value={newItem.item_name} onChange={e => setNewItem({...newItem, item_name: e.target.value})} required />
-        <FormTextarea label="Description" value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
-        <FormInput label="Quantity" type="number" step="0.01" value={newItem.quoted_quantity} onChange={e => setNewItem({...newItem, quoted_quantity: parseFloat(e.target.value)})} />
-        <FormCurrencyInput label="Unit Price" value={newItem.quoted_unit_price} onChange={e => setNewItem({...newItem, quoted_unit_price: parseFloat(e.target.value)})} />
-        <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem' }}><Button onClick={addNewItem}>Add Item</Button><Button variant="secondary" onClick={() => setShowAddItemModal(false)}>Cancel</Button></div>
+        <div>
+          <FormInput 
+            label="Item Name" 
+            value={newItem.item_name} 
+            onChange={e => setNewItem({...newItem, item_name: e.target.value})} 
+            required 
+          />
+          <FormTextarea 
+            label="Description" 
+            value={newItem.description} 
+            onChange={e => setNewItem({...newItem, description: e.target.value})} 
+          />
+          <FormInput 
+            label="Quantity" 
+            type="number" 
+            step="0.01" 
+            value={newItem.quoted_quantity} 
+            onChange={e => setNewItem({...newItem, quoted_quantity: parseFloat(e.target.value)})} 
+          />
+          <FormCurrencyInput 
+            label="Unit Price" 
+            value={newItem.quoted_unit_price} 
+            onChange={e => setNewItem({...newItem, quoted_unit_price: parseFloat(e.target.value)})} 
+          />
+          <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem' }}>
+            <Button onClick={addNewItem}>Add Item</Button>
+            <Button variant="secondary" onClick={() => setShowAddItemModal(false)}>Cancel</Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Variance PO Modal */}
