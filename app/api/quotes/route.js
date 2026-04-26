@@ -131,16 +131,32 @@ export async function POST(request) {
       // Update quote with job reference
       await query('UPDATE quotes SET job_id = $1 WHERE id = $2', [jobId, quoteId]);
       
-      // Create job items from quote items
+      // Create job items from quote items (without quoted_total - it's generated)
       if (items && Array.isArray(items) && items.length > 0) {
         for (const item of items) {
           await query(
             `INSERT INTO job_items (
-              job_id, item_name, description, quoted_quantity, 
-              quoted_unit_price, quoted_total
-            ) VALUES ($1, $2, $3, $4, $5, $6)`,
-            [jobId, item.description, item.additional_description || null, 
-             item.quantity, item.price_ex_vat, item.quantity * item.price_ex_vat]
+              job_id, 
+              item_name, 
+              description, 
+              quoted_quantity, 
+              quoted_unit_price, 
+              completion_status,
+              actual_quantity,
+              actual_cost,
+              is_finalized
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+              jobId, 
+              item.description, 
+              item.additional_description || null, 
+              item.quantity, 
+              item.price_ex_vat, 
+              'pending',
+              0,
+              0,
+              false
+            ]
           );
         }
       }

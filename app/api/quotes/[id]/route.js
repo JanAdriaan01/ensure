@@ -6,7 +6,6 @@ export async function GET(request, { params }) {
   try {
     const { id } = params;
     
-    // Get quote details
     const quoteResult = await query(`
       SELECT q.*, c.client_name 
       FROM quotes q
@@ -18,7 +17,6 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
     
-    // Get quote items
     const itemsResult = await query(`
       SELECT * FROM quote_items 
       WHERE quote_id = $1 
@@ -35,7 +33,7 @@ export async function GET(request, { params }) {
   }
 }
 
-// PATCH - Update quote status (approve/reject) and optionally create job
+// PATCH - Update quote status (approve/reject) and create job
 export async function PATCH(request, { params }) {
   try {
     const { id } = params;
@@ -84,15 +82,31 @@ export async function PATCH(request, { params }) {
       // Get quote items
       const quoteItems = await query('SELECT * FROM quote_items WHERE quote_id = $1', [id]);
       
-      // Create job items from quote items
+      // Create job items from quote items - WITHOUT quoted_total (it's generated)
       for (const item of quoteItems.rows) {
         await query(
           `INSERT INTO job_items (
-            job_id, item_name, description, quoted_quantity, 
-            quoted_unit_price, quoted_total
-          ) VALUES ($1, $2, $3, $4, $5, $6)`,
-          [jobId, item.description, item.additional_description || null, 
-           item.quantity, item.price_ex_vat, item.quantity * item.price_ex_vat]
+            job_id, 
+            item_name, 
+            description, 
+            quoted_quantity, 
+            quoted_unit_price, 
+            completion_status,
+            actual_quantity,
+            actual_cost,
+            is_finalized
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            jobId, 
+            item.description, 
+            item.additional_description || null, 
+            item.quantity, 
+            item.price_ex_vat, 
+            'pending',
+            0,
+            0,
+            false
+          ]
         );
       }
       
@@ -116,30 +130,28 @@ export async function PATCH(request, { params }) {
   }
 }
 
-// PUT - Alternative full update (calls PATCH internally)
+// PUT - Alternative full update
 export async function PUT(request, { params }) {
   try {
     const { id } = params;
     const body = await request.json();
     const { status } = body;
     
-    // Reuse PATCH logic
-    const patchRequest = new Request(request.url, {
-      method: 'PATCH',
-      body: JSON.stringify({ status })
-    });
+    const result = await query(
+      'UPDATE quotes SET status = $1 WHERE id = $2 RETURNING *',
+      [status, id]
+    );
     
-    return await PATCH(patchRequest, { params });
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating quote:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// DELETE - Prevent deletion (quotes cannot be deleted, only versioned)
+// DELETE - Prevent deletion
 export async function DELETE(request, { params }) {
   return NextResponse.json({ 
-    error: 'Quotes cannot be deleted. Create a new version instead.',
-    code: 'QUOTE_DELETE_NOT_ALLOWED'
+    error: 'Quotes cannot be deleted. Create a new version instead.'
   }, { status: 405 });
 }
