@@ -27,12 +27,20 @@ export default function JobsPage() {
 
   const fetchJobs = async () => {
     try {
-      const res = await fetch('/api/jobs');
-      if (!res.ok) throw new Error('Failed to fetch jobs');
-      const data = await res.json();
-      setJobs(Array.isArray(data) ? data : []);
+      setLoading(true);
       setError(null);
+      const res = await fetch('/api/jobs');
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log('Jobs fetched:', data);
+      setJobs(Array.isArray(data) ? data : []);
     } catch (err) {
+      console.error('Fetch jobs error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -56,8 +64,8 @@ export default function JobsPage() {
   }) || [];
 
   const columns = [
-    { header: 'LC Number', accessor: 'lc_number', width: '18%' },
-    { header: 'Client', accessor: 'client_name', width: '22%' },
+    { header: 'LC Number', accessor: 'lc_number', width: '20%' },
+    { header: 'Client', accessor: 'client_name', width: '25%' },
     { 
       header: 'Status', 
       accessor: 'completion_status', 
@@ -67,27 +75,50 @@ export default function JobsPage() {
     { 
       header: 'PO Amount', 
       accessor: 'po_amount', 
-      width: '15%',
+      width: '20%',
       align: 'right',
       render: (value) => value ? <CurrencyAmount amount={value} /> : '-'
     },
     { 
-      header: 'Total Hours', 
-      accessor: 'total_hours', 
-      width: '15%',
-      align: 'right',
-      render: (value) => `${Math.round(value || 0)} hrs`
-    },
-    { 
       header: 'Quote #', 
       accessor: 'quote_number', 
-      width: '15%',
+      width: '20%',
       render: (value, row) => value || '-'
     }
   ];
 
   if (loading) return <LoadingSpinner text="Loading jobs..." />;
-  if (error) return <div style={{ padding: '2rem', textAlign: 'center', color: 'red' }}>Error: {error}<br /><button onClick={fetchJobs}>Retry</button></div>;
+
+  if (error) {
+    return (
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+        <PageHeader title="📋 Job Management" description="Manage all jobs" />
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '3rem', 
+          background: '#fee2e2', 
+          borderRadius: '0.75rem',
+          color: '#991b1b'
+        }}>
+          <p>Error: {error}</p>
+          <button 
+            onClick={fetchJobs} 
+            style={{ 
+              marginTop: '1rem', 
+              padding: '0.5rem 1rem',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
@@ -114,7 +145,7 @@ export default function JobsPage() {
         gap: '0.5rem'
       }}>
         <span>ℹ️</span>
-        Jobs are automatically created when you record a PO on an approved quote. Manage all job work here.
+        Jobs are automatically created when you record a PO on an approved quote.
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
