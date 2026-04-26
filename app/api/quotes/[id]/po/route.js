@@ -6,7 +6,6 @@ export async function POST(request, { params }) {
     const { id } = params;
     const { po_number, po_amount, po_date, po_document } = await request.json();
     
-    // Validate required fields
     if (!po_number || !po_amount) {
       return NextResponse.json({ error: 'PO Number and Amount are required' }, { status: 400 });
     }
@@ -14,8 +13,23 @@ export async function POST(request, { params }) {
     // Start transaction
     await query('BEGIN');
     
-    // Update quote with PO information
-    const result = await query(
+    // Get the quote first
+    const quoteResult = await query('SELECT * FROM quotes WHERE id = $1', [id]);
+    if (quoteResult.rows.length === 0) {
+      await query('ROLLBACK');
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+    
+    const quote = quoteResult.rows[0];
+    
+    // Check if PO already received (prevent double submission)
+    if (quote.po_received === true) {
+      await query('ROLLBACK');
+      return NextResponse.json({ error: 'PO already received for this quote. Cannot update.' }, { status: 400 });
+    }
+    
+    // Update quote with PO information - this locks the quote
+    const updateResult = await query(
       `UPDATE quotes 
        SET po_number = $1, 
            po_amount = $2, 
@@ -28,17 +42,42 @@ export async function POST(request, { params }) {
       [po_number, po_amount, po_date, po_document, id]
     );
     
-    if (result.rows.length === 0) {
-      await query('ROLLBACK');
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
-    }
+    // Create the job
+    const lcNumber = `JOB-${quote.quote_number}`;
     
-    // Update the linked job's po_amount if exists
-    const quote = result.rows[0];
-    if (quote.job_id) {
+    const jobResult = await query(
+      `INSERT INTO jobs (
+        lc_number, 
+        client_id, 
+        po_status, 
+        completion_status, 
+        po_amount, 
+        quote_id, 
+        total_quoted
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [lcNumber, quote.client_id, 'approved', 'not_started', po_amount, id, quote.total_amount || 0]
+    );
+    
+    const jobId = jobResult.rows[0].id;
+    
+    // Link job back to quote
+    await query('UPDATE quotes SET job_id = $1 WHERE id = $2', [jobId, id]);
+    
+    // Get quote items
+    const quoteItems = await query('SELECT * FROM quote_items WHERE quote_id = $1', [id]);
+    
+    // Create job items from quote items
+    for (const item of quoteItems.rows) {
       await query(
-        'UPDATE jobs SET po_amount = $1 WHERE id = $2',
-        [po_amount, quote.job_id]
+        `INSERT INTO job_items (
+          job_id, 
+          item_name, 
+          description, 
+          quoted_quantity, 
+          quoted_unit_price, 
+          completion_status
+        ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [jobId, item.description, item.additional_description || null, item.quantity, item.price_ex_vat, 'pending']
       );
     }
     
@@ -46,9 +85,10 @@ export async function POST(request, { params }) {
     
     return NextResponse.json({ 
       success: true, 
-      quote: result.rows[0],
-      message: 'PO recorded successfully'
+      job_id: jobId,
+      message: 'PO recorded and job created successfully'
     });
+    
   } catch (error) {
     await query('ROLLBACK');
     console.error('Error recording PO:', error);
@@ -60,7 +100,7 @@ export async function GET(request, { params }) {
   try {
     const { id } = params;
     const result = await query(
-      'SELECT po_number, po_amount, po_date, po_document, po_received FROM quotes WHERE id = $1',
+      'SELECT po_number, po_amount, po_date, po_document, po_received, job_id FROM quotes WHERE id = $1',
       [id]
     );
     

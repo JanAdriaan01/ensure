@@ -31,9 +31,7 @@ export default function JobDetailPage({ params }) {
   });
   const [showEditItemModal, setShowEditItemModal] = useState(false);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
-  const [showVarianceModal, setShowVarianceModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [varianceAmount, setVarianceAmount] = useState(0);
   const [newItem, setNewItem] = useState({
     item_name: '',
     description: '',
@@ -120,34 +118,18 @@ export default function JobDetailPage({ params }) {
   };
 
   const saveItemEdit = async () => {
-    const newTotal = selectedItem.quoted_quantity * selectedItem.quoted_unit_price;
-    const originalTotal = selectedItem.original_total;
-    
-    const currentPoAmount = quote?.po_amount || 0;
-    const currentJobTotal = summary.total_actual - originalTotal + newTotal;
-    
-    if (currentJobTotal > currentPoAmount && currentPoAmount > 0) {
-      setVarianceAmount(currentJobTotal - currentPoAmount);
-      setShowVarianceModal(true);
-      return;
-    }
-    
     await performSaveEdit();
   };
 
   const performSaveEdit = async () => {
     try {
-      const newTotal = selectedItem.quoted_quantity * selectedItem.quoted_unit_price;
-      const isRevision = newTotal !== selectedItem.original_total;
-      
       const res = await fetch(`/api/jobs/${params.id}/items/${selectedItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quoted_quantity: selectedItem.quoted_quantity,
           quoted_unit_price: selectedItem.quoted_unit_price,
-          description: selectedItem.description,
-          is_revision: isRevision
+          description: selectedItem.description
         })
       });
       if (res.ok) {
@@ -162,52 +144,9 @@ export default function JobDetailPage({ params }) {
     }
   };
 
-  const requestVariancePO = async () => {
-    try {
-      const res = await fetch(`/api/quotes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quote_number: `VAR-${quote.quote_number}-${new Date().getFullYear()}`,
-          client_id: quote.client_id,
-          original_quote_id: quote.id,
-          scope_subject: `Variance PO for ${quote.quote_number} - Additional ${varianceAmount}`,
-          status: 'pending',
-          total_amount: varianceAmount,
-          items: [{
-            item_number: 1,
-            description: `Variance for overage on ${selectedItem.item_name}`,
-            quantity: 1,
-            price_ex_vat: varianceAmount
-          }]
-        })
-      });
-      
-      if (res.ok) {
-        success('Variance PO request created. Please have it approved.');
-        setShowVarianceModal(false);
-        setShowEditItemModal(false);
-      } else {
-        toastError('Failed to create variance PO');
-      }
-    } catch (error) {
-      toastError('Failed to create variance PO');
-    }
-  };
-
   const addNewItem = async () => {
     if (!newItem.item_name) {
       toastError('Item name is required');
-      return;
-    }
-    
-    const newTotal = newItem.quoted_quantity * newItem.quoted_unit_price;
-    const currentPoAmount = quote?.po_amount || 0;
-    const currentJobTotal = summary.total_actual + newTotal;
-    
-    if (currentJobTotal > currentPoAmount && currentPoAmount > 0) {
-      setVarianceAmount(currentJobTotal - currentPoAmount);
-      setShowVarianceModal(true);
       return;
     }
     
@@ -278,17 +217,6 @@ export default function JobDetailPage({ params }) {
     ? (summary.completed_value / summary.total_actual * 100).toFixed(1) 
     : 0;
 
-  const getPoDisplayStatus = () => {
-    if (!quote?.po_received) return 'pending_receipt';
-    const totalItems = jobItems.length;
-    const finalizedItems = jobItems.filter(i => i.is_finalized).length;
-    if (finalizedItems === 0) return 'po_received';
-    if (finalizedItems === totalItems) return 'fully_invoiced';
-    return 'partial_invoiced';
-  };
-
-  const poDisplayStatus = getPoDisplayStatus();
-
   if (loading) return <LoadingSpinner text="Loading job details..." />;
   if (!job) return <div style={{ padding: '2rem', textAlign: 'center' }}>Job not found</div>;
 
@@ -337,7 +265,7 @@ export default function JobDetailPage({ params }) {
               <Button variant="primary" size="sm">💰 Financial</Button>
             </Link>
             <Link href="/jobs">
-              <Button variant="secondary" size="sm">← Back</Button>
+              <Button variant="secondary" size="sm">← Back to Jobs</Button>
             </Link>
           </div>
         }
@@ -348,14 +276,6 @@ export default function JobDetailPage({ params }) {
           <div><strong>📊 Job Progress</strong></div>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
             <div>Job Status: <StatusBadge status={jobStatus} /></div>
-            <div>PO Status: 
-              <span style={{ marginLeft: '0.25rem' }}>
-                {poDisplayStatus === 'pending_receipt' && <StatusBadge status="pending" />}
-                {poDisplayStatus === 'po_received' && <span style={{ color: '#10b981' }}>✓ PO Received</span>}
-                {poDisplayStatus === 'partial_invoiced' && <StatusBadge status="in_progress" />}
-                {poDisplayStatus === 'fully_invoiced' && <StatusBadge status="completed" />}
-              </span>
-            </div>
             {quote?.po_amount && (
               <div>PO Amount: <CurrencyAmount amount={quote.po_amount} /></div>
             )}
@@ -376,11 +296,6 @@ export default function JobDetailPage({ params }) {
             }} />
           </div>
         </div>
-        {quote?.po_received && quote?.po_amount && summary.total_actual > quote.po_amount && (
-          <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: '#fee2e2', borderRadius: '0.5rem', fontSize: '0.75rem', color: '#dc2626' }}>
-            ⚠️ WARNING: Current total exceeds PO amount. A variance PO is required.
-          </div>
-        )}
       </Card>
 
       <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #e5e7eb', marginTop: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
@@ -413,7 +328,7 @@ export default function JobDetailPage({ params }) {
             </p>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Item</th>
@@ -469,7 +384,7 @@ export default function JobDetailPage({ params }) {
         </div>
       )}
 
-      {/* Tab: Original Quote */}
+      {/* Tab: Original Quote - Read Only */}
       {activeTab === 'quote' && (
         <Card>
           {quote ? (
@@ -549,7 +464,7 @@ export default function JobDetailPage({ params }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
           <Card>
             <h3 style={{ marginBottom: '1rem' }}>💰 Financial Progress</h3>
-            <div><strong>PO Amount:</strong> {quote?.po_amount ? <CurrencyAmount amount={quote.po_amount} /> : 'Not received'}</div>
+            {quote?.po_amount && <div><strong>PO Amount:</strong> <CurrencyAmount amount={quote.po_amount} /></div>}
             <div><strong>Current Total:</strong> <CurrencyAmount amount={summary.total_actual} /></div>
             <div><strong>Finalized:</strong> <CurrencyAmount amount={summary.completed_value} /></div>
             <div><strong>Remaining:</strong> <CurrencyAmount amount={summary.total_actual - summary.completed_value} /></div>
@@ -565,11 +480,6 @@ export default function JobDetailPage({ params }) {
           <Card>
             <h3 style={{ marginBottom: '1rem' }}>📈 Job Status</h3>
             <div><strong>Current Status:</strong> <StatusBadge status={jobStatus} /></div>
-            <div><strong>PO Status:</strong> {
-              poDisplayStatus === 'pending_receipt' ? 'Awaiting PO' : 
-              poDisplayStatus === 'po_received' ? 'PO Received' : 
-              poDisplayStatus === 'partial_invoiced' ? 'Partial Invoiced' : 'Fully Invoiced'
-            }</div>
             <div><strong>Completion:</strong> {progressPercentage}%</div>
           </Card>
         </div>
@@ -682,18 +592,6 @@ export default function JobDetailPage({ params }) {
           <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem' }}>
             <Button onClick={addNewItem}>Add Item</Button>
             <Button variant="secondary" onClick={() => setShowAddItemModal(false)}>Cancel</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Variance PO Modal */}
-      <Modal isOpen={showVarianceModal} onClose={() => setShowVarianceModal(false)} title="Variance PO Required">
-        <div>
-          <p>The current changes exceed the approved PO amount by <strong><CurrencyAmount amount={varianceAmount} /></strong>.</p>
-          <p>Would you like to create a variance PO request?</p>
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-            <Button onClick={requestVariancePO}>Create Variance PO</Button>
-            <Button variant="secondary" onClick={() => setShowVarianceModal(false)}>Cancel Edit</Button>
           </div>
         </div>
       </Modal>
