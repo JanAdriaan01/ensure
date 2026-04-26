@@ -1,171 +1,325 @@
-
 'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useFetch } from '@/app/hooks/useFetch';
-import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
-import StatCard from '@/app/components/ui/StatCard/StatCard';
-import QuickActionsGrid from '@/app/components/dashboard/QuickActionsGrid/QuickActionsGrid';
-import ManagementCenters from '@/app/components/dashboard/ManagementCenters/ManagementCenters';
-import RecentActivityList from '@/app/components/dashboard/RecentActivityList/RecentActivityList';
+import CurrencyAmount from '@/app/components/CurrencyAmount';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
 
 export default function Home() {
-  const { data: summary, loading: summaryLoading } = useFetch('/api/reports/monthly');
   const { data: jobs, loading: jobsLoading } = useFetch('/api/jobs');
-  const { data: employees, loading: employeesLoading } = useFetch('/api/employees');
-  const { data: clients, loading: clientsLoading } = useFetch('/api/clients');
   const { data: quotes, loading: quotesLoading } = useFetch('/api/quotes');
-
-  const loading = summaryLoading || jobsLoading || employeesLoading || clientsLoading || quotesLoading;
-
-  const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-
-  // Calculate stats
-  const activeJobs = jobs?.filter(j => j.completion_status !== 'completed').length || 0;
-  const totalEmployees = employees?.length || 0;
-  const totalClients = clients?.length || 0;
+  const { data: employees, loading: employeesLoading } = useFetch('/api/employees');
+  const { data: stock, loading: stockLoading } = useFetch('/api/stock');
+  const { data: tools, loading: toolsLoading } = useFetch('/api/tools');
   
-  const monthlyInvoiced = summary?.monthlyInvoiced || 0;
-  const productiveHours = summary?.productiveHours || 0;
-  const unproductiveHours = summary?.unproductiveHours || 0;
-  const poTotal = summary?.poTotal || 0;
-  const invoicedTotal = summary?.invoicedTotal || 0;
-  const poPercentage = poTotal > 0 ? ((invoicedTotal / poTotal) * 100).toFixed(1) : 0;
+  const [stats, setStats] = useState({
+    financial: {
+      activeJobs: 0,
+      pendingQuotes: 0,
+      totalInvoiced: 0,
+      poAmount: 0
+    },
+    hr: {
+      totalEmployees: 0,
+      activeEmployees: 0,
+      monthlyPayroll: 0
+    },
+    inventory: {
+      stockItems: 0,
+      lowStock: 0,
+      issuedToJobs: 0
+    },
+    tools: {
+      totalTools: 0,
+      toolsCheckedOut: 0,
+      overdueTools: 0
+    },
+    scheduling: {
+      activeWorkOrders: 0,
+      teams: 0,
+      completedThisWeek: 0
+    }
+  });
+  const [loading, setLoading] = useState(true);
 
-  const recentJobs = jobs?.slice(0, 5) || [];
-  const recentEmployees = employees?.slice(0, 5) || [];
-  const recentQuotes = quotes?.slice(0, 5) || [];
+  useEffect(() => {
+    if (!jobsLoading && !quotesLoading && !employeesLoading && !stockLoading && !toolsLoading) {
+      calculateStats();
+    }
+  }, [jobs, quotes, employees, stock, tools, jobsLoading, quotesLoading, employeesLoading, stockLoading, toolsLoading]);
 
-  if (loading) {
-    return <LoadingSpinner text="Loading ENSURE Dashboard..." />;
-  }
+  const calculateStats = () => {
+    const activeJobs = jobs?.filter(j => j.completion_status !== 'completed').length || 0;
+    const pendingQuotes = quotes?.filter(q => q.status === 'pending' && !q.po_received).length || 0;
+    const totalEmployees = employees?.length || 0;
+    const activeEmployees = employees?.filter(e => (e.total_hours_worked || 0) > 0).length || 0;
+    
+    setStats({
+      financial: {
+        activeJobs,
+        pendingQuotes,
+        totalInvoiced: jobs?.reduce((sum, j) => sum + (j.total_invoiced || 0), 0) || 0,
+        poAmount: jobs?.reduce((sum, j) => sum + (j.po_amount || 0), 0) || 0
+      },
+      hr: {
+        totalEmployees,
+        activeEmployees,
+        monthlyPayroll: employees?.reduce((sum, e) => sum + ((e.hourly_rate || 0) * (e.total_hours_worked || 0)), 0) || 0
+      },
+      inventory: {
+        stockItems: stock?.length || 0,
+        lowStock: stock?.filter(s => (s.quantity_on_hand || 0) < (s.min_stock_level || 5)).length || 0,
+        issuedToJobs: 0
+      },
+      tools: {
+        totalTools: tools?.length || 0,
+        toolsCheckedOut: tools?.filter(t => t.status === 'checked_out').length || 0,
+        overdueTools: 0
+      },
+      scheduling: {
+        activeWorkOrders: activeJobs,
+        teams: 0,
+        completedThisWeek: 0
+      }
+    });
+    setLoading(false);
+  };
+
+  if (loading) return <LoadingSpinner text="Loading ENSURE Dashboard..." />;
 
   return (
-    <div className="dashboard-container">
-      <PageHeader 
-        title="🔧 ENSURE System"
-        description="Complete Project & Workforce Management Platform"
-        date={currentMonth}
-      />
-
-      {/* Monthly Stats Cards */}
-      <div className="stats-grid">
-        <StatCard 
-          icon="💰"
-          title="Total Monthly Invoicing"
-          value={monthlyInvoiced}
-          valueIsCurrency={true}
-          subValue="1st to last day of month"
-        />
-        
-        <StatCard 
-          icon="⏰"
-          title="Productive Labor"
-          value={`${productiveHours} hrs`}
-          subValue={`${unproductiveHours} hrs unproductive`}
-        />
-        
-        <StatCard 
-          icon="📋"
-          title="PO vs Invoiced"
-          value={`${poPercentage}%`}
-          subValue={`${invoicedTotal.toLocaleString()} / ${poTotal.toLocaleString()}`}
-        />
+    <div className="dashboard">
+      <div className="dashboard-header">
+        <h1>🔧 ENSURE System</h1>
+        <p>Complete Business Management Platform</p>
       </div>
 
-      {/* Quick Stats Row */}
-      <div className="quick-stats">
-        <div className="quick-stat">
-          <span className="quick-stat-value">{activeJobs}</span>
-          <span className="quick-stat-label">Active Jobs</span>
+      {/* Financial Module */}
+      <div className="module">
+        <div className="module-header">
+          <span className="module-icon">💰</span>
+          <h2>Financial</h2>
+          <Link href="/jobs" className="module-link">View All →</Link>
         </div>
-        <div className="quick-stat">
-          <span className="quick-stat-value">{totalEmployees}</span>
-          <span className="quick-stat-label">Employees</span>
-        </div>
-        <div className="quick-stat">
-          <span className="quick-stat-value">{totalClients}</span>
-          <span className="quick-stat-label">Clients</span>
+        <div className="module-cards">
+          <Link href="/jobs" className="module-card">
+            <div className="card-icon">📋</div>
+            <div className="card-value">{stats.financial.activeJobs}</div>
+            <div className="card-label">Active Jobs</div>
+          </Link>
+          <Link href="/quotes" className="module-card">
+            <div className="card-icon">📄</div>
+            <div className="card-value">{stats.financial.pendingQuotes}</div>
+            <div className="card-label">Pending Quotes</div>
+          </Link>
+          <Link href="/invoicing" className="module-card">
+            <div className="card-icon">🧾</div>
+            <div className="card-value"><CurrencyAmount amount={stats.financial.totalInvoiced} /></div>
+            <div className="card-label">Total Invoiced</div>
+          </Link>
+          <div className="module-card">
+            <div className="card-icon">💰</div>
+            <div className="card-value"><CurrencyAmount amount={stats.financial.poAmount} /></div>
+            <div className="card-label">Total PO Value</div>
+          </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <QuickActionsGrid />
+      {/* HR Module */}
+      <div className="module">
+        <div className="module-header">
+          <span className="module-icon">👥</span>
+          <h2>Human Resources</h2>
+          <Link href="/employees" className="module-link">View All →</Link>
+        </div>
+        <div className="module-cards">
+          <Link href="/employees" className="module-card">
+            <div className="card-icon">👤</div>
+            <div className="card-value">{stats.hr.totalEmployees}</div>
+            <div className="card-label">Total Employees</div>
+          </Link>
+          <div className="module-card">
+            <div className="card-icon">✅</div>
+            <div className="card-value">{stats.hr.activeEmployees}</div>
+            <div className="card-label">Active Employees</div>
+          </Link>
+          <Link href="/payroll" className="module-card">
+            <div className="card-icon">💰</div>
+            <div className="card-value"><CurrencyAmount amount={stats.hr.monthlyPayroll} /></div>
+            <div className="card-label">Estimated Payroll</div>
+          </Link>
+        </div>
+      </div>
 
-      {/* Management Centers */}
-      <ManagementCenters />
+      {/* Inventory Module */}
+      <div className="module">
+        <div className="module-header">
+          <span className="module-icon">📦</span>
+          <h2>Inventory</h2>
+          <Link href="/stock/purchasing" className="module-link">Manage →</Link>
+        </div>
+        <div className="module-cards">
+          <Link href="/stock/purchasing" className="module-card">
+            <div className="card-icon">📦</div>
+            <div className="card-value">{stats.inventory.stockItems}</div>
+            <div className="card-label">Stock Items</div>
+          </Link>
+          <div className="module-card warning">
+            <div className="card-icon">⚠️</div>
+            <div className="card-value">{stats.inventory.lowStock}</div>
+            <div className="card-label">Low Stock Alert</div>
+          </div>
+          <Link href="/stock/issued" className="module-card">
+            <div className="card-icon">📤</div>
+            <div className="card-value">{stats.inventory.issuedToJobs}</div>
+            <div className="card-label">Issued to Jobs</div>
+          </Link>
+        </div>
+      </div>
 
-      {/* Recent Activity */}
-      <div className="recent-section">
-        <RecentActivityList 
-          title="📋 Recent Jobs"
-          viewAllLink="/jobs"
-          items={recentJobs}
-          type="jobs"
-        />
-        <RecentActivityList 
-          title="👥 Recent Employees"
-          viewAllLink="/employees"
-          items={recentEmployees}
-          type="employees"
-        />
-        <RecentActivityList 
-          title="💰 Recent Quotes"
-          viewAllLink="/quotes"
-          items={recentQuotes}
-          type="quotes"
-        />
+      {/* Tools Module */}
+      <div className="module">
+        <div className="module-header">
+          <span className="module-icon">🔧</span>
+          <h2>Tools Management</h2>
+          <Link href="/tools" className="module-link">Manage →</Link>
+        </div>
+        <div className="module-cards">
+          <Link href="/tools" className="module-card">
+            <div className="card-icon">🔧</div>
+            <div className="card-value">{stats.tools.totalTools}</div>
+            <div className="card-label">Total Tools</div>
+          </Link>
+          <Link href="/tools/checkout" className="module-card">
+            <div className="card-icon">📋</div>
+            <div className="card-value">{stats.tools.toolsCheckedOut}</div>
+            <div className="card-label">Checked Out</div>
+          </Link>
+          <div className="module-card danger">
+            <div className="card-icon">⏰</div>
+            <div className="card-value">{stats.tools.overdueTools}</div>
+            <div className="card-label">Overdue Returns</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scheduling Module */}
+      <div className="module">
+        <div className="module-header">
+          <span className="module-icon">📅</span>
+          <h2>Scheduling</h2>
+          <Link href="/schedule" className="module-link">View Schedule →</Link>
+        </div>
+        <div className="module-cards">
+          <Link href="/jobs" className="module-card">
+            <div className="card-icon">📋</div>
+            <div className="card-value">{stats.scheduling.activeWorkOrders}</div>
+            <div className="card-label">Active Work Orders</div>
+          </Link>
+          <div className="module-card">
+            <div className="card-icon">👥</div>
+            <div className="card-value">{stats.scheduling.teams}</div>
+            <div className="card-label">Teams</div>
+          </Link>
+          <div className="module-card">
+            <div className="card-icon">✅</div>
+            <div className="card-value">{stats.scheduling.completedThisWeek}</div>
+            <div className="card-label">Completed This Week</div>
+          </Link>
+        </div>
       </div>
 
       <style jsx>{`
-        .dashboard-container {
+        .dashboard {
           max-width: 1400px;
           margin: 0 auto;
           padding: 2rem;
         }
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 1.5rem;
+        .dashboard-header {
           margin-bottom: 2rem;
         }
-        .quick-stats {
+        .dashboard-header h1 {
+          font-size: 2rem;
+          margin: 0 0 0.25rem 0;
+        }
+        .dashboard-header p {
+          color: #6b7280;
+          margin: 0;
+        }
+        .module {
+          background: white;
+          border-radius: 1rem;
+          padding: 1.25rem;
+          margin-bottom: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .module-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 2px solid #e5e7eb;
+        }
+        .module-icon {
+          font-size: 1.5rem;
+        }
+        .module-header h2 {
+          margin: 0;
+          font-size: 1.1rem;
+          flex: 1;
+        }
+        .module-link {
+          font-size: 0.75rem;
+          color: #2563eb;
+          text-decoration: none;
+        }
+        .module-cards {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
           gap: 1rem;
-          margin-bottom: 2rem;
         }
-        .quick-stat {
-          background: white;
+        .module-card {
+          background: #f9fafb;
           border-radius: 0.75rem;
           padding: 1rem;
           text-align: center;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          text-decoration: none;
+          color: inherit;
+          transition: all 0.2s;
+          display: block;
         }
-        .quick-stat-value {
+        .module-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          background: #f3f4f6;
+        }
+        .card-icon {
+          font-size: 1.75rem;
+          margin-bottom: 0.5rem;
+        }
+        .card-value {
           font-size: 1.5rem;
           font-weight: bold;
-          display: block;
           color: #111827;
         }
-        .quick-stat-label {
-          font-size: 0.75rem;
+        .card-label {
+          font-size: 0.7rem;
           color: #6b7280;
+          margin-top: 0.25rem;
         }
-        .recent-section {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 1.5rem;
-          margin-top: 1rem;
+        .module-card.warning .card-value {
+          color: #f59e0b;
+        }
+        .module-card.danger .card-value {
+          color: #dc2626;
         }
         @media (max-width: 768px) {
-          .dashboard-container {
+          .dashboard {
             padding: 1rem;
           }
-          .stats-grid {
-            grid-template-columns: 1fr;
-          }
-          .recent-section {
+          .module-cards {
             grid-template-columns: 1fr;
           }
         }
