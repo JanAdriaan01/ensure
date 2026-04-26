@@ -31,13 +31,11 @@ export default function JobDetailPage({ params }) {
   const [showEditItemModal, setShowEditItemModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeTab, setActiveTab] = useState('items');
-  const [poStatus, setPoStatus] = useState('pending');
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (jobData) {
       setJob(jobData.job);
-      if (jobData.job?.po_status) setPoStatus(jobData.job.po_status);
       fetchQuote();
       fetchJobItems();
     }
@@ -49,38 +47,9 @@ export default function JobDetailPage({ params }) {
         const res = await fetch(`/api/quotes/${jobData.job.quote_id}`);
         const quoteData = await res.json();
         setQuote(quoteData);
-        
-        // If no job items exist yet, sync from quote
-        if (jobItems.length === 0 && quoteData.items?.length > 0) {
-          await syncQuoteItemsToJob(quoteData.items);
-        }
       } catch (error) {
         console.error('Error fetching quote:', error);
       }
-    }
-  };
-
-  const syncQuoteItemsToJob = async (quoteItems) => {
-    setIsSyncing(true);
-    try {
-      for (const item of quoteItems) {
-        await fetch(`/api/jobs/${params.id}/items`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            item_name: item.description,
-            description: item.additional_description || '',
-            quoted_quantity: item.quantity,
-            quoted_unit_price: item.price_ex_vat
-          })
-        });
-      }
-      success('Quote items synced to job');
-      await fetchJobItems();
-    } catch (error) {
-      toastError('Failed to sync quote items');
-    } finally {
-      setIsSyncing(false);
     }
   };
 
@@ -101,20 +70,46 @@ export default function JobDetailPage({ params }) {
     }
   };
 
-  const updatePoStatus = async (newStatus) => {
+  const editItem = (item) => {
+    // Create a copy for editing - original stays in database
+    setSelectedItem({ 
+      id: item.id,
+      item_name: item.item_name,
+      description: item.description || '',
+      quoted_quantity: item.quoted_quantity,
+      quoted_unit_price: item.quoted_unit_price,
+      original_quantity: item.quoted_quantity,
+      original_price: item.quoted_unit_price
+    });
+    setShowEditItemModal(true);
+  };
+
+  const saveItemEdit = async () => {
     try {
-      const res = await fetch(`/api/jobs/${params.id}`, {
+      // Calculate if this edit creates an over-budget situation
+      const newTotal = selectedItem.quoted_quantity * selectedItem.quoted_unit_price;
+      const originalTotal = selectedItem.original_quantity * selectedItem.original_price;
+      const isOverBudget = newTotal > originalTotal;
+      
+      const res = await fetch(`/api/jobs/${params.id}/items/${selectedItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ po_status: newStatus, completion_status: job?.completion_status })
+        body: JSON.stringify({
+          quoted_quantity: selectedItem.quoted_quantity,
+          quoted_unit_price: selectedItem.quoted_unit_price,
+          description: selectedItem.description,
+          is_over_budget: isOverBudget
+        })
       });
       if (res.ok) {
-        setPoStatus(newStatus);
-        success(`PO Status updated to ${newStatus}`);
-        refetch();
+        success('Item updated successfully');
+        setShowEditItemModal(false);
+        fetchJobItems();
+      } else {
+        toastError('Failed to update item');
       }
     } catch (error) {
-      toastError('Failed to update PO status');
+      toastError('Failed to update item');
     }
   };
 
@@ -129,42 +124,17 @@ export default function JobDetailPage({ params }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           actual_quantity: parseFloat(actualQuantity), 
-          actual_cost: parseFloat(actualCost),
-          completed_by: 1 // You can replace with actual logged-in user ID
+          actual_cost: parseFloat(actualCost)
         })
       });
       if (res.ok) {
         success('Item finalized');
         fetchJobItems();
+      } else {
+        toastError('Failed to finalize item');
       }
     } catch (error) {
       toastError('Failed to finalize item');
-    }
-  };
-
-  const editItem = (item) => {
-    setSelectedItem({ ...item });
-    setShowEditItemModal(true);
-  };
-
-  const saveItemEdit = async () => {
-    try {
-      const res = await fetch(`/api/jobs/${params.id}/items/${selectedItem.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quoted_quantity: selectedItem.quoted_quantity,
-          quoted_unit_price: selectedItem.quoted_unit_price,
-          description: selectedItem.description
-        })
-      });
-      if (res.ok) {
-        success('Item updated');
-        setShowEditItemModal(false);
-        fetchJobItems();
-      }
-    } catch (error) {
-      toastError('Failed to update item');
     }
   };
 
@@ -184,29 +154,17 @@ export default function JobDetailPage({ params }) {
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-      {/* Header */}
+      {/* Header - No PO Status here */}
       <PageHeader 
         title={`📋 Job: ${job.lc_number}`}
         description={`${quote ? `From quote: ${quote.quote_number}` : 'Manual job'} | Client: ${job.client_name || 'N/A'}`}
         action={
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f3f4f6', padding: '0.25rem 0.75rem', borderRadius: '0.5rem' }}>
-              <span style={{ fontSize: '0.75rem' }}>PO Status:</span>
-              <select 
-                value={poStatus} 
-                onChange={(e) => updatePoStatus(e.target.value)} 
-                style={{ padding: '0.25rem', borderRadius: '0.25rem', border: '1px solid #ddd' }}
-              >
-                <option value="pending">Pending</option>
-                <option value="received">Received</option>
-                <option value="invoiced">Invoiced</option>
-              </select>
-            </div>
+            <Link href={`/jobs/${params.id}/hours`}>
+              <Button variant="primary" size="sm">⏰ Book Hours</Button>
+            </Link>
             <Link href={`/jobs/${params.id}/financial`}>
               <Button variant="primary" size="sm">💰 Financial</Button>
-            </Link>
-            <Link href={`/employees/time?jobId=${params.id}`}>
-              <Button variant="primary" size="sm">⏰ Book Hours</Button>
             </Link>
             <Link href={`/jobs/${params.id}/stock`}>
               <Button variant="secondary" size="sm">📦 Stock</Button>
@@ -215,26 +173,19 @@ export default function JobDetailPage({ params }) {
               <Button variant="secondary" size="sm">🔧 Tools</Button>
             </Link>
             <Link href="/jobs">
-              <Button variant="secondary" size="sm">← Back</Button>
+              <Button variant="secondary" size="sm">← Back to Jobs</Button>
             </Link>
           </div>
         }
       />
-
-      {/* Sync Status Banner */}
-      {isSyncing && (
-        <div style={{ background: '#fef3c7', padding: '0.75rem 1rem', borderRadius: '0.5rem', marginBottom: '1rem', fontSize: '0.875rem' }}>
-          ⏳ Syncing quote items to job...
-        </div>
-      )}
 
       {/* Progress Overview Card */}
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div><strong>📊 Job Progress</strong></div>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-            <div>Quoted: <CurrencyAmount amount={summary.total_quoted} /></div>
-            <div>Actual: <CurrencyAmount amount={summary.total_actual} /></div>
+            <div>Original Quote: <CurrencyAmount amount={summary.total_quoted} /></div>
+            <div>Current Total: <CurrencyAmount amount={summary.total_actual} /></div>
             <div>Completed: <CurrencyAmount amount={summary.completed_value} /></div>
             {summary.over_budget_count > 0 && (
               <div style={{ color: '#dc2626' }}>⚠️ {summary.over_budget_count} items over budget</div>
@@ -254,16 +205,6 @@ export default function JobDetailPage({ params }) {
             }} />
           </div>
         </div>
-        {poStatus === 'received' && (
-          <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: '#dbeafe', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-            ✅ PO Received - Job ready for execution. You can now book hours, issue stock, and finalize items.
-          </div>
-        )}
-        {poStatus === 'invoiced' && (
-          <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: '#d1fae5', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-            💰 Job Invoiced - No further changes allowed unless creating a variation order.
-          </div>
-        )}
       </Card>
 
       {/* Tab Navigation */}
@@ -288,14 +229,13 @@ export default function JobDetailPage({ params }) {
         ))}
       </div>
 
-      {/* Tab: Job Items */}
+      {/* Tab: Job Items - Editable */}
       {activeTab === 'items' && (
         <div>
           <div style={{ marginBottom: '1rem' }}>
             <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-              {poStatus === 'received' 
-                ? 'Click Edit to modify line items. Click Finalize when work is completed.' 
-                : 'PO must be "Received" before you can edit or finalize items.'}
+              Click Edit to modify quantities or prices. Finalize items when work is complete.
+              Original quote values are preserved for reference.
             </p>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -304,9 +244,9 @@ export default function JobDetailPage({ params }) {
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Item</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Description</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Qty</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Unit Price</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Quoted Total</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Current Qty</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Current Price</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Current Total</th>
                   <th style={{ padding: '0.75rem', textAlign: 'right' }}>Actual Cost</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>Status</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>Actions</th>
@@ -316,7 +256,7 @@ export default function JobDetailPage({ params }) {
                 {jobItems.length === 0 ? (
                   <tr>
                     <td colSpan="8" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                      {quote ? 'No items synced yet. Refreshing...' : 'No items for this job yet.'}
+                      No items for this job yet.
                     </td>
                   </tr>
                 ) : (
@@ -329,7 +269,7 @@ export default function JobDetailPage({ params }) {
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quoted_total} /></td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.actual_cost || 0} /></td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        <StatusBadge status={item.is_finalized ? 'completed' : (item.actual_cost > 0 ? 'in_progress' : 'pending')} />
+                        <StatusBadge status={item.completion_status === 'completed' ? 'completed' : (item.actual_cost > 0 ? 'in_progress' : 'pending')} />
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
@@ -337,11 +277,10 @@ export default function JobDetailPage({ params }) {
                             variant="outline" 
                             size="sm" 
                             onClick={() => editItem(item)}
-                            disabled={poStatus !== 'received'}
                           >
                             Edit
                           </Button>
-                          {!item.is_finalized && poStatus === 'received' && (
+                          {item.completion_status !== 'completed' && (
                             <Button 
                               variant="success" 
                               size="sm" 
@@ -351,7 +290,7 @@ export default function JobDetailPage({ params }) {
                             </Button>
                           )}
                         </div>
-                      </td>
+                      </tr>
                     </tr>
                   ))
                 )}
@@ -361,7 +300,7 @@ export default function JobDetailPage({ params }) {
         </div>
       )}
 
-      {/* Tab: Original Quote */}
+      {/* Tab: Original Quote - Read Only */}
       {activeTab === 'quote' && (
         <Card>
           {quote ? (
@@ -377,7 +316,7 @@ export default function JobDetailPage({ params }) {
               <p><strong>Contact Person:</strong> {quote.contact_person || 'N/A'}</p>
               
               <div style={{ marginTop: '1.5rem' }}>
-                <h4>Quote Items</h4>
+                <h4>Original Quote Items (Reference Only)</h4>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -405,7 +344,7 @@ export default function JobDetailPage({ params }) {
                     </tbody>
                     <tfoot>
                       <tr style={{ background: '#f9fafb' }}>
-                        <td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal:</td>
+                        <td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>Original Subtotal:</td>
                         <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}><CurrencyAmount amount={quote.subtotal || 0} /></td>
                       </tr>
                       <tr>
@@ -413,7 +352,7 @@ export default function JobDetailPage({ params }) {
                         <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={quote.vat_amount || 0} /></td>
                       </tr>
                       <tr style={{ background: '#f0fdf4' }}>
-                        <td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Total:</td>
+                        <td colSpan="3" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Original Total:</td>
                         <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>
                           <CurrencyAmount amount={quote.total_amount || 0} />
                         </td>
@@ -439,11 +378,11 @@ export default function JobDetailPage({ params }) {
             <h3 style={{ marginBottom: '1rem' }}>💰 Financial Progress</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Total Quoted:</span>
+                <span>Original Quote Amount:</span>
                 <strong><CurrencyAmount amount={summary.total_quoted} /></strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Total Actual Costs:</span>
+                <span>Current Total (with edits):</span>
                 <strong><CurrencyAmount amount={summary.total_actual} /></strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -452,11 +391,11 @@ export default function JobDetailPage({ params }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Remaining Value:</span>
-                <strong><CurrencyAmount amount={summary.total_quoted - summary.completed_value} /></strong>
+                <strong><CurrencyAmount amount={summary.total_actual - summary.completed_value} /></strong>
               </div>
               <hr style={{ margin: '0.5rem 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Variance (Actual - Quoted):</span>
+                <span>Variance from Original:</span>
                 <strong style={{ color: summary.total_actual > summary.total_quoted ? '#dc2626' : '#10b981' }}>
                   <CurrencyAmount amount={summary.total_actual - summary.total_quoted} />
                 </strong>
@@ -472,16 +411,16 @@ export default function JobDetailPage({ params }) {
                 <strong>{jobItems.length}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Finalized:</span>
-                <strong style={{ color: '#10b981' }}>{jobItems.filter(i => i.is_finalized).length}</strong>
+                <span>Completed:</span>
+                <strong style={{ color: '#10b981' }}>{jobItems.filter(i => i.completion_status === 'completed').length}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>In Progress:</span>
-                <strong style={{ color: '#f59e0b' }}>{jobItems.filter(i => i.actual_cost > 0 && !i.is_finalized).length}</strong>
+                <strong style={{ color: '#f59e0b' }}>{jobItems.filter(i => i.actual_cost > 0 && i.completion_status !== 'completed').length}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Not Started:</span>
-                <strong>{jobItems.filter(i => !i.actual_cost && !i.is_finalized).length}</strong>
+                <strong>{jobItems.filter(i => !i.actual_cost && i.completion_status !== 'completed').length}</strong>
               </div>
               <hr style={{ margin: '0.5rem 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -503,10 +442,6 @@ export default function JobDetailPage({ params }) {
               </div>
             </div>
             <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span>PO Status</span>
-                <StatusBadge status={poStatus} />
-              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Job Status</span>
                 <StatusBadge status={job.completion_status} />
@@ -519,7 +454,7 @@ export default function JobDetailPage({ params }) {
       {/* Tab: Quick Actions */}
       {activeTab === 'actions' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-          <Link href={`/employees/time?jobId=${params.id}`} style={{ textDecoration: 'none' }}>
+          <Link href={`/jobs/${params.id}/hours`} style={{ textDecoration: 'none' }}>
             <Card hover>
               <div style={{ textAlign: 'center', padding: '0.5rem' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏰</div>
@@ -565,6 +500,9 @@ export default function JobDetailPage({ params }) {
       <Modal isOpen={showEditItemModal} onClose={() => setShowEditItemModal(false)} title="Edit Job Item">
         {selectedItem && (
           <div>
+            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
+              <strong>Note:</strong> Original quote values: {selectedItem.original_quantity} @ <CurrencyAmount amount={selectedItem.original_price} />
+            </div>
             <FormInput 
               label="Item Name" 
               value={selectedItem.item_name} 
@@ -587,6 +525,9 @@ export default function JobDetailPage({ params }) {
               value={selectedItem.quoted_unit_price} 
               onChange={e => setSelectedItem({...selectedItem, quoted_unit_price: parseFloat(e.target.value)})} 
             />
+            <div style={{ marginTop: '0.5rem', fontSize: '0.7rem', color: '#6b7280' }}>
+              New Total: <CurrencyAmount amount={selectedItem.quoted_quantity * selectedItem.quoted_unit_price} />
+            </div>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
               <Button onClick={saveItemEdit}>Save Changes</Button>
               <Button variant="secondary" onClick={() => setShowEditItemModal(false)}>Cancel</Button>
