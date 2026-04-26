@@ -1,196 +1,209 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useFetch } from '@/app/hooks/useFetch';
 import { useToast } from '@/app/context/ToastContext';
-import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
-import Card from '@/app/components/ui/Card/Card';
-import Button from '@/app/components/ui/Button/Button';
-import StatusBadge from '@/app/components/common/StatusBadge';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
-import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
-import EmptyState from '@/app/components/ui/EmptyState/EmptyState';
+import StatusBadge from '@/app/components/common/StatusBadge';
 
 export default function QuoteDetailPage({ params }) {
   const router = useRouter();
   const { success, error: toastError } = useToast();
-  const { data: quote, loading, refetch } = useFetch(`/api/quotes/${params.id}`);
-  const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [versions, setVersions] = useState([]);
+  const [quote, setQuote] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const fetchVersions = async () => {
-    const res = await fetch(`/api/quotes/${params.id}/versions`);
-    setVersions(await res.json());
-    setShowVersionHistory(true);
-  };
+  useEffect(() => {
+    fetchQuote();
+  }, [params.id]);
 
-  const updatePoStatus = async (status) => {
-    const res = await fetch(`/api/quotes/${params.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ po_status: status })
-    });
-    if (res.ok) {
-      success('PO Status updated');
-      refetch();
-    } else {
-      toastError('Failed to update status');
+  const fetchQuote = async () => {
+    try {
+      const res = await fetch(`/api/quotes/${params.id}`);
+      if (!res.ok) throw new Error('Quote not found');
+      const data = await res.json();
+      setQuote(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const createNewVersion = async () => {
-    // Redirect to edit page with copy of current quote
-    router.push(`/quotes/${params.id}/edit`);
+  const updateStatus = async (newStatus) => {
+    try {
+      const res = await fetch(`/api/quotes/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (!res.ok) throw new Error('Failed to update status');
+      
+      const result = await res.json();
+      success(`Quote ${newStatus}. ${result.job_created ? 'A job has been created and you can now view it in Jobs.' : ''}`);
+      fetchQuote();
+      
+    } catch (err) {
+      toastError(err.message);
+    }
   };
 
-  if (loading) return <LoadingSpinner text="Loading quote..." />;
-  if (!quote) return <EmptyState title="Quote not found" />;
+  if (loading) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <div style={{ width: '40px', height: '40px', border: '3px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }}></div>
+        Loading quote...
+      </div>
+    );
+  }
+
+  if (error || !quote) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <p style={{ color: 'red' }}>{error || 'Quote not found'}</p>
+        <Link href="/quotes">
+          <button style={{ marginTop: '1rem', padding: '0.5rem 1rem', cursor: 'pointer' }}>← Back to Quotes</button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
-      <PageHeader 
-        title={`💰 Quote: ${quote.quote_number}`}
-        description={`Version ${quote.version} | Created: ${new Date(quote.quote_date).toLocaleDateString()}`}
-        action={
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Button onClick={createNewVersion} variant="secondary">✏️ Create New Version</Button>
-            <Button onClick={fetchVersions} variant="outline">📋 Version History</Button>
-            <Link href="/quotes"><Button variant="secondary">← Back</Button></Link>
-          </div>
-        }
-      />
-
-      {/* Quote Details */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-        <Card>
-          <h3>Quote Information</h3>
-          <p><strong>Client:</strong> {quote.client_name}</p>
-          <p><strong>Site:</strong> {quote.site_name || '-'}</p>
-          <p><strong>Contact Person:</strong> {quote.contact_person || '-'}</p>
-          <p><strong>Prepared By:</strong> {quote.quote_prepared_by || '-'}</p>
-          <p><strong>Status:</strong> <StatusBadge status={quote.status} /></p>
-        </Card>
-        <Card>
-          <h3>Financial Summary</h3>
-          <p><strong>Subtotal Ex VAT:</strong> <CurrencyAmount amount={quote.subtotal || 0} /></p>
-          <p><strong>VAT (15%):</strong> <CurrencyAmount amount={quote.vat_amount || 0} /></p>
-          <p><strong>Total:</strong> <strong><CurrencyAmount amount={quote.total_amount || 0} /></strong></p>
-        </Card>
-        <Card>
-          <h3>Job Status</h3>
-          <p><strong>PO Status:</strong> 
-            <select value={quote.po_status} onChange={(e) => updatePoStatus(e.target.value)} style={{ marginLeft: '0.5rem', padding: '0.25rem' }}>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </p>
-          <p><strong>Invoice Status:</strong> <StatusBadge status={quote.invoice_status} /></p>
-          {quote.job_id && <p><strong>Linked Job:</strong> <Link href={`/jobs/${quote.job_id}`}>{quote.job_lc_number}</Link></p>}
-        </Card>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <Link href="/quotes" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.875rem' }}>← Back to Quotes</Link>
+          <h1 style={{ margin: '0.25rem 0 0 0' }}>💰 Quote: {quote.quote_number}</h1>
+          <p style={{ color: '#6b7280', margin: '0.25rem 0 0 0' }}>Version {quote.version} | Created: {new Date(quote.created_at).toLocaleDateString()}</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {quote.status !== 'approved' && (
+            <button onClick={() => updateStatus('approved')} style={{ background: '#10b981', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+              ✓ Approve Quote
+            </button>
+          )}
+          {quote.status !== 'rejected' && quote.status !== 'approved' && (
+            <button onClick={() => updateStatus('rejected')} style={{ background: '#ef4444', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+              ✗ Reject Quote
+            </button>
+          )}
+          {quote.job_id && (
+            <Link href={`/jobs/${quote.job_id}`}>
+              <button style={{ background: '#2563eb', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
+                Go to Job →
+              </button>
+            </Link>
+          )}
+        </div>
       </div>
 
-      {/* Scope */}
-      {quote.scope_subject && (
-        <Card style={{ marginBottom: '1rem' }}>
-          <h3>Scope of Work</h3>
-          <p>{quote.scope_subject}</p>
-        </Card>
-      )}
+      {/* Quote Details Card */}
+      <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+          <div><strong>Client:</strong> {quote.client_name || 'N/A'}</div>
+          <div><strong>Site Name:</strong> {quote.site_name || '-'}</div>
+          <div><strong>Contact Person:</strong> {quote.contact_person || '-'}</div>
+          <div><strong>Quote Date:</strong> {new Date(quote.quote_date).toLocaleDateString()}</div>
+          <div><strong>Prepared By:</strong> {quote.quote_prepared_by || '-'}</div>
+          <div><strong>Status:</strong> <StatusBadge status={quote.status} /></div>
+        </div>
+        {quote.scope_subject && (
+          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
+            <strong>Scope / Subject:</strong>
+            <p style={{ margin: '0.5rem 0 0 0', whiteSpace: 'pre-wrap' }}>{quote.scope_subject}</p>
+          </div>
+        )}
+      </div>
 
       {/* Items Table */}
-      <Card>
-        <h3>Quote Items</h3>
-        {quote.items?.length === 0 ? (
-          <p>No items found.</p>
-        ) : (
+      <div style={{ background: 'white', borderRadius: '0.75rem', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ padding: '1rem 1.5rem', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+          <h3 style={{ margin: 0 }}>Quote Items</h3>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>
-                <th>#</th><th>Description</th><th>Qty</th><th>Unit</th><th>UoM</th><th>Unit Price</th><th>Total Ex VAT</th>
+              <tr style={{ background: '#f9fafb' }}>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>#</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Description</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Qty</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Unit</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>UoM</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Unit Price</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Total Ex VAT</th>
               </tr>
             </thead>
             <tbody>
-              {quote.items?.map((item, idx) => (
-                <tr key={idx}>
-                  <td>{item.item_number}</td>
-                  <td>
-                    <strong>{item.description}</strong>
-                    {item.additional_description && <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{item.additional_description}</div>}
+              {quote.items && quote.items.length > 0 ? (
+                quote.items.map((item) => (
+                  <tr key={item.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td style={{ padding: '0.75rem 1rem' }}>{item.item_number}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      <strong>{item.description}</strong>
+                      {item.additional_description && (
+                        <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{item.additional_description}</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>{item.quantity}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}>{item.unit || '-'}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}>{item.unit_of_measure}</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                      <CurrencyAmount amount={item.price_ex_vat} />
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                      <CurrencyAmount amount={item.quantity * item.price_ex_vat} />
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                    No items found for this quote.
                   </td>
-                  <td>{item.quantity}</td>
-                  <td>{item.unit || '-'}</td>
-                  <td>{item.unit_of_measure}</td>
-                  <td><CurrencyAmount amount={item.price_ex_vat} /></td>
-                  <td style={{ textAlign: 'right' }}><CurrencyAmount amount={item.quantity * item.price_ex_vat} /></td>
                 </tr>
-              ))}
+              )}
             </tbody>
-            <tfoot>
-              <tr><td colSpan="6" style={{ textAlign: 'right' }}>Subtotal:</td><td style={{ textAlign: 'right' }}><CurrencyAmount amount={quote.subtotal} /></td></tr>
-              <tr><td colSpan="6" style={{ textAlign: 'right' }}>VAT (15%):</td><td style={{ textAlign: 'right' }}><CurrencyAmount amount={quote.vat_amount} /></td></tr>
-              <tr><td colSpan="6" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total:</td><td style={{ textAlign: 'right', fontWeight: 'bold' }}><CurrencyAmount amount={quote.total_amount} /></td></tr>
+            <tfoot style={{ background: '#f9fafb' }}>
+              <tr>
+                <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal Ex VAT:</td>
+                <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold' }}>
+                  <CurrencyAmount amount={quote.subtotal || 0} />
+                </td>
+              </tr>
+              <tr>
+                <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>VAT (15%):</td>
+                <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                  <CurrencyAmount amount={quote.vat_amount || 0} />
+                </td>
+              </tr>
+              <tr style={{ background: '#f0fdf4' }}>
+                <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Total:</td>
+                <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>
+                  <CurrencyAmount amount={quote.total_amount || 0} />
+                </td>
+              </tr>
             </tfoot>
           </table>
-        )}
-      </Card>
+        </div>
+      </div>
 
-      {/* Version History Modal */}
-      {showVersionHistory && (
-        <div className="modal-overlay" onClick={() => setShowVersionHistory(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <h3>Version History</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr><th>Version</th><th>Date</th><th>Total</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                {versions.map(v => (
-                  <tr key={v.id}>
-                    <td>v{v.version}</td>
-                    <td>{new Date(v.created_at).toLocaleDateString()}</td>
-                    <td><CurrencyAmount amount={v.total_amount} /></td>
-                    <td><StatusBadge status={v.status} /></td>
-                    <td><Link href={`/quotes/${v.id}`}>View</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Button onClick={() => setShowVersionHistory(false)} style={{ marginTop: '1rem' }}>Close</Button>
-          </div>
+      {/* Job Link Section (if job exists) */}
+      {quote.job_id && (
+        <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#dbeafe', borderRadius: '0.5rem', textAlign: 'center' }}>
+          <p style={{ margin: 0 }}>
+            ✅ This quote has been approved and a job has been created.
+            <Link href={`/jobs/${quote.job_id}`} style={{ marginLeft: '0.5rem', color: '#2563eb', textDecoration: 'none' }}>
+              View Job →
+            </Link>
+          </p>
         </div>
       )}
 
       <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-        .modal-content {
-          background: white;
-          border-radius: 0.75rem;
-          padding: 1.5rem;
-          max-width: 600px;
-          width: 90%;
-          max-height: 80vh;
-          overflow-y: auto;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        th, td {
-          padding: 0.5rem;
-          text-align: left;
-          border-bottom: 1px solid #e5e7eb;
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

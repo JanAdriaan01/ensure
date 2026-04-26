@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
-// GET single quote with items
+// GET - Fetch single quote with items
 export async function GET(request, { params }) {
   try {
     const { id } = params;
     
+    // Get quote details
     const quoteResult = await query(`
       SELECT q.*, c.client_name 
       FROM quotes q
@@ -17,8 +18,11 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
     
+    // Get quote items
     const itemsResult = await query(`
-      SELECT * FROM quote_items WHERE quote_id = $1 ORDER BY item_number
+      SELECT * FROM quote_items 
+      WHERE quote_id = $1 
+      ORDER BY item_number
     `, [id]);
     
     return NextResponse.json({
@@ -31,11 +35,16 @@ export async function GET(request, { params }) {
   }
 }
 
-// PATCH - Update quote status and create job if approved
+// PATCH - Update quote status (approve/reject) and optionally create job
 export async function PATCH(request, { params }) {
   try {
     const { id } = params;
-    const { status } = await request.json();
+    const body = await request.json();
+    const { status } = body;
+    
+    if (!status) {
+      return NextResponse.json({ error: 'Status is required' }, { status: 400 });
+    }
     
     // Get current quote
     const currentQuote = await query('SELECT * FROM quotes WHERE id = $1', [id]);
@@ -43,27 +52,31 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
     
+    const quote = currentQuote.rows[0];
+    
     // Start transaction
     await query('BEGIN');
     
     // Update quote status
     await query('UPDATE quotes SET status = $1 WHERE id = $2', [status, id]);
     
-    let jobId = currentQuote.rows[0].job_id;
+    let jobId = quote.job_id;
+    let jobCreated = false;
     
     // If status changed to 'approved' and no job exists, create job
     if (status === 'approved' && !jobId) {
-      const lcNumber = `JOB-${currentQuote.rows[0].quote_number}`;
+      const lcNumber = `JOB-${quote.quote_number}`;
       
       const jobResult = await query(
         `INSERT INTO jobs (
           lc_number, client_id, po_status, completion_status, 
           po_amount, quote_id, total_quoted
-        ) VALUES ($1, $2, 'approved', 'not_started', $3, $4, $5) RETURNING id`,
-        [lcNumber, currentQuote.rows[0].client_id, currentQuote.rows[0].total_amount || 0, id, currentQuote.rows[0].total_amount || 0]
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [lcNumber, quote.client_id, 'approved', 'not_started', quote.total_amount || 0, id, quote.total_amount || 0]
       );
       
       jobId = jobResult.rows[0].id;
+      jobCreated = true;
       
       // Update quote with job reference
       await query('UPDATE quotes SET job_id = $1 WHERE id = $2', [jobId, id]);
@@ -91,7 +104,9 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ 
       success: true, 
       job_id: jobId,
-      message: jobId ? 'Job created successfully' : 'Status updated'
+      status: status,
+      job_created: jobCreated,
+      message: jobCreated ? 'Job created successfully' : 'Status updated successfully'
     });
     
   } catch (error) {
@@ -99,4 +114,32 @@ export async function PATCH(request, { params }) {
     console.error('Error updating quote:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// PUT - Alternative full update (calls PATCH internally)
+export async function PUT(request, { params }) {
+  try {
+    const { id } = params;
+    const body = await request.json();
+    const { status } = body;
+    
+    // Reuse PATCH logic
+    const patchRequest = new Request(request.url, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+    
+    return await PATCH(patchRequest, { params });
+  } catch (error) {
+    console.error('Error updating quote:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE - Prevent deletion (quotes cannot be deleted, only versioned)
+export async function DELETE(request, { params }) {
+  return NextResponse.json({ 
+    error: 'Quotes cannot be deleted. Create a new version instead.',
+    code: 'QUOTE_DELETE_NOT_ALLOWED'
+  }, { status: 405 });
 }
