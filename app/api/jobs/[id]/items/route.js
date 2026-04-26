@@ -58,9 +58,11 @@ export async function POST(request, { params }) {
     const result = await query(
       `INSERT INTO job_items (
         job_id, item_name, description, quoted_quantity, 
-        quoted_unit_price, quoted_total, completion_status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [jobId, item_name, description || null, quoted_quantity, quoted_unit_price, quoted_total, 'pending']
+        quoted_unit_price, quoted_total, completion_status,
+        original_quantity, original_unit_price, original_total
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [jobId, item_name, description || null, quoted_quantity, quoted_unit_price, quoted_total, 'pending',
+       quoted_quantity, quoted_unit_price, quoted_total]
     );
     
     // Update job totals
@@ -82,13 +84,24 @@ export async function POST(request, { params }) {
   }
 }
 
-// PUT - Update a specific job item
+// PUT - Update a specific job item (with revision tracking)
 export async function PUT(request, { params }) {
   try {
     const jobId = parseInt(params.id);
     const url = new URL(request.url);
     const itemId = url.searchParams.get('itemId');
-    const { quoted_quantity, quoted_unit_price, description } = await request.json();
+    const { 
+      quoted_quantity, 
+      quoted_unit_price, 
+      description, 
+      revision_number,
+      revision_reason,
+      original_quantity,
+      original_unit_price,
+      original_total,
+      variation_po_required,
+      variation_quote_id
+    } = await request.json();
     
     if (!itemId) {
       return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
@@ -96,15 +109,48 @@ export async function PUT(request, { params }) {
     
     const quoted_total = quoted_quantity * quoted_unit_price;
     
+    // Get current item to preserve original values if not provided
+    const currentItem = await query('SELECT * FROM job_items WHERE id = $1 AND job_id = $2', [itemId, jobId]);
+    if (currentItem.rows.length === 0) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
+    
+    const current = currentItem.rows[0];
+    const newRevisionNumber = (current.revision_number || 1) + 1;
+    
     const result = await query(
       `UPDATE job_items 
        SET quoted_quantity = $1,
            quoted_unit_price = $2,
            quoted_total = $3,
-           description = $4
-       WHERE id = $5 AND job_id = $6
+           description = COALESCE($4, description),
+           revision_number = $5,
+           revision_reason = CASE 
+             WHEN $6 IS NOT NULL THEN $6 
+             ELSE revision_reason 
+           END,
+           original_quantity = COALESCE($7, original_quantity, $1),
+           original_unit_price = COALESCE($8, original_unit_price, $2),
+           original_total = COALESCE($9, original_total, $3),
+           variation_po_required = COALESCE($10, variation_po_required, FALSE),
+           variation_quote_id = COALESCE($11, variation_quote_id)
+       WHERE id = $12 AND job_id = $13
        RETURNING *`,
-      [quoted_quantity, quoted_unit_price, quoted_total, description || null, itemId, jobId]
+      [
+        quoted_quantity, 
+        quoted_unit_price, 
+        quoted_total, 
+        description,
+        revision_number || newRevisionNumber,
+        revision_reason,
+        original_quantity || current.quoted_quantity,
+        original_unit_price || current.quoted_unit_price,
+        original_total || (current.quoted_quantity * current.quoted_unit_price),
+        variation_po_required,
+        variation_quote_id,
+        itemId, 
+        jobId
+      ]
     );
     
     if (result.rows.length === 0) {
