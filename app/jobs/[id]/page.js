@@ -372,10 +372,6 @@ export default function JobDetailPage({ params }) {
         }
       />
 
-      {/* ============================================ */}
-      {/* FINANCIAL SUMMARY SECTION - RIGHT AFTER PAGEHEADER */}
-      {/* ============================================ */}
-      
       {/* Warning if variation is required */}
       {summary.variation_required && (
         <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fee2e2', borderRadius: '0.5rem', borderLeft: '4px solid #dc2626' }}>
@@ -553,7 +549,7 @@ export default function JobDetailPage({ params }) {
                             )}
                           </div>
                         </td>
-                      <tr>
+                      </tr>
                     );
                   })
                 )}
@@ -607,7 +603,7 @@ export default function JobDetailPage({ params }) {
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}>{item.quantity}</td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.price_ex_vat} /></td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quantity * item.price_ex_vat} /></td>
-                        </td>
+                        </tr>
                       ))}
                     </tbody>
                     <tfoot>
@@ -797,7 +793,6 @@ export default function JobDetailPage({ params }) {
       </Modal>
 
       <style jsx>{`
-        /* Financial Summary Styles */
         .financial-summary {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -848,7 +843,6 @@ export default function JobDetailPage({ params }) {
         .remaining-card .financial-icon { color: #f59e0b; }
         .progress-card .financial-icon { color: #8b5cf6; }
 
-        /* Progress Bar Styles */
         .progress-section {
           background: white;
           border-radius: 0.75rem;
@@ -891,7 +885,6 @@ export default function JobDetailPage({ params }) {
         .progress-stat .negative {
           color: #dc2626;
         }
-
         @media (max-width: 768px) {
           .financial-summary {
             grid-template-columns: 1fr;
