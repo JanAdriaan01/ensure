@@ -51,7 +51,6 @@ export default function QuoteDetailPage({ params }) {
   };
 
   const recordPOAndCreateJob = async () => {
-    // Validate PO details
     if (!poData.po_number.trim()) {
       toastError('PO Number is required');
       return;
@@ -65,7 +64,6 @@ export default function QuoteDetailPage({ params }) {
     setIsSubmitting(true);
 
     try {
-      // Record PO and create job via API
       const res = await fetch(`/api/quotes/${params.id}/po`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,9 +80,8 @@ export default function QuoteDetailPage({ params }) {
       if (res.ok) {
         success('PO recorded successfully! Job created.');
         setShowPoModal(false);
-        await fetchQuote(); // Refresh quote data
+        await fetchQuote();
         
-        // Redirect to the newly created job
         if (data.job_id) {
           setTimeout(() => {
             router.push(`/jobs/${data.job_id}`);
@@ -106,7 +103,6 @@ export default function QuoteDetailPage({ params }) {
   };
 
   const openPoModal = () => {
-    // Reset form when opening modal
     setPoData({
       po_number: '',
       po_amount: '',
@@ -136,7 +132,6 @@ export default function QuoteDetailPage({ params }) {
     );
   }
 
-  // Check if PO is already received - if yes, show LOCKED view
   const isPoReceived = quote.po_received === true;
 
   return (
@@ -165,7 +160,7 @@ export default function QuoteDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Quote Details Card - LOCKED indication if PO received */}
+      {/* Quote Details Card */}
       <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         {isPoReceived && (
           <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#d1fae5', borderRadius: '0.5rem', border: '1px solid #10b981' }}>
@@ -173,7 +168,11 @@ export default function QuoteDetailPage({ params }) {
             <strong>PO Number:</strong> {quote.po_number}<br />
             <strong>PO Amount:</strong> <CurrencyAmount amount={quote.po_amount} /><br />
             <strong>PO Date:</strong> {new Date(quote.po_date).toLocaleDateString()}<br />
-            {quote.po_document && <strong>Reference:</strong> {quote.po_document}<br />}
+            {quote.po_document && (
+              <>
+                <strong>Reference:</strong> {quote.po_document}<br />
+              </>
+            )}
             <span style={{ fontSize: '0.75rem', color: '#065f46' }}>This quote cannot be edited. All work is managed in Job Management.</span>
           </div>
         )}
@@ -193,7 +192,7 @@ export default function QuoteDetailPage({ params }) {
         )}
       </div>
 
-      {/* Items Table - READ ONLY after PO received */}
+      {/* Items Table */}
       <div style={{ background: 'white', borderRadius: '0.75rem', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ padding: '1rem 1.5rem', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
           <h3 style={{ margin: 0 }}>Quote Items {isPoReceived && <span style={{ fontSize: '0.7rem', fontWeight: 'normal', marginLeft: '0.5rem' }}>(Read Only - Work in Job Management)</span>}</h3>
@@ -252,7 +251,7 @@ export default function QuoteDetailPage({ params }) {
                 <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>VAT (15%):</td>
                 <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                   <CurrencyAmount amount={quote.vat_amount || 0} />
-                <tr>
+                </td>
               </tr>
               <tr style={{ background: '#f0fdf4' }}>
                 <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Total:</td>
@@ -265,7 +264,7 @@ export default function QuoteDetailPage({ params }) {
         </div>
       </div>
 
-      {/* PO Receipt Modal - Asks for PO details */}
+      {/* PO Receipt Modal */}
       <Modal isOpen={showPoModal} onClose={() => setShowPoModal(false)} title="Record Purchase Order Received">
         <div>
           <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#dbeafe', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
