@@ -118,12 +118,10 @@ export default function JobDetailPage({ params }) {
   };
 
   const saveItemEdit = async () => {
-    await performSaveEdit();
-  };
-
-  const performSaveEdit = async () => {
+    if (!selectedItem) return;
+    
     try {
-      const res = await fetch(`/api/jobs/${params.id}/items/${selectedItem.id}`, {
+      const res = await fetch(`/api/jobs/${params.id}/items?itemId=${selectedItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,14 +130,17 @@ export default function JobDetailPage({ params }) {
           description: selectedItem.description
         })
       });
+      
       if (res.ok) {
         success('Item updated successfully');
         setShowEditItemModal(false);
         fetchJobItems();
       } else {
-        toastError('Failed to update item');
+        const error = await res.json();
+        toastError(error.error || 'Failed to update item');
       }
     } catch (error) {
+      console.error('Error saving item edit:', error);
       toastError('Failed to update item');
     }
   };
@@ -150,10 +151,6 @@ export default function JobDetailPage({ params }) {
       return;
     }
     
-    await performAddNewItem();
-  };
-
-  const performAddNewItem = async () => {
     try {
       const res = await fetch(`/api/jobs/${params.id}/items`, {
         method: 'POST',
@@ -165,6 +162,7 @@ export default function JobDetailPage({ params }) {
           quoted_unit_price: newItem.quoted_unit_price
         })
       });
+      
       if (res.ok) {
         success('Item added successfully');
         setShowAddItemModal(false);
@@ -176,9 +174,11 @@ export default function JobDetailPage({ params }) {
         });
         fetchJobItems();
       } else {
-        toastError('Failed to add item');
+        const error = await res.json();
+        toastError(error.error || 'Failed to add item');
       }
     } catch (error) {
+      console.error('Error adding item:', error);
       toastError('Failed to add item');
     }
   };
@@ -205,7 +205,7 @@ export default function JobDetailPage({ params }) {
       
       if (res.ok) {
         success('Item finalized and ready for invoicing');
-        fetchJobItems(); // Refresh the list
+        fetchJobItems();
       } else {
         const error = await res.json();
         toastError(error.error || 'Failed to finalize item');

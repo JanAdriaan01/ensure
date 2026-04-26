@@ -1,14 +1,23 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
-// GET all job items for a job
+// GET - Fetch all job items for a specific job
 export async function GET(request, { params }) {
   try {
     const jobId = parseInt(params.id);
-    const result = await query(`
-      SELECT ji.*, e.name as completed_by_name
+    
+    if (isNaN(jobId)) {
+      return NextResponse.json({ error: 'Invalid job ID' }, { status: 400 });
+    }
+    
+    const itemsResult = await query(`
+      SELECT 
+        ji.*,
+        CASE 
+          WHEN ji.actual_cost > ji.quoted_total THEN TRUE 
+          ELSE FALSE 
+        END as is_over_budget
       FROM job_items ji
-      LEFT JOIN employees e ON ji.completed_by = e.id
       WHERE ji.job_id = $1
       ORDER BY ji.id
     `, [jobId]);
@@ -16,96 +25,139 @@ export async function GET(request, { params }) {
     // Get summary stats
     const summary = await query(`
       SELECT 
-        SUM(quoted_total) as total_quoted,
-        SUM(actual_cost) as total_actual,
-        SUM(CASE WHEN completion_status = 'completed' THEN quoted_total ELSE 0 END) as completed_value,
-        COUNT(CASE WHEN is_over_budget THEN 1 END) as over_budget_count
-      FROM job_items
-      WHERE job_id = $1
+        COALESCE(SUM(ji.quoted_total), 0) as total_quoted,
+        COALESCE(SUM(ji.actual_cost), 0) as total_actual,
+        COALESCE(SUM(CASE WHEN ji.is_finalized THEN ji.quoted_total ELSE 0 END), 0) as completed_value,
+        COUNT(CASE WHEN ji.actual_cost > ji.quoted_total THEN 1 END) as over_budget_count
+      FROM job_items ji
+      WHERE ji.job_id = $1
     `, [jobId]);
     
     return NextResponse.json({
-      items: result.rows,
+      items: itemsResult.rows,
       summary: summary.rows[0]
     });
   } catch (error) {
+    console.error('Error fetching job items:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST create job item
+// POST - Create a new job item
 export async function POST(request, { params }) {
   try {
     const jobId = parseInt(params.id);
-    const body = await request.json();
-    const { item_name, description, quoted_quantity, quoted_unit_price } = body;
+    const { item_name, description, quoted_quantity, quoted_unit_price } = await request.json();
+    
+    if (!item_name || !quoted_quantity || !quoted_unit_price) {
+      return NextResponse.json({ error: 'Item name, quantity, and price are required' }, { status: 400 });
+    }
+    
+    const quoted_total = quoted_quantity * quoted_unit_price;
     
     const result = await query(
-      `INSERT INTO job_items (job_id, item_name, description, quoted_quantity, quoted_unit_price)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [jobId, item_name, description, quoted_quantity, quoted_unit_price]
+      `INSERT INTO job_items (
+        job_id, item_name, description, quoted_quantity, 
+        quoted_unit_price, quoted_total, completion_status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [jobId, item_name, description || null, quoted_quantity, quoted_unit_price, quoted_total, 'pending']
     );
     
     // Update job totals
-    await updateJobTotals(jobId);
+    await query(
+      `UPDATE jobs 
+       SET total_quoted = (
+         SELECT COALESCE(SUM(quoted_total), 0) 
+         FROM job_items 
+         WHERE job_id = $1
+       )
+       WHERE id = $1`,
+      [jobId]
+    );
     
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) {
+    console.error('Error creating job item:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// PUT complete an item
+// PUT - Update a specific job item
 export async function PUT(request, { params }) {
   try {
     const jobId = parseInt(params.id);
-    const { itemId, actual_quantity, actual_cost, completed_by } = await request.json();
+    const url = new URL(request.url);
+    const itemId = url.searchParams.get('itemId');
+    const { quoted_quantity, quoted_unit_price, description } = await request.json();
     
-    // Get the quoted item
-    const item = await query('SELECT quoted_total, quoted_quantity, quoted_unit_price FROM job_items WHERE id = $1 AND job_id = $2', [itemId, jobId]);
-    if (item.rows.length === 0) {
+    if (!itemId) {
+      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
+    }
+    
+    const quoted_total = quoted_quantity * quoted_unit_price;
+    
+    const result = await query(
+      `UPDATE job_items 
+       SET quoted_quantity = $1,
+           quoted_unit_price = $2,
+           quoted_total = $3,
+           description = $4
+       WHERE id = $5 AND job_id = $6
+       RETURNING *`,
+      [quoted_quantity, quoted_unit_price, quoted_total, description || null, itemId, jobId]
+    );
+    
+    if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
     
-    const isOverBudget = actual_cost > item.rows[0].quoted_total;
-    
-    await query(
-      `UPDATE job_items 
-       SET actual_quantity = $1, actual_cost = $2, completion_status = 'completed', 
-           completed_date = CURRENT_TIMESTAMP, completed_by = $3, is_over_budget = $4
-       WHERE id = $5 AND job_id = $6`,
-      [actual_quantity, actual_cost, completed_by, isOverBudget, itemId, jobId]
-    );
-    
-    // Log the completion
-    await query(
-      `INSERT INTO item_completion_logs (job_item_id, completed_quantity, completed_by, notes)
-       VALUES ($1, $2, $3, 'Item completed')`,
-      [itemId, actual_quantity, completed_by]
-    );
-    
     // Update job totals
-    await updateJobTotals(jobId);
+    await query(
+      `UPDATE jobs 
+       SET total_quoted = (
+         SELECT COALESCE(SUM(quoted_total), 0) 
+         FROM job_items 
+         WHERE job_id = $1
+       )
+       WHERE id = $1`,
+      [jobId]
+    );
     
-    return NextResponse.json({ success: true, is_over_budget: isOverBudget });
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
+    console.error('Error updating job item:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-async function updateJobTotals(jobId) {
-  const totals = await query(`
-    SELECT 
-      SUM(quoted_total) as total_quoted,
-      SUM(actual_cost) as total_actual
-    FROM job_items
-    WHERE job_id = $1
-  `, [jobId]);
-  
-  await query(
-    `UPDATE jobs 
-     SET total_quoted = $1, total_actual = $2
-     WHERE id = $3`,
-    [totals.rows[0].total_quoted || 0, totals.rows[0].total_actual || 0, jobId]
-  );
+// DELETE - Delete a job item
+export async function DELETE(request, { params }) {
+  try {
+    const jobId = parseInt(params.id);
+    const url = new URL(request.url);
+    const itemId = url.searchParams.get('itemId');
+    
+    if (!itemId) {
+      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
+    }
+    
+    await query('DELETE FROM job_items WHERE id = $1 AND job_id = $2', [itemId, jobId]);
+    
+    // Update job totals
+    await query(
+      `UPDATE jobs 
+       SET total_quoted = (
+         SELECT COALESCE(SUM(quoted_total), 0) 
+         FROM job_items 
+         WHERE job_id = $1
+       )
+       WHERE id = $1`,
+      [jobId]
+    );
+    
+    return NextResponse.json({ message: 'Item deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting job item:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
