@@ -2,13 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/app/context/ToastContext';
+import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
+import Table from '@/app/components/ui/Table/Table';
+import Button from '@/app/components/ui/Button/Button';
+import StatusBadge from '@/app/components/common/StatusBadge';
+import CurrencyAmount from '@/app/components/CurrencyAmount';
+import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
 
 export default function QuotesPage() {
+  const router = useRouter();
+  const { success, error: toastError } = useToast();
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { success, error: toastError } = useToast();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchQuotes();
@@ -17,9 +28,10 @@ export default function QuotesPage() {
   const fetchQuotes = async () => {
     try {
       const res = await fetch('/api/quotes');
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      if (!res.ok) throw new Error('Failed to fetch quotes');
       const data = await res.json();
       setQuotes(Array.isArray(data) ? data : []);
+      setError(null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -27,168 +39,133 @@ export default function QuotesPage() {
     }
   };
 
-  const updateQuoteStatus = async (id, newStatus) => {
-    try {
-      const res = await fetch(`/api/quotes/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to update status');
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchQuotes();
+    setRefreshing(false);
+    success('Quotes refreshed');
+  };
+
+  const filteredQuotes = quotes?.filter(quote => {
+    const matchesSearch = quote.quote_number?.toLowerCase().includes(search.toLowerCase()) ||
+      quote.client_name?.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  }) || [];
+
+  const columns = [
+    { header: 'Quote #', accessor: 'quote_number', width: '15%' },
+    { header: 'Date', accessor: 'quote_date', width: '12%', render: (v) => new Date(v).toLocaleDateString() },
+    { header: 'Client', accessor: 'client_name', width: '20%' },
+    { header: 'Scope', accessor: 'scope_subject', width: '25%', render: (v) => v?.substring(0, 40) + (v?.length > 40 ? '...' : '') },
+    { header: 'Amount', accessor: 'total_amount', width: '13%', align: 'right', render: (v) => <CurrencyAmount amount={v || 0} /> },
+    { 
+      header: 'Status', 
+      accessor: 'status', 
+      width: '15%',
+      render: (value, row) => {
+        if (row.po_received) {
+          return <span style={{ padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.7rem', background: '#d1fae5', color: '#065f46' }}>PO Received</span>;
+        }
+        return <StatusBadge status={value} size="sm" />;
       }
-      
-      const result = await res.json();
-      success(`Quote ${newStatus}. ${result.job_created ? 'A job has been created.' : ''}`);
-      fetchQuotes(); // Refresh the list
-      
-    } catch (err) {
-      toastError(err.message);
     }
-  };
+  ];
 
-  const getStatusStyles = (status) => {
-    switch (status) {
-      case 'approved':
-        return { background: '#d1fae5', color: '#065f46' };
-      case 'rejected':
-        return { background: '#fee2e2', color: '#991b1b' };
-      default:
-        return { background: '#fef3c7', color: '#92400e' };
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div style={{ width: '40px', height: '40px', border: '3px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }}></div>
-        Loading quotes...
-        <style jsx>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: 'red' }}>
-        Error: {error}
-        <button onClick={fetchQuotes} style={{ marginLeft: '1rem', padding: '0.25rem 0.75rem' }}>Retry</button>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner text="Loading quotes..." />;
+  if (error) return <div style={{ padding: '2rem', textAlign: 'center', color: 'red' }}>Error: {error}<br /><button onClick={fetchQuotes}>Retry</button></div>;
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.75rem' }}>💰 Quote Management</h1>
-          <p style={{ color: '#6b7280', margin: '0.25rem 0 0 0' }}>When approved, a job is automatically created</p>
-        </div>
-        <Link href="/quotes/new">
-          <button style={{ background: '#2563eb', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
-            + New Quote
-          </button>
-        </Link>
+    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+      <PageHeader 
+        title="💰 Quote Management"
+        description="Create quotes. When PO is received, a job is automatically created."
+        action={
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Link href="/quotes/new">
+              <Button variant="primary">+ New Quote</Button>
+            </Link>
+            <Button onClick={handleRefresh} disabled={refreshing} variant="secondary">
+              {refreshing ? '⟳ Refreshing...' : '⟳ Refresh'}
+            </Button>
+          </div>
+        }
+      />
+
+      <div style={{ 
+        background: '#dbeafe', 
+        padding: '0.75rem 1rem', 
+        borderRadius: '0.5rem', 
+        marginBottom: '1rem',
+        fontSize: '0.875rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem'
+      }}>
+        <span>ℹ️</span>
+        Quotes start as "pending". Click on a quote to approve it and record the PO - this will automatically create a job.
       </div>
 
-      {quotes.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', background: '#f9fafb', borderRadius: '0.5rem' }}>
-          <p style={{ marginBottom: '0.5rem' }}>No quotes found.</p>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          placeholder="Search by quote number or client..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1, padding: '0.5rem', border: '1px solid #ddd', borderRadius: '0.5rem' }}
+        />
+        <select 
+          value={statusFilter} 
+          onChange={(e) => setStatusFilter(e.target.value)} 
+          style={{ padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ddd' }}
+        >
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="po_received">PO Received</option>
+        </select>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div className="stat-card"><div className="stat-value">{quotes?.length || 0}</div><div className="stat-label">Total Quotes</div></div>
+        <div className="stat-card"><div className="stat-value">{quotes?.filter(q => q.status === 'pending' && !q.po_received).length || 0}</div><div className="stat-label">Pending</div></div>
+        <div className="stat-card"><div className="stat-value">{quotes?.filter(q => q.po_received === true).length || 0}</div><div className="stat-label">PO Received</div></div>
+      </div>
+
+      {filteredQuotes.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem', background: 'white', borderRadius: '0.75rem' }}>
+          <p>No quotes found.</p>
           <Link href="/quotes/new">
-            <button style={{ background: '#2563eb', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
-              Create your first quote →
-            </button>
+            <Button variant="primary" style={{ marginTop: '1rem' }}>Create your first quote →</Button>
           </Link>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '0.5rem', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <thead style={{ background: '#f9fafb' }}>
-              <tr>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Quote #</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Date</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Client</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Amount</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Status</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Linked Job</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotes.map(quote => (
-                <tr key={quote.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <strong>{quote.quote_number}</strong>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    {new Date(quote.quote_date).toLocaleDateString()}
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    {quote.client_name || '-'}
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                    R {(quote.total_amount || 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <select
-                      value={quote.status}
-                      onChange={(e) => updateQuoteStatus(quote.id, e.target.value)}
-                      style={{ 
-                        padding: '0.25rem 0.5rem', 
-                        borderRadius: '0.25rem', 
-                        border: '1px solid #ddd',
-                        background: getStatusStyles(quote.status).background,
-                        color: getStatusStyles(quote.status).color,
-                        fontWeight: '500',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    {quote.job_id ? (
-                      <Link 
-                        href={`/jobs/${quote.job_id}`} 
-                        style={{ color: '#2563eb', textDecoration: 'none' }}
-                      >
-                        {quote.job_lc_number || `JOB-${quote.quote_number}`} →
-                      </Link>
-                    ) : quote.status === 'approved' ? (
-                      <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>Creating...</span>
-                    ) : (
-                      <span style={{ color: '#9ca3af' }}>-</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                    <Link href={`/quotes/${quote.id}`}>
-                      <button style={{ 
-                        background: '#6b7280', 
-                        color: 'white', 
-                        padding: '0.25rem 0.75rem', 
-                        border: 'none', 
-                        borderRadius: '0.25rem', 
-                        cursor: 'pointer',
-                        fontSize: '0.75rem'
-                      }}>
-                        View
-                      </button>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table 
+          columns={columns} 
+          data={filteredQuotes} 
+          onRowClick={(row) => router.push(`/quotes/${row.id}`)}
+          emptyMessage="No quotes found"
+        />
       )}
+
+      <style jsx>{`
+        .stat-card {
+          background: white;
+          padding: 1rem;
+          border-radius: 0.75rem;
+          text-align: center;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-value {
+          font-size: 1.5rem;
+          font-weight: bold;
+        }
+        .stat-label {
+          font-size: 0.75rem;
+          color: #6b7280;
+        }
+      `}</style>
     </div>
   );
 }
