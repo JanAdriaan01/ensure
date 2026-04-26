@@ -6,6 +6,7 @@ export async function POST(request, { params }) {
     const { id } = params;
     const { po_number, po_amount, po_date, po_document } = await request.json();
     
+    // Validate required fields
     if (!po_number || !po_amount) {
       return NextResponse.json({ error: 'PO Number and Amount are required' }, { status: 400 });
     }
@@ -28,8 +29,8 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'PO already received for this quote. Cannot update.' }, { status: 400 });
     }
     
-    // Update quote with PO information - this locks the quote
-    const updateResult = await query(
+    // Update quote with PO information - this LOCKS the quote
+    await query(
       `UPDATE quotes 
        SET po_number = $1, 
            po_amount = $2, 
@@ -37,8 +38,7 @@ export async function POST(request, { params }) {
            po_document = $4, 
            po_received = TRUE,
            status = 'po_received'
-       WHERE id = $5 
-       RETURNING *`,
+       WHERE id = $5`,
       [po_number, po_amount, po_date, po_document, id]
     );
     

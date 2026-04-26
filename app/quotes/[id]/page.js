@@ -51,22 +51,21 @@ export default function QuoteDetailPage({ params }) {
   };
 
   const recordPOAndCreateJob = async () => {
-    if (!poData.po_number || !poData.po_amount) {
-      toastError('PO Number and Amount are required');
+    // Validate PO details
+    if (!poData.po_number.trim()) {
+      toastError('PO Number is required');
+      return;
+    }
+    
+    if (!poData.po_amount || parseFloat(poData.po_amount) <= 0) {
+      toastError('Valid PO Amount is required');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      if (quote.status !== 'approved' && quote.status !== 'po_received') {
-        await fetch(`/api/quotes/${params.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'approved' })
-        });
-      }
-
+      // Record PO and create job via API
       const res = await fetch(`/api/quotes/${params.id}/po`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,23 +82,38 @@ export default function QuoteDetailPage({ params }) {
       if (res.ok) {
         success('PO recorded successfully! Job created.');
         setShowPoModal(false);
-        fetchQuote();
+        await fetchQuote(); // Refresh quote data
         
-        setTimeout(() => {
-          if (data.job_id) {
+        // Redirect to the newly created job
+        if (data.job_id) {
+          setTimeout(() => {
             router.push(`/jobs/${data.job_id}`);
-          } else {
+          }, 1500);
+        } else {
+          setTimeout(() => {
             window.location.reload();
-          }
-        }, 1500);
+          }, 1500);
+        }
       } else {
         toastError(data.error || 'Failed to record PO');
       }
     } catch (error) {
-      toastError('Failed to process');
+      console.error('Error:', error);
+      toastError('Failed to process PO');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const openPoModal = () => {
+    // Reset form when opening modal
+    setPoData({
+      po_number: '',
+      po_amount: '',
+      po_date: new Date().toISOString().split('T')[0],
+      po_document: ''
+    });
+    setShowPoModal(true);
   };
 
   if (loading) {
@@ -122,6 +136,7 @@ export default function QuoteDetailPage({ params }) {
     );
   }
 
+  // Check if PO is already received - if yes, show LOCKED view
   const isPoReceived = quote.po_received === true;
 
   return (
@@ -132,12 +147,12 @@ export default function QuoteDetailPage({ params }) {
           <h1 style={{ margin: '0.25rem 0 0 0' }}>💰 Quote: {quote.quote_number}</h1>
           <p style={{ color: '#6b7280', margin: '0.25rem 0 0 0' }}>
             Version {quote.version} | Created: {new Date(quote.created_at).toLocaleDateString()}
-            {isPoReceived && <span style={{ marginLeft: '0.5rem', color: '#10b981' }}>✓ PO RECEIVED - LOCKED</span>}
+            {isPoReceived && <span style={{ marginLeft: '0.5rem', color: '#10b981', fontWeight: 'bold' }}>✓ PO RECEIVED - LOCKED</span>}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {!isPoReceived ? (
-            <Button variant="success" size="sm" onClick={() => setShowPoModal(true)}>
+            <Button variant="success" size="sm" onClick={openPoModal}>
               📄 Record PO Received & Create Job
             </Button>
           ) : (
@@ -150,14 +165,15 @@ export default function QuoteDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Quote Details Card */}
+      {/* Quote Details Card - LOCKED indication if PO received */}
       <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         {isPoReceived && (
           <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#d1fae5', borderRadius: '0.5rem', border: '1px solid #10b981' }}>
             <strong>✓ PO RECEIVED - QUOTE IS LOCKED</strong><br />
-            PO Number: {quote.po_number}<br />
-            PO Amount: <CurrencyAmount amount={quote.po_amount} /><br />
-            PO Date: {new Date(quote.po_date).toLocaleDateString()}<br />
+            <strong>PO Number:</strong> {quote.po_number}<br />
+            <strong>PO Amount:</strong> <CurrencyAmount amount={quote.po_amount} /><br />
+            <strong>PO Date:</strong> {new Date(quote.po_date).toLocaleDateString()}<br />
+            {quote.po_document && <strong>Reference:</strong> {quote.po_document}<br />}
             <span style={{ fontSize: '0.75rem', color: '#065f46' }}>This quote cannot be edited. All work is managed in Job Management.</span>
           </div>
         )}
@@ -177,22 +193,22 @@ export default function QuoteDetailPage({ params }) {
         )}
       </div>
 
-      {/* Items Table */}
+      {/* Items Table - READ ONLY after PO received */}
       <div style={{ background: 'white', borderRadius: '0.75rem', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ padding: '1rem 1.5rem', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-          <h3 style={{ margin: 0 }}>Quote Items {isPoReceived && <span style={{ fontSize: '0.7rem', fontWeight: 'normal', marginLeft: '0.5rem' }}>(Read Only - View in Job Management)</span>}</h3>
+          <h3 style={{ margin: 0 }}>Quote Items {isPoReceived && <span style={{ fontSize: '0.7rem', fontWeight: 'normal', marginLeft: '0.5rem' }}>(Read Only - Work in Job Management)</span>}</h3>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f9fafb' }}>
+              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>#</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Description</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Qty</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Qty</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Unit</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>UoM</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Unit Price</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Total Ex VAT</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -206,7 +222,7 @@ export default function QuoteDetailPage({ params }) {
                         <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{item.additional_description}</div>
                       )}
                     </td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>{item.quantity}</td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{item.quantity}</td>
                     <td style={{ padding: '0.75rem 1rem' }}>{item.unit || '-'}</td>
                     <td style={{ padding: '0.75rem 1rem' }}>{item.unit_of_measure}</td>
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
@@ -226,7 +242,7 @@ export default function QuoteDetailPage({ params }) {
               )}
             </tbody>
             <tfoot style={{ background: '#f9fafb' }}>
-              <tr>
+              <tr style={{ borderTop: '1px solid #e5e7eb' }}>
                 <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal Ex VAT:</td>
                 <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold' }}>
                   <CurrencyAmount amount={quote.subtotal || 0} />
@@ -236,7 +252,7 @@ export default function QuoteDetailPage({ params }) {
                 <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>VAT (15%):</td>
                 <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                   <CurrencyAmount amount={quote.vat_amount || 0} />
-                </td>
+                <tr>
               </tr>
               <tr style={{ background: '#f0fdf4' }}>
                 <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Total:</td>
@@ -249,17 +265,19 @@ export default function QuoteDetailPage({ params }) {
         </div>
       </div>
 
-      {/* PO Receipt Modal */}
+      {/* PO Receipt Modal - Asks for PO details */}
       <Modal isOpen={showPoModal} onClose={() => setShowPoModal(false)} title="Record Purchase Order Received">
         <div>
           <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#dbeafe', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
             <strong>⚠️ Important:</strong> Recording a PO will:
             <ul style={{ margin: '0.5rem 0 0 1rem', padding: 0 }}>
-              <li>Lock this quote from further edits</li>
-              <li>Automatically create a Job</li>
-              <li>Send you to Job Management to track progress</li>
+              <li>✅ Lock this quote from further edits</li>
+              <li>✅ Automatically create a Job</li>
+              <li>✅ Send you to Job Management to track progress</li>
             </ul>
+            <strong>This action cannot be undone.</strong>
           </div>
+          
           <FormInput 
             label="PO Number *" 
             value={poData.po_number} 
@@ -267,24 +285,28 @@ export default function QuoteDetailPage({ params }) {
             required 
             placeholder="e.g., PO-2024-001"
           />
+          
           <FormCurrencyInput 
             label="PO Amount *" 
             value={poData.po_amount} 
             onChange={e => setPoData({...poData, po_amount: e.target.value})} 
             required 
           />
+          
           <FormInput 
             label="PO Date" 
             type="date" 
             value={poData.po_date} 
             onChange={e => setPoData({...poData, po_date: e.target.value})} 
           />
+          
           <FormTextarea 
-            label="PO Document Reference" 
+            label="PO Document Reference (Optional)" 
             value={poData.po_document} 
             onChange={e => setPoData({...poData, po_document: e.target.value})} 
             placeholder="Link or reference to PO document"
           />
+          
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
             <Button onClick={recordPOAndCreateJob} disabled={isSubmitting}>
               {isSubmitting ? 'Creating Job...' : 'Record PO & Create Job'}
