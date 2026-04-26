@@ -7,6 +7,7 @@ import CurrencySelector from '@/app/components/CurrencySelector';
 
 export default function Navbar() {
   const pathname = usePathname();
+  const [openDropdown, setOpenDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navModules = [
@@ -16,43 +17,38 @@ export default function Navbar() {
       links: [
         { href: '/jobs', label: 'Job Management', icon: '📋' },
         { href: '/quotes', label: 'Quoting', icon: '📄' },
-        { href: '/invoicing', label: 'Invoicing', icon: '🧾' }
+        { href: '/invoicing', label: 'Invoicing', icon: '🧾' },
+        { href: '/reconciliation', label: 'Reconciliation', icon: '🔄' },
+        { href: '/clients', label: 'Client Management', icon: '🏢' },
+        { href: '/reports/monthly', label: 'Monthly Reports', icon: '📊' }
       ]
     },
     {
       title: 'HR',
       icon: '👥',
       links: [
+        { href: '/employees/new', label: 'Create Employee', icon: '➕' },
+        { href: '/payroll', label: 'Payroll', icon: '💰' },
         { href: '/employees', label: 'Employee Management', icon: '👤' },
-        { href: '/payroll', label: 'Payroll', icon: '💰' }
+        { href: '/employees/skills', label: 'Add Skill', icon: '⭐' },
+        { href: '/employees/certifications', label: 'Add Certificate', icon: '📜' }
       ]
     },
     {
-      title: 'Inventory',
-      icon: '📦',
-      links: [
-        { href: '/stock/purchasing', label: 'Stock Purchasing', icon: '🛒' },
-        { href: '/stock/issued', label: 'Stock Issued to Jobs', icon: '📤' }
-      ]
-    },
-    {
-      title: 'Tools',
-      icon: '🔧',
+      title: 'Operations',
+      icon: '⚙️',
       links: [
         { href: '/tools', label: 'Tools Management', icon: '🔧' },
-        { href: '/tools/checkout', label: 'Tools Checkout', icon: '📋' },
-        { href: '/tools/purchasing', label: 'New Tools', icon: '🆕' }
-      ]
-    },
-    {
-      title: 'Scheduling',
-      icon: '📅',
-      links: [
-        { href: '/schedule', label: 'Work Orders', icon: '📋' },
-        { href: '/teams', label: 'Team Management', icon: '👥' }
+        { href: '/schedule', label: 'Scheduling', icon: '📅' },
+        { href: '/inventory', label: 'Inventory', icon: '📦' },
+        { href: '/ohs', label: 'OHS Compliance', icon: '🛡️' }
       ]
     }
   ];
+
+  const toggleDropdown = (title) => {
+    setOpenDropdown(openDropdown === title ? null : title);
+  };
 
   return (
     <nav className="navbar">
@@ -64,20 +60,27 @@ export default function Navbar() {
         {/* Desktop Navigation */}
         <div className="nav-desktop">
           {navModules.map(module => (
-            <div key={module.title} className="nav-dropdown">
+            <div 
+              key={module.title} 
+              className="nav-dropdown"
+              onMouseEnter={() => setOpenDropdown(module.title)}
+              onMouseLeave={() => setOpenDropdown(null)}
+            >
               <button className="nav-dropdown-btn">
                 <span className="nav-icon">{module.icon}</span>
                 {module.title}
                 <span className="dropdown-arrow">▼</span>
               </button>
-              <div className="nav-dropdown-content">
-                {module.links.map(link => (
-                  <Link key={link.href} href={link.href} className="nav-dropdown-link">
-                    <span className="nav-link-icon">{link.icon}</span>
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
+              {openDropdown === module.title && (
+                <div className="nav-dropdown-content">
+                  {module.links.map(link => (
+                    <Link key={link.href} href={link.href} className="nav-dropdown-link">
+                      <span className="nav-link-icon">{link.icon}</span>
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -98,23 +101,29 @@ export default function Navbar() {
         <div className="nav-mobile">
           {navModules.map(module => (
             <div key={module.title} className="nav-mobile-module">
-              <div className="nav-mobile-title">
+              <div 
+                className="nav-mobile-title"
+                onClick={() => toggleDropdown(module.title)}
+              >
                 <span className="nav-icon">{module.icon}</span>
                 {module.title}
+                <span className="dropdown-arrow">{openDropdown === module.title ? '▲' : '▼'}</span>
               </div>
-              <div className="nav-mobile-links">
-                {module.links.map(link => (
-                  <Link 
-                    key={link.href} 
-                    href={link.href} 
-                    className="nav-mobile-link"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <span className="nav-link-icon">{link.icon}</span>
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
+              {openDropdown === module.title && (
+                <div className="nav-mobile-links">
+                  {module.links.map(link => (
+                    <Link 
+                      key={link.href} 
+                      href={link.href} 
+                      className="nav-mobile-link"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <span className="nav-link-icon">{link.icon}</span>
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -177,19 +186,15 @@ export default function Navbar() {
           margin-left: 0.25rem;
         }
         .nav-dropdown-content {
-          display: none;
           position: absolute;
           background: white;
-          min-width: 200px;
+          min-width: 220px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
           border-radius: 0.5rem;
           z-index: 1;
           top: 100%;
           left: 0;
           margin-top: 0.25rem;
-        }
-        .nav-dropdown:hover .nav-dropdown-content {
-          display: block;
         }
         .nav-dropdown-link {
           display: flex;
@@ -234,27 +239,36 @@ export default function Navbar() {
           border-top: 1px solid #4b5563;
         }
         .nav-mobile-module {
-          margin-bottom: 1rem;
+          margin-bottom: 0.5rem;
         }
         .nav-mobile-title {
-          padding: 0.5rem;
+          padding: 0.75rem;
           font-weight: bold;
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          border-bottom: 1px solid #4b5563;
+          cursor: pointer;
+          border-radius: 0.5rem;
+        }
+        .nav-mobile-title:hover {
+          background: #4b5563;
         }
         .nav-mobile-links {
-          padding-left: 1.5rem;
+          padding-left: 2rem;
+          margin-top: 0.25rem;
         }
         .nav-mobile-link {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.5rem;
+          padding: 0.5rem 0.75rem;
           text-decoration: none;
           color: #e5e7eb;
           font-size: 0.875rem;
+          border-radius: 0.5rem;
+        }
+        .nav-mobile-link:hover {
+          background: #4b5563;
         }
         @media (max-width: 900px) {
           .nav-desktop {
