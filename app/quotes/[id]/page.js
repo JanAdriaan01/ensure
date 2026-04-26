@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter }next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/app/context/ToastContext';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
@@ -219,7 +219,7 @@ export default function QuoteDetailPage({ params }) {
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                       <CurrencyAmount amount={item.quantity * item.price_ex_vat} />
                     </td>
-                  </tr>
+                  <tr>
                 ))
               ) : (
                 <tr>
@@ -230,9 +230,24 @@ export default function QuoteDetailPage({ params }) {
               )}
             </tbody>
             <tfoot style={{ background: '#f9fafb' }}>
-              <tr><td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal Ex VAT:</td><td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold' }}><CurrencyAmount amount={quote.subtotal || 0} /></td></tr>
-              <tr><td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>VAT (15%):</td><td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}><CurrencyAmount amount={quote.vat_amount || 0} /></td></tr>
-              <tr style={{ background: '#f0fdf4' }}><td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Total:</td><td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}><CurrencyAmount amount={quote.total_amount || 0} /></td></tr>
+              <tr>
+                <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal Ex VAT:</td>
+                <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold' }}>
+                  <CurrencyAmount amount={quote.subtotal || 0} />
+                </td>
+              </tr>
+              <tr>
+                <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>VAT (15%):</td>
+                <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                  <CurrencyAmount amount={quote.vat_amount || 0} />
+                </td>
+              </tr>
+              <tr style={{ background: '#f0fdf4' }}>
+                <td colSpan="6" style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>Total:</td>
+                <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1rem' }}>
+                  <CurrencyAmount amount={quote.total_amount || 0} />
+                </td>
+              </tr>
             </tfoot>
           </table>
         </div>
