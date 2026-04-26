@@ -59,7 +59,6 @@ export default function QuoteDetailPage({ params }) {
     setIsSubmitting(true);
 
     try {
-      // First, approve the quote if not already approved
       if (quote.status !== 'approved' && quote.status !== 'po_received') {
         await fetch(`/api/quotes/${params.id}`, {
           method: 'PATCH',
@@ -68,7 +67,6 @@ export default function QuoteDetailPage({ params }) {
         });
       }
 
-      // Record PO and create job
       const res = await fetch(`/api/quotes/${params.id}/po`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,7 +85,6 @@ export default function QuoteDetailPage({ params }) {
         setShowPoModal(false);
         fetchQuote();
         
-        // Redirect to the newly created job after 1.5 seconds
         setTimeout(() => {
           if (data.job_id) {
             router.push(`/jobs/${data.job_id}`);
@@ -125,7 +122,6 @@ export default function QuoteDetailPage({ params }) {
     );
   }
 
-  // If PO is already received, show locked view
   const isPoReceived = quote.po_received === true;
 
   return (
@@ -181,7 +177,7 @@ export default function QuoteDetailPage({ params }) {
         )}
       </div>
 
-      {/* Items Table - Read Only after PO Received */}
+      {/* Items Table */}
       <div style={{ background: 'white', borderRadius: '0.75rem', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ padding: '1rem 1.5rem', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
           <h3 style={{ margin: 0 }}>Quote Items {isPoReceived && <span style={{ fontSize: '0.7rem', fontWeight: 'normal', marginLeft: '0.5rem' }}>(Read Only - View in Job Management)</span>}</h3>
@@ -219,7 +215,7 @@ export default function QuoteDetailPage({ params }) {
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                       <CurrencyAmount amount={item.quantity * item.price_ex_vat} />
                     </td>
-                  <tr>
+                  </tr>
                 ))
               ) : (
                 <tr>
