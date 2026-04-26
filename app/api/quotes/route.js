@@ -1,24 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
-// GET all quotes
-export async function GET() {
-  try {
-    const result = await query(`
-      SELECT q.*, c.client_name, j.lc_number as job_lc_number, j.id as job_id
-      FROM quotes q
-      LEFT JOIN clients c ON q.client_id = c.id
-      LEFT JOIN jobs j ON q.id::text = j.quote_id
-      ORDER BY q.created_at DESC
-    `);
-    return NextResponse.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching quotes:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// POST create quote - if approved, auto-create job
 export async function POST(request) {
   try {
     const body = await request.json();
