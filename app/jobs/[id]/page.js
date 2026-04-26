@@ -44,6 +44,7 @@ export default function JobDetailPage({ params }) {
   });
   const [variationDetails, setVariationDetails] = useState({
     item_id: null,
+    item_name: '',
     original_total: 0,
     new_total: 0,
     difference: 0
@@ -141,11 +142,10 @@ export default function JobDetailPage({ params }) {
     const originalTotal = selectedItem.original_total;
     
     if (newTotal < originalTotal) {
-      // Below original - can be finalized with comment
       const comment = prompt('Reason for reduction (PO amount not fully invoiced):', 'Partial delivery/savings');
+      if (comment === null) return;
       await performSaveEdit(comment, false);
     } else if (newTotal > originalTotal) {
-      // Above original - needs variation PO
       setVariationDetails({
         item_id: selectedItem.id,
         item_name: selectedItem.item_name,
@@ -155,37 +155,31 @@ export default function JobDetailPage({ params }) {
       });
       setShowVariationModal(true);
     } else {
-      // Same - just update
       await performSaveEdit(null, false);
     }
   };
 
   const performSaveEdit = async (comment, isVariation) => {
     try {
-      const newTotal = selectedItem.quoted_quantity * selectedItem.quoted_unit_price;
-      
-      const res = await fetch(`/api/jobs/${params.id}/items/${selectedItem.id}`, {
+      const response = await fetch(`/api/jobs/${params.id}/items?itemId=${selectedItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quoted_quantity: selectedItem.quoted_quantity,
           quoted_unit_price: selectedItem.quoted_unit_price,
           description: selectedItem.description,
-          revision_number: selectedItem.revision_number,
-          revision_reason: comment || (isVariation ? 'Variation order required' : 'Standard revision'),
-          original_quantity: selectedItem.original_quantity,
-          original_unit_price: selectedItem.original_unit_price,
-          original_total: selectedItem.original_total
+          revision_reason: comment || (isVariation ? 'Variation order required' : 'Standard revision')
         })
       });
       
-      if (res.ok) {
+      const data = await response.json();
+      
+      if (response.ok) {
         success('Item updated successfully');
         setShowEditItemModal(false);
         fetchJobItems();
       } else {
-        const error = await res.json();
-        toastError(error.error || 'Failed to update item');
+        toastError(data.error || 'Failed to update item');
       }
     } catch (error) {
       console.error('Error saving item edit:', error);
@@ -195,7 +189,6 @@ export default function JobDetailPage({ params }) {
 
   const createVariationPO = async () => {
     try {
-      // Create variation quote
       const quoteNumber = `VAR-${quote?.quote_number || job?.lc_number}-${new Date().getFullYear()}`;
       
       const res = await fetch('/api/quotes', {
@@ -221,7 +214,6 @@ export default function JobDetailPage({ params }) {
         const variationQuote = await res.json();
         success('Variation PO created. Please have it approved.');
         
-        // Update the job item with variation reference
         await fetch(`/api/jobs/${params.id}/items/${variationDetails.item_id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -285,7 +277,6 @@ export default function JobDetailPage({ params }) {
       return;
     }
     
-    // Check if this item has variation pending
     if (item.variation_po_required) {
       toastError('This item requires a variation PO approval before finalizing.');
       return;
@@ -376,7 +367,6 @@ export default function JobDetailPage({ params }) {
         }
       />
 
-      {/* Warning if variation is required */}
       {summary.variation_required && (
         <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fee2e2', borderRadius: '0.5rem', borderLeft: '4px solid #dc2626' }}>
           <strong>⚠️ Variation Required</strong><br />
@@ -492,7 +482,7 @@ export default function JobDetailPage({ params }) {
                           ) : item.variation_po_required ? (
                             <span style={{ color: '#f59e0b' }}>⏳ Awaiting Variation PO</span>
                           ) : (
-                            <StatusBadge status={item.completion_status === 'completed' ? 'completed' : 'pending'} />
+                            <StatusBadge status="pending" />
                           )}
                         </td>
                         <td style={{ padding: '0.75rem', textAlign: 'center' }}>
@@ -511,7 +501,7 @@ export default function JobDetailPage({ params }) {
                             )}
                           </div>
                         </td>
-                      </tr>
+                      </td>
                     );
                   })
                 )}
@@ -551,7 +541,7 @@ export default function JobDetailPage({ params }) {
                         <th style={{ padding: '0.75rem', textAlign: 'right' }}>Qty</th>
                         <th style={{ padding: '0.75rem', textAlign: 'right' }}>Unit Price</th>
                         <th style={{ padding: '0.75rem', textAlign: 'right' }}>Total</th>
-                      </tr>
+                      </td>
                     </thead>
                     <tbody>
                       {quote.items?.map((item, idx) => (

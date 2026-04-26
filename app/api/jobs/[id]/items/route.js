@@ -22,7 +22,6 @@ export async function GET(request, { params }) {
       ORDER BY ji.id
     `, [jobId]);
     
-    // Get summary stats
     const summary = await query(`
       SELECT 
         COALESCE(SUM(ji.quoted_total), 0) as total_quoted,
@@ -90,26 +89,26 @@ export async function PUT(request, { params }) {
     const jobId = parseInt(params.id);
     const url = new URL(request.url);
     const itemId = url.searchParams.get('itemId');
+    const body = await request.json();
+    
     const { 
       quoted_quantity, 
       quoted_unit_price, 
       description, 
-      revision_number,
-      revision_reason,
-      original_quantity,
-      original_unit_price,
-      original_total,
-      variation_po_required,
-      variation_quote_id
-    } = await request.json();
+      revision_reason
+    } = body;
     
     if (!itemId) {
       return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
     }
     
+    if (!quoted_quantity || !quoted_unit_price) {
+      return NextResponse.json({ error: 'Quantity and unit price are required' }, { status: 400 });
+    }
+    
     const quoted_total = quoted_quantity * quoted_unit_price;
     
-    // Get current item to preserve original values if not provided
+    // Get current item to preserve original values
     const currentItem = await query('SELECT * FROM job_items WHERE id = $1 AND job_id = $2', [itemId, jobId]);
     if (currentItem.rows.length === 0) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
@@ -118,6 +117,11 @@ export async function PUT(request, { params }) {
     const current = currentItem.rows[0];
     const newRevisionNumber = (current.revision_number || 1) + 1;
     
+    // Preserve original values
+    const originalQty = current.original_quantity || current.quoted_quantity;
+    const originalPrice = current.original_unit_price || current.quoted_unit_price;
+    const originalTotal = current.original_total || (current.quoted_quantity * current.quoted_unit_price);
+    
     const result = await query(
       `UPDATE job_items 
        SET quoted_quantity = $1,
@@ -125,29 +129,22 @@ export async function PUT(request, { params }) {
            quoted_total = $3,
            description = COALESCE($4, description),
            revision_number = $5,
-           revision_reason = CASE 
-             WHEN $6 IS NOT NULL THEN $6 
-             ELSE revision_reason 
-           END,
-           original_quantity = COALESCE($7, original_quantity, $1),
-           original_unit_price = COALESCE($8, original_unit_price, $2),
-           original_total = COALESCE($9, original_total, $3),
-           variation_po_required = COALESCE($10, variation_po_required, FALSE),
-           variation_quote_id = COALESCE($11, variation_quote_id)
-       WHERE id = $12 AND job_id = $13
+           revision_reason = COALESCE($6, revision_reason),
+           original_quantity = $7,
+           original_unit_price = $8,
+           original_total = $9
+       WHERE id = $10 AND job_id = $11
        RETURNING *`,
       [
         quoted_quantity, 
         quoted_unit_price, 
         quoted_total, 
         description,
-        revision_number || newRevisionNumber,
+        newRevisionNumber,
         revision_reason,
-        original_quantity || current.quoted_quantity,
-        original_unit_price || current.quoted_unit_price,
-        original_total || (current.quoted_quantity * current.quoted_unit_price),
-        variation_po_required,
-        variation_quote_id,
+        originalQty,
+        originalPrice,
+        originalTotal,
         itemId, 
         jobId
       ]
@@ -169,7 +166,12 @@ export async function PUT(request, { params }) {
       [jobId]
     );
     
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json({ 
+      success: true, 
+      item: result.rows[0],
+      message: 'Item updated successfully'
+    });
+    
   } catch (error) {
     console.error('Error updating job item:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
