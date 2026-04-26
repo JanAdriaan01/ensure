@@ -143,7 +143,7 @@ export default function Home() {
             <div className="card-icon">✅</div>
             <div className="card-value">{stats.hr.activeEmployees}</div>
             <div className="card-label">Active Employees</div>
-          </Link>
+          </div>
           <Link href="/payroll" className="module-card">
             <div className="card-icon">💰</div>
             <div className="card-value"><CurrencyAmount amount={stats.hr.monthlyPayroll} /></div>
@@ -221,12 +221,12 @@ export default function Home() {
             <div className="card-icon">👥</div>
             <div className="card-value">{stats.scheduling.teams}</div>
             <div className="card-label">Teams</div>
-          </Link>
+          </div>
           <div className="module-card">
             <div className="card-icon">✅</div>
             <div className="card-value">{stats.scheduling.completedThisWeek}</div>
             <div className="card-label">Completed This Week</div>
-          </Link>
+          </div>
         </div>
       </div>
 
