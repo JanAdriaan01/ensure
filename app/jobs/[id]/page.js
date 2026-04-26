@@ -202,13 +202,16 @@ export default function JobDetailPage({ params }) {
           finalized_at: new Date().toISOString()
         })
       });
+      
       if (res.ok) {
         success('Item finalized and ready for invoicing');
-        fetchJobItems();
+        fetchJobItems(); // Refresh the list
       } else {
-        toastError('Failed to finalize item');
+        const error = await res.json();
+        toastError(error.error || 'Failed to finalize item');
       }
     } catch (error) {
+      console.error('Error finalizing item:', error);
       toastError('Failed to finalize item');
     }
   };
@@ -333,7 +336,7 @@ export default function JobDetailPage({ params }) {
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Item</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Description</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Qty</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'center' }}>Qty</th>
                   <th style={{ padding: '0.75rem', textAlign: 'right' }}>Unit Price</th>
                   <th style={{ padding: '0.75rem', textAlign: 'right' }}>Total</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>Status</th>
@@ -352,7 +355,7 @@ export default function JobDetailPage({ params }) {
                     <tr key={item.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                       <td style={{ padding: '0.75rem' }}><strong>{item.item_name}</strong></td>
                       <td style={{ padding: '0.75rem' }}>{item.description || '-'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{item.quoted_quantity}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.quoted_quantity}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quoted_unit_price} /></td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quoted_total} /></td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
@@ -384,7 +387,7 @@ export default function JobDetailPage({ params }) {
         </div>
       )}
 
-      {/* Tab: Original Quote - Read Only */}
+      {/* Tab: Original Quote */}
       {activeTab === 'quote' && (
         <Card>
           {quote ? (
@@ -492,7 +495,7 @@ export default function JobDetailPage({ params }) {
             <Card hover>
               <div style={{ textAlign: 'center', padding: '0.5rem' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏰</div>
-                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Book Employee Hours</strong>
+                <strong>Book Employee Hours</strong>
               </div>
             </Card>
           </Link>
@@ -501,7 +504,7 @@ export default function JobDetailPage({ params }) {
             <Card hover>
               <div style={{ textAlign: 'center', padding: '0.5rem' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💰</div>
-                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Financial / Invoicing</strong>
+                <strong>Financial / Invoicing</strong>
               </div>
             </Card>
           </Link>
@@ -510,7 +513,7 @@ export default function JobDetailPage({ params }) {
             <Card hover>
               <div style={{ textAlign: 'center', padding: '0.5rem' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📦</div>
-                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Stock Management</strong>
+                <strong>Stock Management</strong>
               </div>
             </Card>
           </Link>
@@ -519,7 +522,7 @@ export default function JobDetailPage({ params }) {
             <Card hover>
               <div style={{ textAlign: 'center', padding: '0.5rem' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔧</div>
-                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Tools Management</strong>
+                <strong>Tools Management</strong>
               </div>
             </Card>
           </Link>
