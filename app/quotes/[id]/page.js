@@ -6,6 +6,9 @@ import Link from 'next/link';
 import { useToast } from '@/app/context/ToastContext';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
 import StatusBadge from '@/app/components/common/StatusBadge';
+import Button from '@/app/components/ui/Button/Button';
+import Modal from '@/app/components/ui/Modal/Modal';
+import { FormInput, FormCurrencyInput, FormTextarea } from '@/app/components/ui/Form';
 
 export default function QuoteDetailPage({ params }) {
   const router = useRouter();
@@ -13,6 +16,13 @@ export default function QuoteDetailPage({ params }) {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPoModal, setShowPoModal] = useState(false);
+  const [poData, setPoData] = useState({
+    po_number: '',
+    po_amount: '',
+    po_date: new Date().toISOString().split('T')[0],
+    po_document: ''
+  });
 
   useEffect(() => {
     fetchQuote();
@@ -24,6 +34,14 @@ export default function QuoteDetailPage({ params }) {
       if (!res.ok) throw new Error('Quote not found');
       const data = await res.json();
       setQuote(data);
+      if (data.po_received) {
+        setPoData({
+          po_number: data.po_number || '',
+          po_amount: data.po_amount || '',
+          po_date: data.po_date || new Date().toISOString().split('T')[0],
+          po_document: data.po_document || ''
+        });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -47,6 +65,37 @@ export default function QuoteDetailPage({ params }) {
       
     } catch (err) {
       toastError(err.message);
+    }
+  };
+
+  const recordPoReceived = async () => {
+    if (!poData.po_number || !poData.po_amount) {
+      toastError('PO Number and Amount are required');
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/quotes/${params.id}/po`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          po_number: poData.po_number,
+          po_amount: parseFloat(poData.po_amount),
+          po_date: poData.po_date,
+          po_document: poData.po_document
+        })
+      });
+      
+      if (res.ok) {
+        success('PO recorded successfully');
+        setShowPoModal(false);
+        fetchQuote();
+      } else {
+        const error = await res.json();
+        toastError(error.error || 'Failed to record PO');
+      }
+    } catch (error) {
+      toastError('Failed to record PO');
     }
   };
 
@@ -78,22 +127,19 @@ export default function QuoteDetailPage({ params }) {
           <h1 style={{ margin: '0.25rem 0 0 0' }}>💰 Quote: {quote.quote_number}</h1>
           <p style={{ color: '#6b7280', margin: '0.25rem 0 0 0' }}>Version {quote.version} | Created: {new Date(quote.created_at).toLocaleDateString()}</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {quote.status !== 'approved' && (
-            <button onClick={() => updateStatus('approved')} style={{ background: '#10b981', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
-              ✓ Approve Quote
-            </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {!quote.po_received && quote.status === 'approved' && (
+            <Button variant="success" size="sm" onClick={() => setShowPoModal(true)}>📄 Record PO Received</Button>
           )}
-          {quote.status !== 'rejected' && quote.status !== 'approved' && (
-            <button onClick={() => updateStatus('rejected')} style={{ background: '#ef4444', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
-              ✗ Reject Quote
-            </button>
+          {quote.status !== 'approved' && quote.status !== 'rejected' && quote.status !== 'po_received' && (
+            <Button variant="success" size="sm" onClick={() => updateStatus('approved')}>✓ Approve Quote</Button>
+          )}
+          {quote.status !== 'rejected' && quote.status !== 'approved' && quote.status !== 'po_received' && (
+            <Button variant="danger" size="sm" onClick={() => updateStatus('rejected')}>✗ Reject Quote</Button>
           )}
           {quote.job_id && (
             <Link href={`/jobs/${quote.job_id}`}>
-              <button style={{ background: '#2563eb', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>
-                Go to Job →
-              </button>
+              <Button variant="primary" size="sm">Go to Job →</Button>
             </Link>
           )}
         </div>
@@ -101,6 +147,14 @@ export default function QuoteDetailPage({ params }) {
 
       {/* Quote Details Card */}
       <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        {quote.po_received && (
+          <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#d1fae5', borderRadius: '0.5rem' }}>
+            <strong>✓ PO Received</strong><br />
+            PO Number: {quote.po_number}<br />
+            PO Amount: <CurrencyAmount amount={quote.po_amount} /><br />
+            PO Date: {new Date(quote.po_date).toLocaleDateString()}
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
           <div><strong>Client:</strong> {quote.client_name || 'N/A'}</div>
           <div><strong>Site Name:</strong> {quote.site_name || '-'}</div>
@@ -189,17 +243,43 @@ export default function QuoteDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Job Link Section (if job exists) */}
-      {quote.job_id && (
-        <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#dbeafe', borderRadius: '0.5rem', textAlign: 'center' }}>
-          <p style={{ margin: 0 }}>
-            ✅ This quote has been approved and a job has been created.
-            <Link href={`/jobs/${quote.job_id}`} style={{ marginLeft: '0.5rem', color: '#2563eb', textDecoration: 'none' }}>
-              View Job →
-            </Link>
-          </p>
+      {/* PO Receipt Modal */}
+      <Modal isOpen={showPoModal} onClose={() => setShowPoModal(false)} title="Record Purchase Order Received">
+        <div>
+          <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
+            Recording a PO against this quote will lock the quote amount and create a job if not already created.
+          </div>
+          <FormInput 
+            label="PO Number" 
+            value={poData.po_number} 
+            onChange={e => setPoData({...poData, po_number: e.target.value})} 
+            required 
+            placeholder="e.g., PO-2024-001"
+          />
+          <FormCurrencyInput 
+            label="PO Amount" 
+            value={poData.po_amount} 
+            onChange={e => setPoData({...poData, po_amount: e.target.value})} 
+            required 
+          />
+          <FormInput 
+            label="PO Date" 
+            type="date" 
+            value={poData.po_date} 
+            onChange={e => setPoData({...poData, po_date: e.target.value})} 
+          />
+          <FormTextarea 
+            label="PO Document Reference" 
+            value={poData.po_document} 
+            onChange={e => setPoData({...poData, po_document: e.target.value})} 
+            placeholder="Link or reference to PO document"
+          />
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <Button onClick={recordPoReceived}>Save PO</Button>
+            <Button variant="secondary" onClick={() => setShowPoModal(false)}>Cancel</Button>
+          </div>
         </div>
-      )}
+      </Modal>
 
       <style jsx>{`
         @keyframes spin {

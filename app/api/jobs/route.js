@@ -1,25 +1,34 @@
-import { getJobs, createJob } from '@/lib/db';
-import { NextResponse } from 'next/server';
-
-export async function GET() {
+// Add/modify the PUT handler in your existing jobs API
+export async function PUT(request, { params }) {
   try {
-    const jobs = await getJobs();
-    return NextResponse.json(jobs);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to fetch jobs' }, { status: 500 });
-  }
-}
-
-export async function POST(request) {
-  try {
+    const { id } = params;
     const body = await request.json();
-    const job = await createJob(body);
-    return NextResponse.json(job, { status: 201 });
-  } catch (error) {
-    if (error.code === '23505') {
-      return NextResponse.json({ error: 'LC Number already exists' }, { status: 409 });
+    const { completion_status, po_status } = body;
+    
+    let updateFields = [];
+    let values = [];
+    
+    if (completion_status !== undefined) {
+      updateFields.push(`completion_status = $${updateFields.length + 1}`);
+      values.push(completion_status);
     }
-    return NextResponse.json({ error: 'Failed to create job' }, { status: 500 });
+    if (po_status !== undefined) {
+      updateFields.push(`po_status = $${updateFields.length + 1}`);
+      values.push(po_status);
+    }
+    
+    if (updateFields.length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+    
+    values.push(id);
+    const result = await query(
+      `UPDATE jobs SET ${updateFields.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    
+    return NextResponse.json(result.rows[0]);
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
