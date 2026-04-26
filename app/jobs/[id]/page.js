@@ -501,7 +501,7 @@ export default function JobDetailPage({ params }) {
                             )}
                           </div>
                         </td>
-                      </td>
+                      </tr>
                     );
                   })
                 )}
@@ -541,7 +541,7 @@ export default function JobDetailPage({ params }) {
                         <th style={{ padding: '0.75rem', textAlign: 'right' }}>Qty</th>
                         <th style={{ padding: '0.75rem', textAlign: 'right' }}>Unit Price</th>
                         <th style={{ padding: '0.75rem', textAlign: 'right' }}>Total</th>
-                      </td>
+                      </tr>
                     </thead>
                     <tbody>
                       {quote.items?.map((item, idx) => (
@@ -612,16 +612,39 @@ export default function JobDetailPage({ params }) {
       {activeTab === 'actions' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
           <Link href={`/jobs/${params.id}/hours`} style={{ textDecoration: 'none' }}>
-            <Card hover><div style={{ textAlign: 'center' }}>⏰<br/><strong>Book Employee Hours</strong></div></Card>
+            <Card hover>
+              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏰</div>
+                <strong>Book Employee Hours</strong>
+              </div>
+            </Card>
           </Link>
+
           <Link href={`/jobs/${params.id}/financial`} style={{ textDecoration: 'none' }}>
-            <Card hover><div style={{ textAlign: 'center' }}>💰<br/><strong>Financial / Invoicing</strong></div></Card>
+            <Card hover>
+              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💰</div>
+                <strong>Financial / Invoicing</strong>
+              </div>
+            </Card>
           </Link>
+
           <Link href={`/jobs/${params.id}/stock`} style={{ textDecoration: 'none' }}>
-            <Card hover><div style={{ textAlign: 'center' }}>📦<br/><strong>Stock Management</strong></div></Card>
+            <Card hover>
+              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📦</div>
+                <strong>Stock Management</strong>
+              </div>
+            </Card>
           </Link>
+
           <Link href={`/jobs/${params.id}/tools`} style={{ textDecoration: 'none' }}>
-            <Card hover><div style={{ textAlign: 'center' }}>🔧<br/><strong>Tools Management</strong></div></Card>
+            <Card hover>
+              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔧</div>
+                <strong>Tools Management</strong>
+              </div>
+            </Card>
           </Link>
         </div>
       )}
