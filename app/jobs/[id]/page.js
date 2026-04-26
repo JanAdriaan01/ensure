@@ -71,7 +71,6 @@ export default function JobDetailPage({ params }) {
   };
 
   const editItem = (item) => {
-    // Create a copy for editing - original stays in database
     setSelectedItem({ 
       id: item.id,
       item_name: item.item_name,
@@ -86,7 +85,6 @@ export default function JobDetailPage({ params }) {
 
   const saveItemEdit = async () => {
     try {
-      // Calculate if this edit creates an over-budget situation
       const newTotal = selectedItem.quoted_quantity * selectedItem.quoted_unit_price;
       const originalTotal = selectedItem.original_quantity * selectedItem.original_price;
       const isOverBudget = newTotal > originalTotal;
@@ -154,7 +152,6 @@ export default function JobDetailPage({ params }) {
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-      {/* Header - No PO Status here */}
       <PageHeader 
         title={`📋 Job: ${job.lc_number}`}
         description={`${quote ? `From quote: ${quote.quote_number}` : 'Manual job'} | Client: ${job.client_name || 'N/A'}`}
@@ -179,7 +176,6 @@ export default function JobDetailPage({ params }) {
         }
       />
 
-      {/* Progress Overview Card */}
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div><strong>📊 Job Progress</strong></div>
@@ -207,7 +203,6 @@ export default function JobDetailPage({ params }) {
         </div>
       </Card>
 
-      {/* Tab Navigation */}
       <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #e5e7eb', marginTop: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {tabs.map(tab => (
           <button
@@ -229,7 +224,7 @@ export default function JobDetailPage({ params }) {
         ))}
       </div>
 
-      {/* Tab: Job Items - Editable */}
+      {/* Tab: Job Items */}
       {activeTab === 'items' && (
         <div>
           <div style={{ marginBottom: '1rem' }}>
@@ -273,24 +268,12 @@ export default function JobDetailPage({ params }) {
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => editItem(item)}
-                          >
-                            Edit
-                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => editItem(item)}>Edit</Button>
                           {item.completion_status !== 'completed' && (
-                            <Button 
-                              variant="success" 
-                              size="sm" 
-                              onClick={() => finalizeItem(item)}
-                            >
-                              Finalize
-                            </Button>
+                            <Button variant="success" size="sm" onClick={() => finalizeItem(item)}>Finalize</Button>
                           )}
                         </div>
-                      </tr>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -300,7 +283,7 @@ export default function JobDetailPage({ params }) {
         </div>
       )}
 
-      {/* Tab: Original Quote - Read Only */}
+      {/* Tab: Original Quote */}
       {activeTab === 'quote' && (
         <Card>
           {quote ? (
