@@ -29,9 +29,15 @@ export default function JobDetailPage({ params }) {
     over_budget_count: 0
   });
   const [showEditItemModal, setShowEditItemModal] = useState(false);
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [newItem, setNewItem] = useState({
+    item_name: '',
+    description: '',
+    quoted_quantity: 1,
+    quoted_unit_price: 0
+  });
   const [activeTab, setActiveTab] = useState('items');
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (jobData) {
@@ -78,7 +84,9 @@ export default function JobDetailPage({ params }) {
       quoted_quantity: item.quoted_quantity,
       quoted_unit_price: item.quoted_unit_price,
       original_quantity: item.quoted_quantity,
-      original_price: item.quoted_unit_price
+      original_price: item.quoted_unit_price,
+      original_total: item.quoted_total,
+      revision: (item.revision || 0) + 1
     });
     setShowEditItemModal(true);
   };
@@ -86,8 +94,7 @@ export default function JobDetailPage({ params }) {
   const saveItemEdit = async () => {
     try {
       const newTotal = selectedItem.quoted_quantity * selectedItem.quoted_unit_price;
-      const originalTotal = selectedItem.original_quantity * selectedItem.original_price;
-      const isOverBudget = newTotal > originalTotal;
+      const isRevision = newTotal !== selectedItem.original_total;
       
       const res = await fetch(`/api/jobs/${params.id}/items/${selectedItem.id}`, {
         method: 'PUT',
@@ -96,7 +103,8 @@ export default function JobDetailPage({ params }) {
           quoted_quantity: selectedItem.quoted_quantity,
           quoted_unit_price: selectedItem.quoted_unit_price,
           description: selectedItem.description,
-          is_over_budget: isOverBudget
+          is_revision: isRevision,
+          revision_number: selectedItem.revision
         })
       });
       if (res.ok) {
@@ -111,22 +119,57 @@ export default function JobDetailPage({ params }) {
     }
   };
 
+  const addNewItem = async () => {
+    if (!newItem.item_name) {
+      toastError('Item name is required');
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/jobs/${params.id}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_name: newItem.item_name,
+          description: newItem.description,
+          quoted_quantity: newItem.quoted_quantity,
+          quoted_unit_price: newItem.quoted_unit_price
+        })
+      });
+      if (res.ok) {
+        success('Item added successfully');
+        setShowAddItemModal(false);
+        setNewItem({
+          item_name: '',
+          description: '',
+          quoted_quantity: 1,
+          quoted_unit_price: 0
+        });
+        fetchJobItems();
+      } else {
+        toastError('Failed to add item');
+      }
+    } catch (error) {
+      toastError('Failed to add item');
+    }
+  };
+
   const finalizeItem = async (item) => {
-    const actualQuantity = prompt('Enter actual quantity completed:', item.quoted_quantity);
-    const actualCost = prompt('Enter actual cost:', item.quoted_total);
-    if (!actualQuantity || !actualCost) return;
+    const confirmFinalize = confirm(`Finalize "${item.item_name}"? This will move it to the Financial screen for invoicing.`);
+    if (!confirmFinalize) return;
     
     try {
       const res = await fetch(`/api/jobs/${params.id}/items/${item.id}/finalize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          actual_quantity: parseFloat(actualQuantity), 
-          actual_cost: parseFloat(actualCost)
+          actual_quantity: item.quoted_quantity,
+          actual_cost: item.quoted_total,
+          finalized_at: new Date().toISOString()
         })
       });
       if (res.ok) {
-        success('Item finalized');
+        success('Item finalized and sent to Financial screen');
         fetchJobItems();
       } else {
         toastError('Failed to finalize item');
@@ -139,6 +182,17 @@ export default function JobDetailPage({ params }) {
   const progressPercentage = summary.total_quoted > 0 
     ? (summary.completed_value / summary.total_quoted * 100).toFixed(1) 
     : 0;
+
+  // Calculate PO Status based on items
+  const getPoStatus = () => {
+    const totalItems = jobItems.length;
+    const finalizedItems = jobItems.filter(i => i.is_finalized).length;
+    if (finalizedItems === 0) return 'pending';
+    if (finalizedItems === totalItems) return 'fully_invoiced';
+    return 'partial';
+  };
+
+  const poStatus = getPoStatus();
 
   if (loading) return <LoadingSpinner text="Loading job details..." />;
   if (!job) return <div style={{ padding: '2rem', textAlign: 'center' }}>Job not found</div>;
@@ -157,20 +211,15 @@ export default function JobDetailPage({ params }) {
         description={`${quote ? `From quote: ${quote.quote_number}` : 'Manual job'} | Client: ${job.client_name || 'N/A'}`}
         action={
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <Button variant="primary" size="sm" onClick={() => setShowAddItemModal(true)}>➕ Add Item</Button>
             <Link href={`/jobs/${params.id}/hours`}>
               <Button variant="primary" size="sm">⏰ Book Hours</Button>
             </Link>
             <Link href={`/jobs/${params.id}/financial`}>
               <Button variant="primary" size="sm">💰 Financial</Button>
             </Link>
-            <Link href={`/jobs/${params.id}/stock`}>
-              <Button variant="secondary" size="sm">📦 Stock</Button>
-            </Link>
-            <Link href={`/jobs/${params.id}/tools`}>
-              <Button variant="secondary" size="sm">🔧 Tools</Button>
-            </Link>
             <Link href="/jobs">
-              <Button variant="secondary" size="sm">← Back to Jobs</Button>
+              <Button variant="secondary" size="sm">← Back</Button>
             </Link>
           </div>
         }
@@ -180,9 +229,10 @@ export default function JobDetailPage({ params }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div><strong>📊 Job Progress</strong></div>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div>PO Status: <StatusBadge status={poStatus} /></div>
             <div>Original Quote: <CurrencyAmount amount={summary.total_quoted} /></div>
             <div>Current Total: <CurrencyAmount amount={summary.total_actual} /></div>
-            <div>Completed: <CurrencyAmount amount={summary.completed_value} /></div>
+            <div>Finalized: <CurrencyAmount amount={summary.completed_value} /></div>
             {summary.over_budget_count > 0 && (
               <div style={{ color: '#dc2626' }}>⚠️ {summary.over_budget_count} items over budget</div>
             )}
@@ -229,7 +279,7 @@ export default function JobDetailPage({ params }) {
         <div>
           <div style={{ marginBottom: '1rem' }}>
             <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-              Click Edit to modify quantities or prices. Finalize items when work is complete.
+              Click Edit to modify quantities or prices. Click Finalize when work is complete to send to Financial screen.
               Original quote values are preserved for reference.
             </p>
           </div>
@@ -239,10 +289,9 @@ export default function JobDetailPage({ params }) {
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Item</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Description</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Current Qty</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Current Price</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Current Total</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Actual Cost</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Qty</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Unit Price</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Total</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>Status</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>Actions</th>
                 </tr>
@@ -250,8 +299,8 @@ export default function JobDetailPage({ params }) {
               <tbody>
                 {jobItems.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                      No items for this job yet.
+                    <td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                      No items for this job yet. Click "Add Item" to create one.
                     </td>
                   </tr>
                 ) : (
@@ -262,15 +311,23 @@ export default function JobDetailPage({ params }) {
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}>{item.quoted_quantity}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quoted_unit_price} /></td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quoted_total} /></td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.actual_cost || 0} /></td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        <StatusBadge status={item.completion_status === 'completed' ? 'completed' : (item.actual_cost > 0 ? 'in_progress' : 'pending')} />
+                        {item.is_finalized ? (
+                          <span style={{ color: '#10b981' }}>✓ Finalized</span>
+                        ) : (
+                          <StatusBadge status={item.completion_status === 'completed' ? 'completed' : 'pending'} />
+                        )}
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                          <Button variant="outline" size="sm" onClick={() => editItem(item)}>Edit</Button>
-                          {item.completion_status !== 'completed' && (
-                            <Button variant="success" size="sm" onClick={() => finalizeItem(item)}>Finalize</Button>
+                          {!item.is_finalized && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => editItem(item)}>Edit</Button>
+                              <Button variant="success" size="sm" onClick={() => finalizeItem(item)}>Finalize</Button>
+                            </>
+                          )}
+                          {item.is_finalized && (
+                            <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>Sent to Financial</span>
                           )}
                         </div>
                       </td>
@@ -283,7 +340,7 @@ export default function JobDetailPage({ params }) {
         </div>
       )}
 
-      {/* Tab: Original Quote */}
+      {/* Tab: Original Quote - Read Only */}
       {activeTab === 'quote' && (
         <Card>
           {quote ? (
@@ -348,7 +405,7 @@ export default function JobDetailPage({ params }) {
           ) : (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
               <p>No quote linked to this job.</p>
-              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>This job was created manually or from an older system.</p>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>This job was created manually.</p>
             </div>
           )}
         </Card>
@@ -369,11 +426,11 @@ export default function JobDetailPage({ params }) {
                 <strong><CurrencyAmount amount={summary.total_actual} /></strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Completed Value:</span>
-                <strong><CurrencyAmount amount={summary.completed_value} /></strong>
+                <span>Finalized for Invoicing:</span>
+                <strong style={{ color: '#10b981' }}><CurrencyAmount amount={summary.completed_value} /></strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Remaining Value:</span>
+                <span>Remaining to Finalize:</span>
                 <strong><CurrencyAmount amount={summary.total_actual - summary.completed_value} /></strong>
               </div>
               <hr style={{ margin: '0.5rem 0' }} />
@@ -394,16 +451,12 @@ export default function JobDetailPage({ params }) {
                 <strong>{jobItems.length}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Completed:</span>
-                <strong style={{ color: '#10b981' }}>{jobItems.filter(i => i.completion_status === 'completed').length}</strong>
+                <span>Finalized (Ready for Invoice):</span>
+                <strong style={{ color: '#10b981' }}>{jobItems.filter(i => i.is_finalized).length}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>In Progress:</span>
-                <strong style={{ color: '#f59e0b' }}>{jobItems.filter(i => i.actual_cost > 0 && i.completion_status !== 'completed').length}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Not Started:</span>
-                <strong>{jobItems.filter(i => !i.actual_cost && i.completion_status !== 'completed').length}</strong>
+                <span>In Progress (Not Finalized):</span>
+                <strong style={{ color: '#f59e0b' }}>{jobItems.filter(i => !i.is_finalized).length}</strong>
               </div>
               <hr style={{ margin: '0.5rem 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -421,11 +474,15 @@ export default function JobDetailPage({ params }) {
                 <strong>{progressPercentage}%</strong>
               </div>
               <div style={{ height: '12px', background: '#e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(progressPercentage, 100)}%`, height: '100%', background: progressPercentage >= 100 ? '#10b981' : '#2563eb' }} />
+                <div style={{ width: `${Math.min(progressPercentage, 100)}%`, height: '100%', background: '#2563eb' }} />
               </div>
             </div>
             <div style={{ marginTop: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>PO Status</span>
+                <StatusBadge status={poStatus} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
                 <span>Job Status</span>
                 <StatusBadge status={job.completion_status} />
               </div>
@@ -452,7 +509,7 @@ export default function JobDetailPage({ params }) {
               <div style={{ textAlign: 'center', padding: '0.5rem' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💰</div>
                 <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Financial / Invoicing</strong>
-                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>Generate invoices and track payments</span>
+                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>Generate invoices from finalized items</span>
               </div>
             </Card>
           </Link>
@@ -484,7 +541,9 @@ export default function JobDetailPage({ params }) {
         {selectedItem && (
           <div>
             <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
-              <strong>Note:</strong> Original quote values: {selectedItem.original_quantity} @ <CurrencyAmount amount={selectedItem.original_price} />
+              <strong>Note:</strong> Original values: {selectedItem.original_quantity} @ <CurrencyAmount amount={selectedItem.original_price} />
+              <br />
+              <span style={{ fontSize: '0.7rem' }}>This will create a new revision. Original will be preserved.</span>
             </div>
             <FormInput 
               label="Item Name" 
@@ -512,11 +571,47 @@ export default function JobDetailPage({ params }) {
               New Total: <CurrencyAmount amount={selectedItem.quoted_quantity * selectedItem.quoted_unit_price} />
             </div>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-              <Button onClick={saveItemEdit}>Save Changes</Button>
+              <Button onClick={saveItemEdit}>Save Revision</Button>
               <Button variant="secondary" onClick={() => setShowEditItemModal(false)}>Cancel</Button>
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Add Item Modal */}
+      <Modal isOpen={showAddItemModal} onClose={() => setShowAddItemModal(false)} title="Add New Item to Job">
+        <div>
+          <FormInput 
+            label="Item Name" 
+            value={newItem.item_name} 
+            onChange={e => setNewItem({...newItem, item_name: e.target.value})} 
+            required
+          />
+          <FormTextarea 
+            label="Description" 
+            value={newItem.description} 
+            onChange={e => setNewItem({...newItem, description: e.target.value})} 
+          />
+          <FormInput 
+            label="Quantity" 
+            type="number" 
+            step="0.01" 
+            value={newItem.quoted_quantity} 
+            onChange={e => setNewItem({...newItem, quoted_quantity: parseFloat(e.target.value)})} 
+          />
+          <FormCurrencyInput 
+            label="Unit Price" 
+            value={newItem.quoted_unit_price} 
+            onChange={e => setNewItem({...newItem, quoted_unit_price: parseFloat(e.target.value)})} 
+          />
+          <div style={{ marginTop: '0.5rem', fontSize: '0.7rem', color: '#6b7280' }}>
+            Total: <CurrencyAmount amount={newItem.quoted_quantity * newItem.quoted_unit_price} />
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <Button onClick={addNewItem}>Add Item</Button>
+            <Button variant="secondary" onClick={() => setShowAddItemModal(false)}>Cancel</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
