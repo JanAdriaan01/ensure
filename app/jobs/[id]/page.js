@@ -313,6 +313,11 @@ export default function JobDetailPage({ params }) {
     ? (summary.completed_value / summary.total_quoted * 100).toFixed(1) 
     : 0;
 
+  const poBudget = job?.po_amount || summary.original_po_amount || 0;
+  const workFinalized = summary.completed_value;
+  const remainingBudget = poBudget - workFinalized;
+  const budgetUtilization = poBudget > 0 ? ((workFinalized / poBudget) * 100).toFixed(1) : 0;
+
   if (loading) return <LoadingSpinner text="Loading job details..." />;
   if (!job) return <div style={{ padding: '2rem', textAlign: 'center' }}>Job not found</div>;
 
@@ -367,6 +372,11 @@ export default function JobDetailPage({ params }) {
         }
       />
 
+      {/* ============================================ */}
+      {/* FINANCIAL SUMMARY SECTION - RIGHT AFTER PAGEHEADER */}
+      {/* ============================================ */}
+      
+      {/* Warning if variation is required */}
       {summary.variation_required && (
         <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fee2e2', borderRadius: '0.5rem', borderLeft: '4px solid #dc2626' }}>
           <strong>⚠️ Variation Required</strong><br />
@@ -375,33 +385,75 @@ export default function JobDetailPage({ params }) {
         </div>
       )}
 
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div><strong>📊 Job Progress</strong></div>
-          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-            <div>Job Status: <StatusBadge status={jobStatus} /></div>
-            {quote?.po_amount && (
-              <div>Original PO: <CurrencyAmount amount={quote.po_amount} /></div>
-            )}
-            <div>Current Total: <CurrencyAmount amount={summary.total_quoted} /></div>
-            <div>Finalized: <CurrencyAmount amount={summary.completed_value} /></div>
+      {/* Financial Summary Cards */}
+      <div className="financial-summary">
+        <div className="financial-card po-card">
+          <div className="financial-icon">💰</div>
+          <div className="financial-info">
+            <div className="financial-label">PO Budget</div>
+            <div className="financial-value"><CurrencyAmount amount={poBudget} /></div>
+            <div className="financial-sub">Original approved amount</div>
           </div>
         </div>
-        <div style={{ marginTop: '0.75rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-            <span style={{ fontSize: '0.75rem' }}>Completion Progress</span>
-            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{progressPercentage}%</span>
-          </div>
-          <div style={{ height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
-            <div style={{ 
-              width: `${Math.min(progressPercentage, 100)}%`, 
-              height: '100%', 
-              background: progressPercentage >= 100 ? '#10b981' : progressPercentage >= 50 ? '#f59e0b' : '#2563eb' 
-            }} />
+        
+        <div className="financial-card finalized-card">
+          <div className="financial-icon">✅</div>
+          <div className="financial-info">
+            <div className="financial-label">Work Finalized to Date</div>
+            <div className="financial-value"><CurrencyAmount amount={workFinalized} /></div>
+            <div className="financial-sub">Ready for invoicing</div>
           </div>
         </div>
-      </Card>
+        
+        <div className="financial-card remaining-card">
+          <div className="financial-icon">📊</div>
+          <div className="financial-info">
+            <div className="financial-label">Remaining Budget</div>
+            <div className={`financial-value ${remainingBudget < 0 ? 'negative' : ''}`}>
+              <CurrencyAmount amount={remainingBudget} />
+            </div>
+            <div className="financial-sub">Available for remaining work</div>
+          </div>
+        </div>
+        
+        <div className="financial-card progress-card">
+          <div className="financial-icon">📈</div>
+          <div className="financial-info">
+            <div className="financial-label">Budget Utilization</div>
+            <div className="financial-value">{budgetUtilization}%</div>
+            <div className="financial-sub">Of total PO budget</div>
+          </div>
+        </div>
+      </div>
 
+      {/* Progress Bar */}
+      <div className="progress-section">
+        <div className="progress-header">
+          <span>Overall Job Progress</span>
+          <span>{progressPercentage}% Complete</span>
+        </div>
+        <div className="progress-bar-container">
+          <div className="progress-bar-fill" style={{ width: `${Math.min(progressPercentage, 100)}%` }}></div>
+        </div>
+        <div className="progress-stats">
+          <div className="progress-stat">
+            <span>Quoted Amount:</span>
+            <strong><CurrencyAmount amount={summary.total_quoted} /></strong>
+          </div>
+          <div className="progress-stat">
+            <span>Finalized Value:</span>
+            <strong><CurrencyAmount amount={workFinalized} /></strong>
+          </div>
+          <div className="progress-stat">
+            <span>Variance:</span>
+            <strong className={summary.total_quoted - workFinalized < 0 ? 'negative' : ''}>
+              <CurrencyAmount amount={summary.total_quoted - workFinalized} />
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
       <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #e5e7eb', marginTop: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {tabs.map(tab => (
           <button
@@ -501,7 +553,7 @@ export default function JobDetailPage({ params }) {
                             )}
                           </div>
                         </td>
-                      </tr>
+                      <tr>
                     );
                   })
                 )}
@@ -555,7 +607,7 @@ export default function JobDetailPage({ params }) {
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}>{item.quantity}</td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.price_ex_vat} /></td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}><CurrencyAmount amount={item.quantity * item.price_ex_vat} /></td>
-                        </tr>
+                        </td>
                       ))}
                     </tbody>
                     <tfoot>
@@ -581,10 +633,10 @@ export default function JobDetailPage({ params }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
           <Card>
             <h3>💰 Financial Progress</h3>
-            <div><strong>Original PO Amount:</strong> <CurrencyAmount amount={summary.original_po_amount} /></div>
+            <div><strong>Original PO Amount:</strong> <CurrencyAmount amount={poBudget} /></div>
             <div><strong>Current Total:</strong> <CurrencyAmount amount={summary.total_quoted} /></div>
-            <div><strong>Variance:</strong> <CurrencyAmount amount={summary.total_quoted - summary.original_po_amount} /></div>
-            <div><strong>Finalized for Invoice:</strong> <CurrencyAmount amount={summary.completed_value} /></div>
+            <div><strong>Finalized for Invoice:</strong> <CurrencyAmount amount={workFinalized} /></div>
+            <div><strong>Remaining to Finalize:</strong> <CurrencyAmount amount={summary.total_quoted - workFinalized} /></div>
             {summary.variation_required && (
               <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fef3c7', borderRadius: '0.5rem', color: '#92400e' }}>
                 ⚠️ Variation Required: <CurrencyAmount amount={summary.variation_amount} />
@@ -603,6 +655,7 @@ export default function JobDetailPage({ params }) {
           <Card>
             <h3>📈 Job Status</h3>
             <div><strong>Current Status:</strong> <StatusBadge status={jobStatus} /></div>
+            <div><strong>Budget Utilization:</strong> {budgetUtilization}%</div>
             <div><strong>Completion:</strong> {progressPercentage}%</div>
           </Card>
         </div>
@@ -742,6 +795,113 @@ export default function JobDetailPage({ params }) {
           </div>
         </div>
       </Modal>
+
+      <style jsx>{`
+        /* Financial Summary Styles */
+        .financial-summary {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        .financial-card {
+          background: white;
+          border-radius: 0.75rem;
+          padding: 1rem;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .financial-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .financial-icon {
+          font-size: 2rem;
+        }
+        .financial-info {
+          flex: 1;
+        }
+        .financial-label {
+          font-size: 0.7rem;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .financial-value {
+          font-size: 1.25rem;
+          font-weight: bold;
+          color: #111827;
+        }
+        .financial-value.negative {
+          color: #dc2626;
+        }
+        .financial-sub {
+          font-size: 0.65rem;
+          color: #9ca3af;
+          margin-top: 0.2rem;
+        }
+        .po-card .financial-icon { color: #2563eb; }
+        .finalized-card .financial-icon { color: #10b981; }
+        .remaining-card .financial-icon { color: #f59e0b; }
+        .progress-card .financial-icon { color: #8b5cf6; }
+
+        /* Progress Bar Styles */
+        .progress-section {
+          background: white;
+          border-radius: 0.75rem;
+          padding: 1rem;
+          margin-bottom: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .progress-header {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+          font-size: 0.75rem;
+          color: #6b7280;
+        }
+        .progress-bar-container {
+          height: 8px;
+          background: #e5e7eb;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        .progress-bar-fill {
+          height: 100%;
+          background: #2563eb;
+          border-radius: 4px;
+          transition: width 0.3s ease;
+        }
+        .progress-stats {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 0.75rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid #e5e7eb;
+          font-size: 0.7rem;
+        }
+        .progress-stat {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+        }
+        .progress-stat .negative {
+          color: #dc2626;
+        }
+
+        @media (max-width: 768px) {
+          .financial-summary {
+            grid-template-columns: 1fr;
+          }
+          .progress-stats {
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+        }
+      `}</style>
     </div>
   );
 }
