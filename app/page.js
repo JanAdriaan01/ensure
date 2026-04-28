@@ -3,11 +3,7 @@
 import { useState, useEffect } from 'react';
 
 export default function Home() {
-  const [stats, setStats] = useState({
-    jobs: 0,
-    quotes: 0,
-    employees: 0
-  });
+  const [stats, setStats] = useState({ jobs: 0, quotes: 0, employees: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -60,11 +56,11 @@ export default function Home() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.jobs}</div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Jobs</div>
+          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Active Jobs</div>
         </div>
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.quotes}</div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Quotes</div>
+          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Pending Quotes</div>
         </div>
         <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.employees}</div>
@@ -76,14 +72,17 @@ export default function Home() {
         <a href="/jobs" style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>💰</div>
           <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>Financial</div>
+          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Jobs, Quotes, Invoicing</div>
         </a>
         <a href="/employees" style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>👥</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>HR</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>Human Resources</div>
+          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Employees, Payroll, Skills</div>
         </a>
         <a href="/tools" style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⚙️</div>
           <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>Operations</div>
+          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Tools, Stock, Schedule</div>
         </a>
       </div>
     </div>
