@@ -1,5 +1,7 @@
 import './globals.css';
 import dynamic from 'next/dynamic';
+import Navbar from '@/app/components/layout/Navbar';
+import Footer from '@/app/components/layout/Footer';
 
 export const metadata = {
   title: 'ENSURE System - Complete Business Management Platform',
@@ -28,7 +30,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <ClientProviders>
-          {children}
+          <Navbar />
+          <main>{children}</main>
+          <Footer />
         </ClientProviders>
       </body>
     </html>

@@ -8,8 +8,6 @@ import { PermissionProvider } from '@/app/context/PermissionContext';
 import { SettingsProvider } from '@/app/context/SettingsContext';
 import { ToastProvider } from '@/app/context/ToastContext';
 import { WebSocketProvider } from '@/app/context/WebSocketContext';
-import Navbar from '@/app/components/layout/Navbar';
-import Footer from '@/app/components/layout/Footer';
 
 export default function ClientProviders({ children }) {
   return (
@@ -21,9 +19,7 @@ export default function ClientProviders({ children }) {
               <SettingsProvider>
                 <ToastProvider>
                   <WebSocketProvider>
-                    <Navbar />
-                    <main>{children}</main>
-                    <Footer />
+                    {children}
                   </WebSocketProvider>
                 </ToastProvider>
               </SettingsProvider>
