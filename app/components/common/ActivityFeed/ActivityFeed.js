@@ -318,3 +318,6 @@ export default function ActivityFeed({
     </div>
   );
 }
+
+// Add named export for compatibility with the import in page.js
+export { ActivityFeed as RecentActivity };

@@ -300,3 +300,6 @@ export default function UserMenu({
     </div>
   );
 }
+
+// Add named export for compatibility with the import in page.js
+export { UserMenu };

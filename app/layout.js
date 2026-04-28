@@ -10,22 +10,24 @@ import { WebSocketProvider } from '@/app/context/WebSocketContext';
 import Navbar from '@/app/components/layout/Navbar';
 import Footer from '@/app/components/layout/Footer';
 
+// Metadata export (does NOT contain viewport or themeColor)
 export const metadata = {
   title: 'ENSURE System - Complete Business Management Platform',
   description: 'Financial, HR, and Operations Management for Modern Businesses',
   keywords: 'ERP, Business Management, Job Tracking, Invoicing, HR, Inventory, Tools Management',
   authors: [{ name: 'ENSURE Team' }],
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#2563eb',
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
   openGraph: {
     title: 'ENSURE System',
     description: 'Complete Business Management Platform',
     type: 'website',
   },
+};
+
+// Separate viewport export (required for themeColor and viewport settings)
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#2563eb',
 };
 
 export default function RootLayout({ children }) {

@@ -1,2 +1,2 @@
-// components/common/ActivityFeed/index.js
 export { default } from './ActivityFeed';
+export { RecentActivity } from './ActivityFeed';
