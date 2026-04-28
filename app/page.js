@@ -1,90 +1,336 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
+import { useToast } from '@/app/hooks/useToast';
+import { useFetch } from '@/app/hooks/useFetch';
+import { usePermissions } from '@/app/hooks/usePermissions';
+import { useNotifications } from '@/app/hooks/useNotifications';
+import CurrencyAmount from '@/app/components/CurrencyAmount';
+import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
+import EmptyState from '@/app/components/ui/EmptyState';
+import Card from '@/app/components/ui/Card/Card';
+import { QuickStats } from '@/app/components/dashboard/QuickStats';
+import { RecentActivity } from '@/app/components/common/ActivityFeed';
+import { ModuleCards } from '@/app/components/dashboard/ModuleCards';
+import { FinancialWidget } from '@/app/components/dashboard/FinancialWidget';
+import { HRWidget } from '@/app/components/dashboard/HRWidget';
+import { OperationsWidget } from '@/app/components/dashboard/OperationsWidget';
+import { NotificationBell } from '@/app/components/common/NotificationBell';
+import { UserMenu } from '@/app/components/common/UserMenu';
 
-export default function Home() {
-  const [stats, setStats] = useState({ jobs: 0, quotes: 0, employees: 0 });
+export default function HomePage() {
+  const { user, isAuthenticated } = useAuth();
+  const { showToast } = useToast();
+  const { hasPermission } = usePermissions();
+  const { unreadCount, fetchNotifications } = useNotifications();
+  
+  const { data: jobs, loading: jobsLoading } = useFetch('/api/jobs');
+  const { data: quotes, loading: quotesLoading } = useFetch('/api/quotes');
+  const { data: employees, loading: employeesLoading } = useFetch('/api/employees');
+  const { data: activities, loading: activitiesLoading } = useFetch('/api/activities?limit=10');
+  
+  const [stats, setStats] = useState({
+    financial: {
+      activeJobs: 0,
+      pendingQuotes: 0,
+      totalInvoiced: 0,
+      poAmount: 0,
+      thisMonthRevenue: 0,
+    },
+    hr: {
+      totalEmployees: 0,
+      activeEmployees: 0,
+      onLeave: 0,
+      monthlyPayroll: 0,
+    },
+    operations: {
+      toolsCheckedOut: 0,
+      lowStockItems: 0,
+      activeWorkOrders: 0,
+      overdueTools: 0,
+    },
+  });
+  
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [jobsRes, quotesRes, employeesRes] = await Promise.all([
-          fetch('/api/jobs').catch(() => ({ ok: false, json: () => [] })),
-          fetch('/api/quotes').catch(() => ({ ok: false, json: () => [] })),
-          fetch('/api/employees').catch(() => ({ ok: false, json: () => [] }))
-        ]);
-        
-        const jobs = jobsRes.ok ? await jobsRes.json() : [];
-        const quotes = quotesRes.ok ? await quotesRes.json() : [];
-        const employees = employeesRes.ok ? await employeesRes.json() : [];
-        
-        setStats({
-          jobs: Array.isArray(jobs) ? jobs.length : 0,
-          quotes: Array.isArray(quotes) ? quotes.length : 0,
-          employees: Array.isArray(employees) ? employees.length : 0
-        });
-      } catch (error) {
-        console.error('Error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!jobsLoading && !quotesLoading && !employeesLoading) {
+      calculateStats();
+    }
+  }, [jobs, quotes, employees, jobsLoading, quotesLoading, employeesLoading]);
+
+  // Fetch notifications on mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated]);
+
+  const calculateStats = () => {
+    const activeJobs = jobs?.filter(j => j.completion_status !== 'completed').length || 0;
+    const pendingQuotes = quotes?.filter(q => q.status === 'pending' && !q.po_received).length || 0;
+    const totalEmployees = employees?.length || 0;
+    const activeEmployees = employees?.filter(e => (e.total_hours_worked || 0) > 0).length || 0;
     
-    fetchStats();
-  }, []);
+    // Calculate this month's revenue
+    const now = new Date();
+    const thisMonth = now.toISOString().slice(0, 7);
+    const thisMonthRevenue = jobs?.reduce((sum, j) => {
+      const jobMonth = j.completed_month;
+      if (jobMonth === thisMonth && j.total_invoiced) {
+        return sum + j.total_invoiced;
+      }
+      return sum;
+    }, 0) || 0;
+    
+    setStats({
+      financial: {
+        activeJobs,
+        pendingQuotes,
+        totalInvoiced: jobs?.reduce((sum, j) => sum + (j.total_invoiced || 0), 0) || 0,
+        poAmount: jobs?.reduce((sum, j) => sum + (j.po_amount || 0), 0) || 0,
+        thisMonthRevenue,
+      },
+      hr: {
+        totalEmployees,
+        activeEmployees,
+        onLeave: 0, // To be implemented with leave tracking
+        monthlyPayroll: employees?.reduce((sum, e) => sum + ((e.hourly_rate || 0) * (e.total_hours_worked || 0)), 0) || 0,
+      },
+      operations: {
+        toolsCheckedOut: 0, // To be implemented
+        lowStockItems: 0, // To be implemented
+        activeWorkOrders: activeJobs,
+        overdueTools: 0, // To be implemented
+      },
+    });
+    setLoading(false);
+  };
+
+  // Welcome message based on time of day
+  const getWelcomeMessage = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
-          <p style={{ marginTop: '1rem' }}>Loading ENSURE System...</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading Dashboard..." />
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
-      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2rem', margin: 0 }}>🔧 ENSURE System</h1>
-        <p style={{ color: '#6b7280' }}>Complete Business Management Platform</p>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-        <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.jobs}</div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Active Jobs</div>
+    <div className="dashboard-container">
+      {/* Welcome Header */}
+      <div className="dashboard-header">
+        <div>
+          <h1 className="dashboard-title">
+            {getWelcomeMessage()}, {user?.name || 'User'}! 👋
+          </h1>
+          <p className="dashboard-subtitle">
+            Welcome to ENSURE - Your Complete Business Management Platform
+          </p>
         </div>
-        <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.quotes}</div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Pending Quotes</div>
-        </div>
-        <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.employees}</div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Employees</div>
+        <div className="dashboard-actions">
+          <NotificationBell count={unreadCount} />
+          <UserMenu user={user} />
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-        <a href="/jobs" style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>💰</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>Financial</div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Jobs, Quotes, Invoicing</div>
-        </a>
-        <a href="/employees" style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>👥</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>Human Resources</div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Employees, Payroll, Skills</div>
-        </a>
-        <a href="/tools" style={{ background: 'white', borderRadius: '1rem', padding: '1.5rem', textDecoration: 'none', color: 'inherit', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⚙️</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>Operations</div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Tools, Stock, Schedule</div>
-        </a>
+      {/* Quick Stats */}
+      <QuickStats stats={stats} />
+
+      {/* Module Cards */}
+      <ModuleCards />
+
+      {/* Main Dashboard Grid */}
+      <div className="dashboard-grid">
+        {/* Financial Widget */}
+        <div className="dashboard-widget">
+          <FinancialWidget stats={stats.financial} />
+        </div>
+        
+        {/* HR Widget */}
+        <div className="dashboard-widget">
+          <HRWidget stats={stats.hr} />
+        </div>
+        
+        {/* Operations Widget */}
+        <div className="dashboard-widget">
+          <OperationsWidget stats={stats.operations} />
+        </div>
+        
+        {/* Recent Activity Feed */}
+        <div className="dashboard-widget full-width">
+          <RecentActivity activities={activities} loading={activitiesLoading} />
+        </div>
       </div>
+
+      {/* Quick Actions Section */}
+      <div className="quick-actions-section">
+        <h3 className="section-title">Quick Actions</h3>
+        <div className="quick-actions-grid">
+          <Link href="/jobs/new" className="quick-action-card">
+            <span className="action-icon">📋</span>
+            <span className="action-label">New Job</span>
+          </Link>
+          <Link href="/quotes/new" className="quick-action-card">
+            <span className="action-icon">💰</span>
+            <span className="action-label">New Quote</span>
+          </Link>
+          <Link href="/employees/time" className="quick-action-card">
+            <span className="action-icon">⏰</span>
+            <span className="action-label">Log Time</span>
+          </Link>
+          <Link href="/employees/new" className="quick-action-card">
+            <span className="action-icon">👤</span>
+            <span className="action-label">Add Employee</span>
+          </Link>
+          <Link href="/stock/purchasing" className="quick-action-card">
+            <span className="action-icon">📦</span>
+            <span className="action-label">Purchase Stock</span>
+          </Link>
+          <Link href="/tools/checkout" className="quick-action-card">
+            <span className="action-icon">🔧</span>
+            <span className="action-label">Checkout Tool</span>
+          </Link>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .dashboard-container {
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
+        
+        .dashboard-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+        
+        .dashboard-title {
+          font-size: 1.75rem;
+          font-weight: 600;
+          margin: 0 0 0.25rem 0;
+          color: var(--text-primary);
+        }
+        
+        .dashboard-subtitle {
+          color: var(--text-tertiary);
+          margin: 0;
+          font-size: 0.875rem;
+        }
+        
+        .dashboard-actions {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+        
+        .dashboard-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1.5rem;
+          margin: 1.5rem 0;
+        }
+        
+        .dashboard-widget {
+          background: var(--bg-primary);
+          border-radius: 0.75rem;
+          overflow: hidden;
+          box-shadow: var(--shadow-sm);
+          transition: box-shadow var(--transition-normal);
+        }
+        
+        .dashboard-widget:hover {
+          box-shadow: var(--shadow-md);
+        }
+        
+        .dashboard-widget.full-width {
+          grid-column: span 3;
+        }
+        
+        .quick-actions-section {
+          margin-top: 1.5rem;
+        }
+        
+        .section-title {
+          font-size: 1rem;
+          font-weight: 600;
+          margin-bottom: 1rem;
+          color: var(--text-primary);
+        }
+        
+        .quick-actions-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 1rem;
+        }
+        
+        .quick-action-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 1rem;
+          background: var(--bg-primary);
+          border-radius: 0.75rem;
+          text-decoration: none;
+          color: var(--text-primary);
+          transition: all var(--transition-normal);
+          border: 1px solid var(--border-light);
+        }
+        
+        .quick-action-card:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-md);
+          border-color: var(--primary);
+        }
+        
+        .action-icon {
+          font-size: 1.5rem;
+        }
+        
+        .action-label {
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+        
+        @media (max-width: 1024px) {
+          .dashboard-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .dashboard-widget.full-width {
+            grid-column: span 2;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .dashboard-container {
+            padding: 1rem;
+          }
+          .dashboard-grid {
+            grid-template-columns: 1fr;
+          }
+          .dashboard-widget.full-width {
+            grid-column: span 1;
+          }
+          .quick-actions-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+      `}</style>
     </div>
   );
 }
