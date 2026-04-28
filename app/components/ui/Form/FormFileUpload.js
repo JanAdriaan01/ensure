@@ -1,82 +1,103 @@
+// app/components/ui/Form/FormFileUpload.js
 'use client';
 
 import { useState, useRef } from 'react';
 
-export default function FormFileUpload({ 
-  label, 
-  name, 
-  accept = 'image/*,.pdf,.doc,.docx,.xls,.xlsx',
-  multiple = false,
-  onFileSelect,
-  error = '',
+export default function FormFileUpload({
+  label,
+  name,
+  onChange,
+  onBlur,
+  error,
   required = false,
-  disabled = false,
-  maxSize = 5 * 1024 * 1024 // 5MB
+  accept = 'image/*,.pdf,.doc,.docx',
+  multiple = false,
+  maxSize = 5 * 1024 * 1024, // 5MB
+  helperText = '',
+  className = '',
+  ...props
 }) {
+  const [touched, setTouched] = useState(false);
   const [files, setFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef(null);
-
-  const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    validateAndSetFiles(selectedFiles);
+  
+  const handleFileChange = (selectedFiles) => {
+    const fileList = Array.from(selectedFiles);
+    const validFiles = [];
+    const errors = [];
+    
+    fileList.forEach(file => {
+      if (file.size > maxSize) {
+        errors.push(`${file.name} exceeds size limit`);
+      } else {
+        validFiles.push(file);
+      }
+    });
+    
+    const newFiles = multiple ? [...files, ...validFiles] : validFiles;
+    setFiles(newFiles);
+    
+    if (onChange) {
+      onChange({
+        target: {
+          name: name,
+          value: newFiles,
+          errors: errors
+        }
+      });
+    }
   };
-
+  
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+  
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    validateAndSetFiles(droppedFiles);
+    
+    const droppedFiles = e.dataTransfer.files;
+    handleFileChange(droppedFiles);
   };
-
-  const validateAndSetFiles = (newFiles) => {
-    const validFiles = [];
-    const errors = [];
-
-    for (const file of newFiles) {
-      if (file.size > maxSize) {
-        errors.push(`${file.name} exceeds ${maxSize / 1024 / 1024}MB`);
-      } else {
-        validFiles.push(file);
-      }
-    }
-
-    if (errors.length > 0) {
-      alert(errors.join('\n'));
-    }
-
-    const updatedFiles = multiple ? [...files, ...validFiles] : validFiles;
-    setFiles(updatedFiles);
-    onFileSelect(multiple ? updatedFiles : updatedFiles[0]);
-  };
-
+  
   const removeFile = (index) => {
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
-    onFileSelect(multiple ? newFiles : newFiles[0]);
+    
+    if (onChange) {
+      onChange({
+        target: {
+          name: name,
+          value: newFiles
+        }
+      });
+    }
   };
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
+  
+  const showError = error && (touched || props.validateOnChange);
+  
   return (
-    <div className="form-file-upload">
+    <div className={`form-file-upload ${className}`}>
       {label && (
-        <label className="file-label">
-          {label} {required && <span className="required">*</span>}
+        <label className="form-label">
+          {label}
+          {required && <span className="required-star">*</span>}
         </label>
       )}
+      
       <div
-        className={`drop-zone ${dragActive ? 'drag-active' : ''} ${error ? 'error' : ''}`}
-        onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
-        onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        className={`drop-zone ${dragActive ? 'drag-active' : ''} ${showError ? 'error' : ''}`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
       >
@@ -86,121 +107,161 @@ export default function FormFileUpload({
           name={name}
           accept={accept}
           multiple={multiple}
-          onChange={handleFileChange}
-          disabled={disabled}
+          onChange={(e) => handleFileChange(e.target.files)}
+          onBlur={(e) => {
+            setTouched(true);
+            if (onBlur) onBlur(e);
+          }}
           style={{ display: 'none' }}
+          {...props}
         />
+        
         <div className="upload-icon">📁</div>
         <div className="upload-text">
-          Drag & drop files here or <span className="browse-link">browse</span>
+          Drag & drop files here or click to browse
         </div>
         <div className="upload-hint">
-          Supported files: Images, PDF, Word, Excel (Max {maxSize / 1024 / 1024}MB)
+          Supported formats: {accept.split(',').join(', ')}
+          <br />
+          Max size: {maxSize / (1024 * 1024)}MB
         </div>
       </div>
+      
       {files.length > 0 && (
         <div className="file-list">
           {files.map((file, index) => (
             <div key={index} className="file-item">
-              <span className="file-icon">📄</span>
-              <div className="file-info">
-                <div className="file-name">{file.name}</div>
-                <div className="file-size">{formatFileSize(file.size)}</div>
-              </div>
-              <button type="button" className="remove-file" onClick={() => removeFile(index)}>
-                ×
+              <span className="file-name">{file.name}</span>
+              <span className="file-size">
+                {(file.size / 1024).toFixed(1)} KB
+              </span>
+              <button
+                type="button"
+                className="remove-file"
+                onClick={() => removeFile(index)}
+              >
+                ✕
               </button>
             </div>
           ))}
         </div>
       )}
-      {error && <div className="error-message">{error}</div>}
+      
+      {helperText && !showError && (
+        <div className="helper-text">{helperText}</div>
+      )}
+      
+      {showError && (
+        <div className="error-text">{error}</div>
+      )}
+      
       <style jsx>{`
         .form-file-upload {
           margin-bottom: 1rem;
+          width: 100%;
         }
-        .file-label {
+        
+        .form-label {
           display: block;
-          margin-bottom: 0.375rem;
-          font-weight: 500;
+          margin-bottom: 0.5rem;
           font-size: 0.875rem;
+          font-weight: 500;
           color: #374151;
         }
-        .required {
-          color: #dc2626;
+        
+        .required-star {
+          color: #ef4444;
+          margin-left: 0.25rem;
         }
+        
         .drop-zone {
           border: 2px dashed #d1d5db;
-          border-radius: 0.75rem;
+          border-radius: 0.5rem;
           padding: 2rem;
           text-align: center;
           cursor: pointer;
           transition: all 0.2s;
           background: #f9fafb;
         }
-        .drop-zone:hover, .drag-active {
-          border-color: #2563eb;
+        
+        .drop-zone:hover {
+          border-color: #3b82f6;
           background: #eff6ff;
         }
-        .drop-zone.error {
-          border-color: #dc2626;
+        
+        .drop-zone.drag-active {
+          border-color: #3b82f6;
+          background: #eff6ff;
+          transform: scale(1.02);
         }
+        
+        .drop-zone.error {
+          border-color: #ef4444;
+        }
+        
         .upload-icon {
           font-size: 2rem;
           margin-bottom: 0.5rem;
         }
+        
         .upload-text {
           font-size: 0.875rem;
+          color: #374151;
+          margin-bottom: 0.25rem;
+        }
+        
+        .upload-hint {
+          font-size: 0.75rem;
           color: #6b7280;
         }
-        .browse-link {
-          color: #2563eb;
-          cursor: pointer;
-        }
-        .upload-hint {
-          font-size: 0.7rem;
-          color: #9ca3af;
-          margin-top: 0.5rem;
-        }
+        
         .file-list {
-          margin-top: 0.5rem;
+          margin-top: 0.75rem;
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
         }
+        
         .file-item {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          justify-content: space-between;
           padding: 0.5rem;
-          background: #f9fafb;
-          border-radius: 0.5rem;
+          background: #f3f4f6;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
         }
-        .file-icon {
-          font-size: 1.25rem;
-        }
-        .file-info {
-          flex: 1;
-        }
+        
         .file-name {
-          font-size: 0.75rem;
-          font-weight: 500;
+          flex: 1;
+          color: #374151;
         }
+        
         .file-size {
-          font-size: 0.65rem;
           color: #6b7280;
+          font-size: 0.75rem;
+          margin: 0 0.75rem;
         }
+        
         .remove-file {
           background: none;
           border: none;
-          font-size: 1.25rem;
           cursor: pointer;
-          color: #9ca3af;
+          color: #ef4444;
+          font-size: 0.875rem;
+          padding: 0.25rem;
         }
-        .error-message {
-          font-size: 0.7rem;
-          color: #dc2626;
-          margin-top: 0.25rem;
+        
+        .helper-text {
+          margin-top: 0.375rem;
+          font-size: 0.75rem;
+          color: #6b7280;
+        }
+        
+        .error-text {
+          margin-top: 0.375rem;
+          font-size: 0.75rem;
+          color: #ef4444;
         }
       `}</style>
     </div>
