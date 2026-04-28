@@ -2,7 +2,7 @@
    ENSURE System - Professional Color Scheme
    ============================================ */
 
-/* Tailwind Directives */
+/* Tailwind Directives - Keep these at the top */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -47,11 +47,11 @@
   --info-light: #a78bfa;
   --info-bg: #ede9fe;
 
-  /* Neutral Colors */
+  /* Neutral Colors - Light Mode */
   --text-primary: #1e293b;
   --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
-  --text-disabled: #cbd5e1;
+  --text-tertiary: #64748b;
+  --text-disabled: #94a3b8;
 
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
@@ -62,7 +62,7 @@
   --border-medium: #cbd5e1;
   --border-dark: #94a3b8;
 
-  /* Shadow */
+  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -156,12 +156,10 @@ body {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
   line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ============================================
-   Typography - Enhanced Contrast
+   Typography
    ============================================ */
 h1,
 h2,
@@ -194,20 +192,9 @@ h4 {
   margin-bottom: 0.5rem;
 }
 
-h5 {
-  font-size: 0.875rem;
-  margin-bottom: 0.25rem;
-}
-
-h6 {
-  font-size: 0.75rem;
-  margin-bottom: 0.25rem;
-}
-
 p,
 span,
-li,
-a {
+li {
   color: var(--text-secondary);
 }
 
@@ -229,7 +216,7 @@ a:hover {
 }
 
 /* ============================================
-   Card Styles - Enhanced Visibility
+   Card Styles
    ============================================ */
 .card {
   background: var(--bg-primary);
@@ -242,15 +229,6 @@ a:hover {
 
 .card:hover {
   box-shadow: var(--shadow-md);
-}
-
-.card-header {
-  font-weight: 600;
-  font-size: 1rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-light);
-  color: var(--text-primary);
 }
 
 /* ============================================
@@ -283,12 +261,6 @@ a:hover {
   margin-top: 0.25rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-}
-
-.stat-sub {
-  font-size: 0.7rem;
-  color: var(--text-tertiary);
-  margin-top: 0.25rem;
 }
 
 /* ============================================
@@ -327,66 +299,21 @@ a:hover {
   margin-bottom: 1rem;
 }
 
-.module-features {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.feature-tag {
-  font-size: 0.7rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-}
-
 /* ============================================
-   Navigation - Professional & Accessible
+   Buttons
    ============================================ */
-.navbar {
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-light);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  backdrop-filter: blur(10px);
-}
-
-.navbar a {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.navbar a:hover,
-.navbar a.active {
-  color: var(--primary);
-}
-
-.navbar a.active {
-  border-bottom: 2px solid var(--primary);
-}
-
-/* ============================================
-   Buttons - Clear Contrast
-   ============================================ */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-weight: 500;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  border: none;
-  font-size: 0.875rem;
-}
-
 .btn-primary {
   background: var(--primary);
   color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .btn-primary:hover {
@@ -397,6 +324,12 @@ a:hover {
 .btn-secondary {
   background: var(--secondary);
   color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
 }
 
 .btn-secondary:hover {
@@ -406,6 +339,12 @@ a:hover {
 .btn-danger {
   background: var(--danger);
   color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
 }
 
 .btn-danger:hover {
@@ -415,6 +354,12 @@ a:hover {
 .btn-success {
   background: var(--success);
   color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
 }
 
 .btn-success:hover {
@@ -425,6 +370,11 @@ a:hover {
   background: transparent;
   border: 1px solid var(--border-medium);
   color: var(--text-secondary);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
 }
 
 .btn-outline:hover {
@@ -434,7 +384,7 @@ a:hover {
 }
 
 /* ============================================
-   Form Elements - High Contrast
+   Form Elements
    ============================================ */
 input,
 select,
@@ -466,7 +416,7 @@ label {
 }
 
 /* ============================================
-   Tables - Clean & Readable
+   Tables
    ============================================ */
 .table-container {
   background: var(--bg-primary);
@@ -498,16 +448,12 @@ td {
   color: var(--text-secondary);
 }
 
-tr:last-child td {
-  border-bottom: none;
-}
-
 tr:hover td {
   background: var(--bg-tertiary);
 }
 
 /* ============================================
-   Status Badges - Clear Colors
+   Status Badges
    ============================================ */
 .status-badge {
   display: inline-block;
@@ -548,23 +494,8 @@ tr:hover td {
   color: var(--success-dark);
 }
 
-.status-available {
-  background: var(--success-bg);
-  color: var(--success-dark);
-}
-
-.status-checked_out {
-  background: var(--warning-bg);
-  color: var(--warning-dark);
-}
-
-.status-low_stock {
-  background: var(--danger-bg);
-  color: var(--danger-dark);
-}
-
 /* ============================================
-   Modals
+   Modal
    ============================================ */
 .modal-overlay {
   position: fixed;
@@ -607,10 +538,9 @@ tr:hover td {
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   cursor: pointer;
   color: var(--text-tertiary);
-  transition: color var(--transition-fast);
 }
 
 .modal-close:hover {
@@ -618,7 +548,7 @@ tr:hover td {
 }
 
 /* ============================================
-   Loading States
+   Loading
    ============================================ */
 .loading-container {
   display: flex;
@@ -644,7 +574,7 @@ tr:hover td {
 }
 
 /* ============================================
-   Empty States
+   Empty State
    ============================================ */
 .empty-state {
   text-align: center;
@@ -657,83 +587,12 @@ tr:hover td {
   display: block;
 }
 
-.empty-state h3 {
-  margin-bottom: 0.5rem;
-}
-
 .empty-state p {
   color: var(--text-tertiary);
 }
 
 /* ============================================
-   Toast Notifications
-   ============================================ */
-.toast-container {
-  position: fixed;
-  bottom: 1rem;
-  right: 1rem;
-  z-index: 1100;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.toast {
-  padding: 0.75rem 1rem;
-  border-radius: var(--radius-lg);
-  background: var(--bg-primary);
-  border-left: 4px solid;
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 280px;
-  animation: slideIn var(--transition-normal);
-}
-
-.toast-success {
-  border-left-color: var(--success);
-}
-
-.toast-error {
-  border-left-color: var(--danger);
-}
-
-.toast-warning {
-  border-left-color: var(--warning);
-}
-
-.toast-info {
-  border-left-color: var(--info);
-}
-
-.toast-message {
-  flex: 1;
-  color: var(--text-primary);
-}
-
-.toast-close {
-  background: none;
-  border: none;
-  font-size: 1.25rem;
-  cursor: pointer;
-  color: var(--text-tertiary);
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* ============================================
-   Responsive Utilities
+   Responsive
    ============================================ */
 @media (max-width: 768px) {
   h1 {
@@ -744,35 +603,84 @@ tr:hover td {
     font-size: 1.25rem;
   }
 
-  .container {
-    padding: 1rem;
-  }
-
   .stat-value {
     font-size: 1.25rem;
+  }
+
+  .card,
+  .stat-card,
+  .module-card {
+    padding: 1rem;
   }
 }
 
 /* ============================================
-   Print Styles
+   Navigation Styles (Add if not in Navbar component)
    ============================================ */
-@media print {
+.navbar {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-light);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
 
-  .no-print,
-  .navbar,
-  .btn,
-  .modal-overlay {
-    display: none !important;
+.nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.75rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand a {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.nav-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--primary);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.theme-toggle {
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .nav-container {
+    padding: 0.75rem;
   }
 
-  body {
-    background: white;
-    color: black;
-  }
-
-  .card,
-  .stat-card {
-    box-shadow: none;
-    border: 1px solid #ddd;
+  .nav-links {
+    display: none;
   }
 }
