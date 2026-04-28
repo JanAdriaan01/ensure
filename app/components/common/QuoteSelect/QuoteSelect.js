@@ -1,111 +1,110 @@
-// app/components/common/JobSelect/JobSelect.js
+// app/components/common/QuoteSelect/QuoteSelect.js
 'use client';
 
 import { useState, useEffect } from 'react';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
 
-export default function JobSelect({ 
+export default function QuoteSelect({ 
   value, 
   onChange, 
-  onJobSelect,
-  jobs = [],
+  onQuoteSelect,
+  quotes = [],
   loading: externalLoading = false,
   required = false,
   disabled = false,
-  placeholder = 'Select a job...',
+  placeholder = 'Select a quote...',
   error = '',
   helperText = '',
   className = '',
-  fetchJobs = null,
-  filterByStatus = null
+  fetchQuotes = null,
+  filterByStatus = null,
+  filterByJobId = null
 }) {
-  const [internalJobs, setInternalJobs] = useState(jobs);
+  const [internalQuotes, setInternalQuotes] = useState(quotes);
   const [loading, setLoading] = useState(externalLoading);
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedJob, setSelectedJob] = useState(null);
+  const [selectedQuote, setSelectedQuote] = useState(null);
   
   useEffect(() => {
-    if (jobs.length > 0) {
-      setInternalJobs(jobs);
-    } else if (fetchJobs) {
-      loadJobs();
+    if (quotes.length > 0) {
+      setInternalQuotes(quotes);
+    } else if (fetchQuotes) {
+      loadQuotes();
     }
-  }, [jobs, fetchJobs]);
+  }, [quotes, fetchQuotes]);
   
   useEffect(() => {
-    if (value && internalJobs.length > 0) {
-      const found = internalJobs.find(j => j.id === value || j.job_id === value || j.job_number === value);
-      setSelectedJob(found);
+    if (value && internalQuotes.length > 0) {
+      const found = internalQuotes.find(q => q.id === value || q.quote_number === value);
+      setSelectedQuote(found);
     }
-  }, [value, internalJobs]);
+  }, [value, internalQuotes]);
   
-  const loadJobs = async () => {
+  const loadQuotes = async () => {
     setLoading(true);
     try {
-      const data = await fetchJobs();
-      setInternalJobs(data);
+      const data = await fetchQuotes();
+      setInternalQuotes(data);
     } catch (error) {
-      console.error('Failed to load jobs:', error);
+      console.error('Failed to load quotes:', error);
     } finally {
       setLoading(false);
     }
   };
   
-  const filteredJobs = internalJobs
-    .filter(job => !filterByStatus || job.status === filterByStatus)
-    .filter(job =>
-      (job.job_number || job.id)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredQuotes = internalQuotes
+    .filter(quote => !filterByStatus || quote.status === filterByStatus)
+    .filter(quote => !filterByJobId || quote.job_id === filterByJobId)
+    .filter(quote =>
+      (quote.quote_number || quote.id)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quote.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quote.client_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   
-  const handleSelect = (job) => {
-    setSelectedJob(job);
+  const handleSelect = (quote) => {
+    setSelectedQuote(quote);
     setIsOpen(false);
     setSearchTerm('');
     
     if (onChange) {
       onChange({
         target: {
-          name: 'jobId',
-          value: job.id || job.job_id || job.job_number
+          name: 'quoteId',
+          value: quote.id || quote.quote_number
         }
       });
     }
     
-    if (onJobSelect) {
-      onJobSelect(job);
+    if (onQuoteSelect) {
+      onQuoteSelect(quote);
     }
   };
   
   const getStatusBadge = (status) => {
     const statusColors = {
-      'active': { bg: '#d1fae5', color: '#065f46', text: 'Active' },
-      'in-progress': { bg: '#dbeafe', color: '#1e40af', text: 'In Progress' },
-      'completed': { bg: '#d1fae5', color: '#065f46', text: 'Completed' },
-      'on-hold': { bg: '#fed7aa', color: '#92400e', text: 'On Hold' },
-      'cancelled': { bg: '#fee2e2', color: '#991b1b', text: 'Cancelled' }
+      'draft': { bg: '#f3f4f6', color: '#374151', text: 'Draft' },
+      'sent': { bg: '#dbeafe', color: '#1e40af', text: 'Sent' },
+      'approved': { bg: '#d1fae5', color: '#065f46', text: 'Approved' },
+      'rejected': { bg: '#fee2e2', color: '#991b1b', text: 'Rejected' },
+      'expired': { bg: '#fed7aa', color: '#92400e', text: 'Expired' }
     };
     const config = statusColors[status?.toLowerCase()] || { bg: '#f3f4f6', color: '#374151', text: status || 'Unknown' };
     return <span style={{ background: config.bg, color: config.color, padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '0.7rem' }}>{config.text}</span>;
   };
   
   return (
-    <div className={`job-select ${className}`}>
+    <div className={`quote-select ${className}`}>
       <div className="select-wrapper">
         <div 
           className={`select-trigger ${error ? 'error' : ''} ${disabled ? 'disabled' : ''}`}
           onClick={() => !disabled && setIsOpen(!isOpen)}
         >
-          {selectedJob ? (
+          {selectedQuote ? (
             <div className="selected-value">
-              <span className="job-number">#{selectedJob.job_number || selectedJob.id}</span>
-              <span className="job-title">{selectedJob.title}</span>
-              {selectedJob.client_name && (
-                <span className="job-client">- {selectedJob.client_name}</span>
-              )}
+              <span className="quote-number">#{selectedQuote.quote_number || selectedQuote.id}</span>
+              <span className="quote-title">{selectedQuote.title}</span>
+              <CurrencyAmount amount={selectedQuote.total} className="quote-amount" />
             </div>
           ) : (
             <span className="placeholder">{placeholder}</span>
@@ -119,7 +118,7 @@ export default function JobSelect({
               <input
                 type="text"
                 className="search-input"
-                placeholder="Search by job #, title, or client..."
+                placeholder="Search by quote #, title, or client..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 autoFocus
@@ -128,27 +127,32 @@ export default function JobSelect({
             
             <div className="options-list">
               {loading ? (
-                <div className="loading-state">Loading jobs...</div>
-              ) : filteredJobs.length === 0 ? (
-                <div className="empty-state">No jobs found</div>
+                <div className="loading-state">Loading quotes...</div>
+              ) : filteredQuotes.length === 0 ? (
+                <div className="empty-state">No quotes found</div>
               ) : (
-                filteredJobs.map(job => (
+                filteredQuotes.map(quote => (
                   <div
-                    key={job.id || job.job_id || job.job_number}
-                    className={`option-item ${selectedJob?.id === job.id ? 'selected' : ''}`}
-                    onClick={() => handleSelect(job)}
+                    key={quote.id || quote.quote_number}
+                    className={`option-item ${selectedQuote?.id === quote.id ? 'selected' : ''}`}
+                    onClick={() => handleSelect(quote)}
                   >
                     <div className="option-header">
-                      <span className="option-number">#{job.job_number || job.id}</span>
-                      <span className="option-title">{job.title}</span>
-                      {getStatusBadge(job.status)}
+                      <span className="option-number">#{quote.quote_number || quote.id}</span>
+                      <span className="option-title">{quote.title}</span>
+                      {getStatusBadge(quote.status)}
                     </div>
-                    {job.client_name && (
-                      <div className="option-client">Client: {job.client_name}</div>
-                    )}
-                    {job.value && (
-                      <div className="option-value">
-                        Value: <CurrencyAmount amount={job.value} />
+                    <div className="option-details">
+                      {quote.client_name && (
+                        <span className="option-client">{quote.client_name}</span>
+                      )}
+                      {quote.total && (
+                        <CurrencyAmount amount={quote.total} className="option-amount" />
+                      )}
+                    </div>
+                    {quote.validUntil && (
+                      <div className="option-valid">
+                        Valid until: {new Date(quote.validUntil).toLocaleDateString()}
                       </div>
                     )}
                   </div>
@@ -168,7 +172,7 @@ export default function JobSelect({
       )}
       
       <style jsx>{`
-        .job-select {
+        .quote-select {
           width: 100%;
           margin-bottom: 1rem;
         }
@@ -211,20 +215,21 @@ export default function JobSelect({
           align-items: baseline;
         }
         
-        .job-number {
+        .quote-number {
           font-weight: 600;
           font-size: 0.875rem;
           color: #3b82f6;
         }
         
-        .job-title {
+        .quote-title {
           font-size: 0.875rem;
           color: #111827;
         }
         
-        .job-client {
-          font-size: 0.75rem;
-          color: #6b7280;
+        .quote-amount {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #059669;
         }
         
         .placeholder {
@@ -317,15 +322,27 @@ export default function JobSelect({
           color: #111827;
         }
         
-        .option-client {
-          font-size: 0.75rem;
-          color: #6b7280;
+        .option-details {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           margin-bottom: 0.25rem;
         }
         
-        .option-value {
+        .option-client {
           font-size: 0.75rem;
+          color: #6b7280;
+        }
+        
+        .option-amount {
+          font-size: 0.75rem;
+          font-weight: 500;
           color: #059669;
+        }
+        
+        .option-valid {
+          font-size: 0.7rem;
+          color: #9ca3af;
         }
         
         .helper-text {
