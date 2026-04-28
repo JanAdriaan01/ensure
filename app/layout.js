@@ -1,7 +1,5 @@
 import './globals.css';
 import dynamic from 'next/dynamic';
-import Navbar from '@/app/components/layout/Navbar';
-import Footer from '@/app/components/layout/Footer';
 
 export const metadata = {
   title: 'ENSURE System - Complete Business Management Platform',
@@ -21,19 +19,24 @@ export const viewport = {
   themeColor: '#2563eb',
 };
 
-const ClientProviders = dynamic(() => import('./ClientProviders'), {
+// Dynamically import the entire client layout with SSR disabled
+const ClientLayout = dynamic(() => import('./ClientLayout'), {
   ssr: false,
+  loading: () => (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading...</p>
+      </div>
+    </div>
+  ),
 });
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <ClientProviders>
-          <Navbar />
-          <main>{children}</main>
-          <Footer />
-        </ClientProviders>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );
