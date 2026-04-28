@@ -42,16 +42,14 @@ export function ThemeProvider({ children }) {
     return <>{children}</>;
   }
 
-  const value = {
-    theme,
-    toggleTheme,
-    setThemeMode,
-    isDark: theme === 'dark',
-    isLight: theme === 'light',
-  };
-
   return (
-    <ThemeContext.Provider value={value}>
+    <ThemeContext.Provider value={{
+      theme,
+      toggleTheme,
+      setThemeMode,
+      isDark: theme === 'dark',
+      isLight: theme === 'light',
+    }}>
       {children}
     </ThemeContext.Provider>
   );
