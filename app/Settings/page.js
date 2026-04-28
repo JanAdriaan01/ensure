@@ -1,28 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 
 // Force dynamic rendering to avoid static generation issues
 export const dynamic = 'force-dynamic';
 
-// Dynamically import the settings content with SSR disabled
-const SettingsContentComponent = dynamic(() => import('./SettingsContent'), {
-  ssr: false,
-  loading: () => <LoadingSpinner text="Loading settings..." />,
-});
-
 export default function SettingsPage() {
   const [mounted, setMounted] = useState(false);
+  const [SettingsContent, setSettingsContent] = useState(null);
 
   useEffect(() => {
     setMounted(true);
+    // Dynamically import on client side only
+    import('./SettingsContent').then((module) => {
+      setSettingsContent(() => module.default);
+    });
   }, []);
 
-  if (!mounted) {
+  if (!mounted || !SettingsContent) {
     return <LoadingSpinner text="Loading settings..." />;
   }
 
-  return <SettingsContentComponent />;
+  const Content = SettingsContent;
+  return <Content />;
 }
