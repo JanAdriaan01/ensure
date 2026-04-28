@@ -8,7 +8,7 @@ import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 export const dynamic = 'force-dynamic';
 
 // Dynamically import the settings content with SSR disabled
-const SettingsContent = dynamic(() => import('./SettingsContent'), {
+const SettingsContentComponent = dynamic(() => import('./SettingsContent'), {
   ssr: false,
   loading: () => <LoadingSpinner text="Loading settings..." />,
 });
@@ -24,5 +24,5 @@ export default function SettingsPage() {
     return <LoadingSpinner text="Loading settings..." />;
   }
 
-  return <SettingsContent />;
+  return <SettingsContentComponent />;
 }
