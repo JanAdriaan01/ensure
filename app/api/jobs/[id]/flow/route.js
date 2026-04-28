@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
+import { query } from '@/app/lib/db';
+import { verifyAuth } from '@/app/lib/auth';
 
 // GET - Get current flow status for a job
 export async function GET(request, { params }) {
@@ -149,7 +149,7 @@ async function validateStageTransition(jobId, targetStage, forceAdvance = false)
     GROUP BY j.id
   `, [jobId]);
 
-  const jobData = job.rows[0];
+  const jobData = job.rows[0] || {};
 
   // Get quote data if exists
   let quoteData = null;
@@ -223,7 +223,6 @@ async function validateStageTransition(jobId, targetStage, forceAdvance = false)
         value = jobData.tools_assigned_count || 0;
         break;
       case 'payment_days_overdue':
-        // Get last invoice date
         const lastInvoice = await query(
           `SELECT invoice_date FROM invoices WHERE job_id = $1 ORDER BY created_at DESC LIMIT 1`,
           [jobId]
@@ -312,7 +311,7 @@ async function getBlockersForJob(jobId) {
     }
   }
   
-  return blockers;
+  return { blockers };
 }
 
 // Helper function to create notifications
@@ -326,7 +325,7 @@ async function createNotifications(jobId, warnings, stage) {
        FROM users u WHERE u.role IN ('admin', 'manager')`,
       [
         `Warning: ${stage} Stage`,
-        `${warning.message} for job ${job.rows[0].lc_number}`,
+        `${warning.message} for job ${job.rows[0]?.lc_number}`,
         `/jobs/${jobId}`
       ]
     );

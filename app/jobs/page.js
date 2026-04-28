@@ -1,5 +1,6 @@
 'use client';
 
+import JobFlowVisualization from '@/app/components/jobs/JobFlowVisualization';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
