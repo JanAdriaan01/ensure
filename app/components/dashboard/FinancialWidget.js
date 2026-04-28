@@ -5,6 +5,9 @@ import CurrencyAmount from '@/app/components/CurrencyAmount';
 import Card from '@/app/components/ui/Card/Card';
 
 export function FinancialWidget({ stats }) {
+  // Safe fallback
+  const safeStats = stats || { totalInvoiced: 0, poAmount: 0, thisMonthRevenue: 0 };
+
   return (
     <Card>
       <div className="widget-header">
@@ -15,15 +18,15 @@ export function FinancialWidget({ stats }) {
       <div className="widget-stats">
         <div className="stat">
           <div className="stat-label">Total Invoiced</div>
-          <div className="stat-value"><CurrencyAmount amount={stats.totalInvoiced} /></div>
+          <div className="stat-value"><CurrencyAmount amount={safeStats.totalInvoiced || 0} /></div>
         </div>
         <div className="stat">
           <div className="stat-label">PO Value</div>
-          <div className="stat-value"><CurrencyAmount amount={stats.poAmount} /></div>
+          <div className="stat-value"><CurrencyAmount amount={safeStats.poAmount || 0} /></div>
         </div>
         <div className="stat">
           <div className="stat-label">This Month</div>
-          <div className="stat-value"><CurrencyAmount amount={stats.thisMonthRevenue} /></div>
+          <div className="stat-value"><CurrencyAmount amount={safeStats.thisMonthRevenue || 0} /></div>
         </div>
       </div>
       <style jsx>{`

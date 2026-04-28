@@ -5,6 +5,9 @@ import CurrencyAmount from '@/app/components/CurrencyAmount';
 import Card from '@/app/components/ui/Card/Card';
 
 export function HRWidget({ stats }) {
+  // Safe fallback
+  const safeStats = stats || { totalEmployees: 0, activeEmployees: 0, onLeave: 0, monthlyPayroll: 0 };
+
   return (
     <Card>
       <div className="widget-header">
@@ -15,21 +18,21 @@ export function HRWidget({ stats }) {
       <div className="widget-stats">
         <div className="stat">
           <div className="stat-label">Total Employees</div>
-          <div className="stat-value">{stats.totalEmployees}</div>
+          <div className="stat-value">{safeStats.totalEmployees || 0}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Active</div>
-          <div className="stat-value">{stats.activeEmployees}</div>
+          <div className="stat-value">{safeStats.activeEmployees || 0}</div>
         </div>
         <div className="stat">
           <div className="stat-label">On Leave</div>
-          <div className="stat-value">{stats.onLeave}</div>
+          <div className="stat-value">{safeStats.onLeave || 0}</div>
         </div>
       </div>
       <div className="widget-footer">
         <div className="stat">
           <div className="stat-label">Estimated Payroll</div>
-          <div className="stat-value"><CurrencyAmount amount={stats.monthlyPayroll} /></div>
+          <div className="stat-value"><CurrencyAmount amount={safeStats.monthlyPayroll || 0} /></div>
         </div>
       </div>
       <style jsx>{`

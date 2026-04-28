@@ -3,11 +3,17 @@
 import CurrencyAmount from '@/app/components/CurrencyAmount';
 
 export function QuickStats({ stats }) {
+  // Safe fallback for undefined stats
+  const safeStats = stats || {
+    financial: { activeJobs: 0, pendingQuotes: 0, thisMonthRevenue: 0 },
+    hr: { totalEmployees: 0, activeEmployees: 0, monthlyPayroll: 0 }
+  };
+
   const statItems = [
-    { label: 'Active Jobs', value: stats.financial.activeJobs, icon: '📋', color: '#2563eb' },
-    { label: 'Pending Quotes', value: stats.financial.pendingQuotes, icon: '💰', color: '#f59e0b' },
-    { label: 'Total Employees', value: stats.hr.totalEmployees, icon: '👥', color: '#10b981' },
-    { label: 'This Month Revenue', value: <CurrencyAmount amount={stats.financial.thisMonthRevenue} />, icon: '📊', color: '#8b5cf6' },
+    { label: 'Active Jobs', value: safeStats.financial?.activeJobs || 0, icon: '📋', color: '#2563eb' },
+    { label: 'Pending Quotes', value: safeStats.financial?.pendingQuotes || 0, icon: '💰', color: '#f59e0b' },
+    { label: 'Total Employees', value: safeStats.hr?.totalEmployees || 0, icon: '👥', color: '#10b981' },
+    { label: 'This Month Revenue', value: <CurrencyAmount amount={safeStats.financial?.thisMonthRevenue || 0} />, icon: '📊', color: '#8b5cf6' },
   ];
 
   return (

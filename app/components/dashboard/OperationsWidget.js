@@ -4,6 +4,9 @@ import Link from 'next/link';
 import Card from '@/app/components/ui/Card/Card';
 
 export function OperationsWidget({ stats }) {
+  // Safe fallback
+  const safeStats = stats || { toolsCheckedOut: 0, lowStockItems: 0, activeWorkOrders: 0, overdueTools: 0 };
+
   return (
     <Card>
       <div className="widget-header">
@@ -14,22 +17,22 @@ export function OperationsWidget({ stats }) {
       <div className="widget-stats">
         <div className="stat">
           <div className="stat-label">Tools Checked Out</div>
-          <div className="stat-value">{stats.toolsCheckedOut}</div>
+          <div className="stat-value">{safeStats.toolsCheckedOut || 0}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Low Stock Items</div>
-          <div className="stat-value">{stats.lowStockItems}</div>
+          <div className="stat-value">{safeStats.lowStockItems || 0}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Active Work Orders</div>
-          <div className="stat-value">{stats.activeWorkOrders}</div>
+          <div className="stat-value">{safeStats.activeWorkOrders || 0}</div>
         </div>
       </div>
       <div className="widget-footer">
         <div className="stat">
           <div className="stat-label">Overdue Tools</div>
-          <div className="stat-value" style={{ color: stats.overdueTools > 0 ? '#dc2626' : 'inherit' }}>
-            {stats.overdueTools}
+          <div className="stat-value" style={{ color: (safeStats.overdueTools || 0) > 0 ? '#dc2626' : 'inherit' }}>
+            {safeStats.overdueTools || 0}
           </div>
         </div>
       </div>

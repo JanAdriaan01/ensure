@@ -1,25 +1,35 @@
-// components/common/NotificationBell/NotificationBell.js
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 
 export default function NotificationBell({ 
   notifications = [],
+  unreadCount: externalUnreadCount,
   onMarkAsRead,
+  onMarkAllAsRead,
   onViewAll,
   onNotificationClick,
   autoRefresh = true,
-  refreshInterval = 30000
+  refreshInterval = 30000,
+  maxDisplay = 10,
+  className = ''
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [internalUnreadCount, setInternalUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
+  const refreshTimerRef = useRef(null);
   
+  // Calculate unread count from notifications
   useEffect(() => {
     const unread = notifications.filter(n => !n.read).length;
-    setUnreadCount(unread);
+    setInternalUnreadCount(unread);
   }, [notifications]);
   
+  // Use external unreadCount if provided, otherwise use internal
+  const unreadCount = externalUnreadCount !== undefined ? externalUnreadCount : internalUnreadCount;
+  
+  // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -31,6 +41,21 @@ export default function NotificationBell({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
+  // Auto-refresh notifications
+  useEffect(() => {
+    if (autoRefresh && onViewAll) {
+      refreshTimerRef.current = setInterval(() => {
+        onViewAll('refresh');
+      }, refreshInterval);
+      
+      return () => {
+        if (refreshTimerRef.current) {
+          clearInterval(refreshTimerRef.current);
+        }
+      };
+    }
+  }, [autoRefresh, refreshInterval, onViewAll]);
+  
   const getNotificationIcon = (type) => {
     const icons = {
       info: 'ℹ️',
@@ -40,17 +65,29 @@ export default function NotificationBell({
       alert: '🚨',
       reminder: '⏰',
       update: '🔄',
-      mention: '💬'
+      mention: '💬',
+      job: '📋',
+      quote: '💰',
+      invoice: '🧾',
+      employee: '👤',
+      tool: '🔧',
+      stock: '📦',
+      schedule: '📅',
+      ohs: '🛡️',
+      default: '📢'
     };
-    return icons[type] || '📢';
+    return icons[type] || icons.default;
   };
   
   const getTimeAgo = (date) => {
+    if (!date) return 'recently';
+    
     const diff = Math.floor((new Date() - new Date(date)) / 1000);
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
+    if (diff < 60) return `${diff} seconds ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+    return new Date(date).toLocaleDateString();
   };
   
   const handleNotificationRead = (notification) => {
@@ -63,17 +100,25 @@ export default function NotificationBell({
     setIsOpen(false);
   };
   
-  const markAllAsRead = () => {
-    notifications.filter(n => !n.read).forEach(n => {
-      if (onMarkAsRead) onMarkAsRead(n.id);
-    });
+  const handleMarkAllAsRead = () => {
+    if (onMarkAllAsRead) {
+      onMarkAllAsRead();
+    }
+  };
+  
+  const handleViewAll = () => {
+    if (onViewAll) {
+      onViewAll();
+    }
+    setIsOpen(false);
   };
   
   return (
-    <div className="notification-bell" ref={dropdownRef}>
+    <div className={`notification-bell ${className}`} ref={dropdownRef}>
       <button 
         className={`bell-btn ${unreadCount > 0 ? 'has-unread' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
         🔔
         {unreadCount > 0 && (
@@ -85,8 +130,8 @@ export default function NotificationBell({
         <div className="dropdown">
           <div className="dropdown-header">
             <h4>Notifications</h4>
-            {unreadCount > 0 && (
-              <button className="mark-all-btn" onClick={markAllAsRead}>
+            {unreadCount > 0 && onMarkAllAsRead && (
+              <button className="mark-all-btn" onClick={handleMarkAllAsRead}>
                 Mark all as read
               </button>
             )}
@@ -99,11 +144,18 @@ export default function NotificationBell({
                 <p>No notifications</p>
               </div>
             ) : (
-              notifications.slice(0, 10).map(notification => (
+              notifications.slice(0, maxDisplay).map(notification => (
                 <div
                   key={notification.id}
                   className={`notification-item ${!notification.read ? 'unread' : ''}`}
                   onClick={() => handleNotificationRead(notification)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleNotificationRead(notification);
+                    }
+                  }}
                 >
                   <div className="notification-icon">
                     {getNotificationIcon(notification.type)}
@@ -119,9 +171,9 @@ export default function NotificationBell({
             )}
           </div>
           
-          {notifications.length > 10 && (
+          {notifications.length > maxDisplay && (
             <div className="dropdown-footer">
-              <button className="view-all-btn" onClick={onViewAll}>
+              <button className="view-all-btn" onClick={handleViewAll}>
                 View all notifications ({notifications.length})
               </button>
             </div>
@@ -171,6 +223,7 @@ export default function NotificationBell({
           padding: 0.125rem 0.375rem;
           border-radius: 9999px;
           min-width: 18px;
+          line-height: 1;
         }
         
         .dropdown {
@@ -274,6 +327,7 @@ export default function NotificationBell({
           font-size: 0.75rem;
           color: #6b7280;
           margin-bottom: 0.25rem;
+          line-height: 1.4;
         }
         
         .notification-time {
@@ -307,6 +361,13 @@ export default function NotificationBell({
         
         .view-all-btn:hover {
           text-decoration: underline;
+        }
+        
+        @media (max-width: 480px) {
+          .dropdown {
+            width: calc(100vw - 2rem);
+            right: -0.5rem;
+          }
         }
       `}</style>
     </div>

@@ -70,17 +70,22 @@ export default function HomePage() {
   }, [isAuthenticated, fetchNotifications]);
 
   const calculateStats = () => {
-    const activeJobs = jobs?.filter(j => j.completion_status !== 'completed').length || 0;
-    const pendingQuotes = quotes?.filter(q => q.status === 'pending' && !q.po_received).length || 0;
-    const totalEmployees = employees?.length || 0;
-    const activeEmployees = employees?.filter(e => (e.total_hours_worked || 0) > 0).length || 0;
+    // Safe null checks with optional chaining and fallbacks
+    const safeJobs = jobs || [];
+    const safeQuotes = quotes || [];
+    const safeEmployees = employees || [];
+    
+    const activeJobs = safeJobs.filter(j => j?.completion_status !== 'completed').length || 0;
+    const pendingQuotes = safeQuotes.filter(q => q?.status === 'pending' && !q?.po_received).length || 0;
+    const totalEmployees = safeEmployees.length || 0;
+    const activeEmployees = safeEmployees.filter(e => (e?.total_hours_worked || 0) > 0).length || 0;
     
     // Calculate this month's revenue
     const now = new Date();
     const thisMonth = now.toISOString().slice(0, 7);
-    const thisMonthRevenue = jobs?.reduce((sum, j) => {
-      const jobMonth = j.completed_month;
-      if (jobMonth === thisMonth && j.total_invoiced) {
+    const thisMonthRevenue = safeJobs.reduce((sum, j) => {
+      const jobMonth = j?.completed_month;
+      if (jobMonth === thisMonth && j?.total_invoiced) {
         return sum + j.total_invoiced;
       }
       return sum;
@@ -90,15 +95,15 @@ export default function HomePage() {
       financial: {
         activeJobs,
         pendingQuotes,
-        totalInvoiced: jobs?.reduce((sum, j) => sum + (j.total_invoiced || 0), 0) || 0,
-        poAmount: jobs?.reduce((sum, j) => sum + (j.po_amount || 0), 0) || 0,
+        totalInvoiced: safeJobs.reduce((sum, j) => sum + (j?.total_invoiced || 0), 0) || 0,
+        poAmount: safeJobs.reduce((sum, j) => sum + (j?.po_amount || 0), 0) || 0,
         thisMonthRevenue,
       },
       hr: {
         totalEmployees,
         activeEmployees,
         onLeave: 0,
-        monthlyPayroll: employees?.reduce((sum, e) => sum + ((e.hourly_rate || 0) * (e.total_hours_worked || 0)), 0) || 0,
+        monthlyPayroll: safeEmployees.reduce((sum, e) => sum + ((e?.hourly_rate || 0) * (e?.total_hours_worked || 0)), 0) || 0,
       },
       operations: {
         toolsCheckedOut: 0,
@@ -119,10 +124,12 @@ export default function HomePage() {
   };
 
   const handleNotificationClick = (notification) => {
-    if (notification.link) {
+    if (notification?.link) {
       router.push(notification.link);
     }
-    markAsRead(notification.id);
+    if (notification?.id && markAsRead) {
+      markAsRead(notification.id);
+    }
   };
 
   if (loading) {
@@ -149,6 +156,7 @@ export default function HomePage() {
           <NotificationBell 
             notifications={notifications || []}
             onMarkAsRead={markAsRead}
+            onMarkAllAsRead={markAllAsRead}
             onViewAll={() => router.push('/notifications')}
             onNotificationClick={handleNotificationClick}
           />
@@ -181,7 +189,7 @@ export default function HomePage() {
         
         {/* Recent Activity Feed */}
         <div className="dashboard-widget full-width">
-          <RecentActivity activities={activities} loading={activitiesLoading} />
+          <RecentActivity activities={activities || []} loading={activitiesLoading} />
         </div>
       </div>
 
