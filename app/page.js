@@ -10,7 +10,6 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useNotifications } from '@/app/hooks/useNotifications';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
-import EmptyState from '@/app/components/ui/EmptyState';
 import Card from '@/app/components/ui/Card/Card';
 import { QuickStats } from '@/app/components/dashboard/QuickStats';
 import { RecentActivity } from '@/app/components/common/ActivityFeed';
@@ -68,7 +67,7 @@ export default function HomePage() {
     if (isAuthenticated) {
       fetchNotifications();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchNotifications]);
 
   const calculateStats = () => {
     const activeJobs = jobs?.filter(j => j.completion_status !== 'completed').length || 0;
@@ -149,11 +148,9 @@ export default function HomePage() {
         <div className="dashboard-actions">
           <NotificationBell 
             notifications={notifications || []}
-            unreadCount={unreadCount}
             onMarkAsRead={markAsRead}
-            onMarkAllAsRead={markAllAsRead}
-            onNotificationClick={handleNotificationClick}
             onViewAll={() => router.push('/notifications')}
+            onNotificationClick={handleNotificationClick}
           />
           <UserMenu user={user} />
         </div>
