@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useDebounce } from '@/app/hooks/useDebounce';
+import { useDebounce } from '@/app/hooks/useDebounce/useDebounce';
 
 export default function SearchBar({ 
   onSearch, 

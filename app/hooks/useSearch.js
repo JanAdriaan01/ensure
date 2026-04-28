@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import useDebounce from './useDebounce';
+import useDebounce from './useDebounce/useDebounce';
 
 export default function useSearch(items = [], options = {}) {
   const {
