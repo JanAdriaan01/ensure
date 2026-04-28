@@ -1,3 +1,5 @@
+'use client'
+
 'use client';
 
 import { useFetch } from '@/app/hooks/useFetch';

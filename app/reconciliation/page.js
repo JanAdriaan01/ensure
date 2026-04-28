@@ -1,3 +1,5 @@
+'use client'
+
 'use client';
 
 import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
