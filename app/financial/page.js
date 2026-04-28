@@ -1,13 +1,14 @@
-'use client'
-
 'use client';
 
 import Link from 'next/link';
 import { useFetch } from '@/app/hooks/useFetch';
-import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
+import PageHeader from '@/app/components/layout/PageHeader';
 import Card from '@/app/components/ui/Card/Card';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
-import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
+import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
+
+// Force dynamic rendering to avoid static generation issues
+export const dynamic = 'force-dynamic';
 
 export default function FinancialPage() {
   const { data: jobs, loading: jobsLoading } = useFetch('/api/jobs');
@@ -16,8 +17,8 @@ export default function FinancialPage() {
   
   const loading = jobsLoading || quotesLoading || clientsLoading;
 
-  const activeJobs = jobs?.filter(j => j.completion_status !== 'completed').length || 0;
-  const pendingQuotes = quotes?.filter(q => q.status === 'pending' && !q.po_received).length || 0;
+  const activeJobs = jobs?.filter(j => j.completion_status !== 'completed')?.length || 0;
+  const pendingQuotes = quotes?.filter(q => q.status === 'pending' && !q.po_received)?.length || 0;
   const totalInvoiced = jobs?.reduce((sum, j) => sum + (j.total_invoiced || 0), 0) || 0;
 
   const sections = [

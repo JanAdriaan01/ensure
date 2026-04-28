@@ -1,11 +1,12 @@
-'use client'
-
 'use client';
 
 import Link from 'next/link';
 import { useFetch } from '@/app/hooks/useFetch';
-import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
-import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
+import PageHeader from '@/app/components/layout/PageHeader';
+import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
+
+// Force dynamic rendering to avoid static generation issues
+export const dynamic = 'force-dynamic';
 
 export default function HRPage() {
   const { data: employees, loading: employeesLoading } = useFetch('/api/employees');

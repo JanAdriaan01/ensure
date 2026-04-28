@@ -1,13 +1,14 @@
-'use client'
-
 'use client';
 
 import { useFetch } from '@/app/hooks/useFetch';
-import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
+import PageHeader from '@/app/components/layout/PageHeader';
 import Card from '@/app/components/ui/Card/Card';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
-import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
+import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 import Link from 'next/link';
+
+// Force dynamic rendering to avoid static generation issues
+export const dynamic = 'force-dynamic';
 
 export default function InventoryPage() {
   const { data: stock, loading } = useFetch('/api/stock');
@@ -54,6 +55,7 @@ export default function InventoryPage() {
         .low-stock { border-left: 3px solid #f59e0b; background: #fffbeb; }
         .btn { background: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; text-decoration: none; display: inline-block; }
         .btn-outline { background: transparent; border: 1px solid #2563eb; color: #2563eb; }
+        .btn-outline:hover { background: #eff6ff; }
       `}</style>
     </div>
   );
