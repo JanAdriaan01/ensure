@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
-import { hasPermission } from '@/lib/permissions';
+import { query } from '@/app/lib/db';
+import { verifyAuth } from '@/app/lib/auth';
+import { hasPermission } from '@/app/lib/permissions';
 
 // GET - Fetch single incident
 export async function GET(request, { params }) {

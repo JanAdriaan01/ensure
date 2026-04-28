@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query } from '@/app/lib/db';
 
 // GET - Fetch single quote with items
 export async function GET(request, { params }) {

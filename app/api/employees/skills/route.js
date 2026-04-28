@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query } from '@/app/lib/db';
 
 // GET - Fetch all available skills
 export async function GET() {

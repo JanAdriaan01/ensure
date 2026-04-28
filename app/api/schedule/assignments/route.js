@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
-import { hasPermission } from '@/lib/permissions';
+import { query } from '@/app/lib/db';
+import { verifyAuth } from '@/app/lib/auth';
+import { hasPermission } from '@/app/lib/permissions';
 
 // POST - Assign employee to work order
 export async function POST(request) {
