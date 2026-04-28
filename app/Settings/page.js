@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSettings } from '@/app/context/SettingsContext';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useNotifications } from '@/app/context/NotificationContext';
@@ -15,7 +15,8 @@ import { FormInput, FormSelect, FormSwitch, FormTextarea, FormCurrencyInput } fr
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 import { useToast } from '@/app/hooks/useToast';
 
-export default function SettingsPage() {
+// Main settings content component that uses all hooks
+function SettingsContent() {
   const { settings, updateSetting, updateSettings, resetSettings, loading } = useSettings();
   const { theme, toggleTheme } = useTheme();
   const { soundEnabled, setSoundEnabled, desktopEnabled, setDesktopEnabled, requestDesktopPermission } = useNotifications();
@@ -48,7 +49,6 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    // Simulate save delay
     setTimeout(() => {
       setSaving(false);
       showToast('Settings saved successfully', 'success');
@@ -688,7 +688,7 @@ export default function SettingsPage() {
         }
         
         .import-button {
-          background: var(--secondary);
+          background: #6b7280;
           color: white;
           padding: 0.5rem 1rem;
           border-radius: 0.375rem;
@@ -699,12 +699,12 @@ export default function SettingsPage() {
         }
         
         .import-button:hover {
-          background: var(--secondary-dark);
+          background: #4b5563;
         }
         
         .import-hint {
           font-size: 0.7rem;
-          color: var(--text-tertiary);
+          color: #6b7280;
           margin-top: 0.5rem;
         }
         
@@ -743,16 +743,16 @@ export default function SettingsPage() {
           display: flex;
           justify-content: space-between;
           padding: 0.5rem;
-          border-bottom: 1px solid var(--border-light);
+          border-bottom: 1px solid #e5e7eb;
         }
         
         .session-detail .label {
           font-weight: 500;
-          color: var(--text-secondary);
+          color: #6b7280;
         }
         
         .session-detail .value {
-          color: var(--text-primary);
+          color: #111827;
         }
         
         @media (max-width: 768px) {
@@ -771,5 +771,14 @@ export default function SettingsPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+// Main export with Suspense boundary to prevent static generation errors
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner text="Loading settings..." />}>
+      <SettingsContent />
+    </Suspense>
   );
 }
