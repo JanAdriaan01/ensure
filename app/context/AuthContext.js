@@ -2,156 +2,158 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken, removeToken, setToken, getUserFromToken } from '@/lib/auth'; // Only client-side functions
+import { useToast } from '@/app/hooks/useToast';
 
-const AuthContext = createContext({});
+const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const router = useRouter();
+  const { showToast } = useToast();
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [permissions, setPermissions] = useState([]);
 
-  const fetchUser = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
+  // Initialize auth from localStorage
+  useEffect(() => {
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('auth_token');
+      if (storedToken) {
+        setToken(storedToken);
+        await fetchUser(storedToken);
+      }
       setLoading(false);
-      return;
-    }
+    };
+    initAuth();
+  }, []);
 
-    // First try to get user from token without API call
-    const tokenUser = getUserFromToken();
-    if (tokenUser) {
-      setUser(tokenUser);
-    }
-
-    // Then verify with server
+  // Fetch user data with token
+  const fetchUser = async (authToken) => {
     try {
       const response = await fetch('/api/auth/me', {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${authToken}`,
+        },
       });
-
+      
       if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
+        const data = await response.json();
+        setUser(data.user);
+        setPermissions(data.permissions || []);
       } else {
-        removeToken();
+        // Token invalid, clear storage
+        localStorage.removeItem('auth_token');
+        setToken(null);
         setUser(null);
       }
-    } catch (err) {
-      console.error('Auth error:', err);
+    } catch (error) {
+      console.error('Fetch user error:', error);
+      localStorage.removeItem('auth_token');
+      setToken(null);
       setUser(null);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
-
+  // Login
   const login = async (email, password) => {
-    setError(null);
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
-      }
-
-      const { token, user: userData } = await response.json();
-      setToken(token);
-      setUser(userData);
       
-      return { success: true };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
+      const data = await response.json();
+      
+      if (response.ok) {
+        localStorage.setItem('auth_token', data.token);
+        setToken(data.token);
+        setUser(data.user);
+        showToast('Login successful!', 'success');
+        router.push('/');
+        return { success: true };
+      } else {
+        showToast(data.error || 'Login failed', 'error');
+        return { success: false, error: data.error };
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      showToast('Login failed. Please try again.', 'error');
+      return { success: false, error: error.message };
     }
   };
 
-  const logout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      removeToken();
-      setUser(null);
-      router.push('/login');
-    }
-  };
-
-  const register = async (userData) => {
-    setError(null);
+  // Register
+  const register = async (name, email, password, role = 'user') => {
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
+        body: JSON.stringify({ name, email, password, role }),
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Registration failed');
-      }
-
-      const { token, user: newUser } = await response.json();
-      setToken(token);
-      setUser(newUser);
       
-      return { success: true };
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    }
-  };
-
-  const updateProfile = async (updates) => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getToken()}`
-        },
-        body: JSON.stringify(updates)
-      });
-
+      const data = await response.json();
+      
       if (response.ok) {
-        const updatedUser = await response.json();
-        setUser(updatedUser);
+        localStorage.setItem('auth_token', data.token);
+        setToken(data.token);
+        setUser(data.user);
+        showToast('Registration successful!', 'success');
+        router.push('/');
         return { success: true };
+      } else {
+        showToast(data.error || 'Registration failed', 'error');
+        return { success: false, error: data.error };
       }
-      throw new Error('Update failed');
-    } catch (err) {
-      return { success: false, error: err.message };
+    } catch (error) {
+      console.error('Registration error:', error);
+      showToast('Registration failed. Please try again.', 'error');
+      return { success: false, error: error.message };
     }
   };
 
-  const value = {
-    user,
-    loading,
-    error,
-    login,
-    logout,
-    register,
-    updateProfile,
-    isAuthenticated: !!user,
-    isAdmin: user?.role === 'admin',
-    isManager: user?.role === 'manager' || user?.role === 'admin',
-    isEmployee: user?.role === 'employee'
-  };
+  // Logout
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('auth_token');
+      setToken(null);
+      setUser(null);
+      setPermissions([]);
+      showToast('Logged out successfully', 'info');
+      router.push('/login');
+    }
+  }, [router, showToast]);
+
+  // Check permission
+  const hasPermission = useCallback((permission) => {
+    if (user?.role === 'admin') return true;
+    return permissions.includes(permission);
+  }, [user, permissions]);
+
+  // Check role
+  const hasRole = useCallback((role) => {
+    if (user?.role === 'admin') return true;
+    return user?.role === role;
+  }, [user]);
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user,
+      token,
+      loading,
+      permissions,
+      login,
+      register,
+      logout,
+      hasPermission,
+      hasRole,
+      isAuthenticated: !!user,
+      isAdmin: user?.role === 'admin',
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -160,7 +162,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
