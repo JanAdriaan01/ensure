@@ -12,6 +12,8 @@ import {
   canAccessModule,
   batchCheckPermissions,
   getUserEffectivePermissions,
+  PERMISSIONS,        // ← ADD THIS LINE
+  ROLES,              // ← Also add ROLES if you want to use it
 } from '@/app/lib/permissions';
 
 const PermissionContext = createContext();
@@ -143,7 +145,8 @@ export function PermissionProvider({ children }) {
     
     // ModulePermissions object for direct access
     ModulePermissions,
-    PERMISSIONS,
+    PERMISSIONS,  // ← Now this is defined
+    ROLES,        // ← Also useful to have
     
   }), [user, userPermissions, can, canAny, canAll, getPermissions, getEffectivePermissions, isRole, canAccessModule, batchCheck]);
   
