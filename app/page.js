@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useToast } from '@/app/hooks/useToast';
 import { useFetch } from '@/app/hooks/useFetch';
@@ -17,14 +18,15 @@ import { ModuleCards } from '@/app/components/dashboard/ModuleCards';
 import { FinancialWidget } from '@/app/components/dashboard/FinancialWidget';
 import { HRWidget } from '@/app/components/dashboard/HRWidget';
 import { OperationsWidget } from '@/app/components/dashboard/OperationsWidget';
-import { NotificationBell } from '@/app/components/common/NotificationBell';
+import NotificationBell from '@/app/components/common/NotificationBell';
 import { UserMenu } from '@/app/components/common/UserMenu';
 
 export default function HomePage() {
+  const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const { hasPermission } = usePermissions();
-  const { unreadCount, fetchNotifications } = useNotifications();
+  const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications();
   
   const { data: jobs, loading: jobsLoading } = useFetch('/api/jobs');
   const { data: quotes, loading: quotesLoading } = useFetch('/api/quotes');
@@ -96,14 +98,14 @@ export default function HomePage() {
       hr: {
         totalEmployees,
         activeEmployees,
-        onLeave: 0, // To be implemented with leave tracking
+        onLeave: 0,
         monthlyPayroll: employees?.reduce((sum, e) => sum + ((e.hourly_rate || 0) * (e.total_hours_worked || 0)), 0) || 0,
       },
       operations: {
-        toolsCheckedOut: 0, // To be implemented
-        lowStockItems: 0, // To be implemented
+        toolsCheckedOut: 0,
+        lowStockItems: 0,
         activeWorkOrders: activeJobs,
-        overdueTools: 0, // To be implemented
+        overdueTools: 0,
       },
     });
     setLoading(false);
@@ -115,6 +117,13 @@ export default function HomePage() {
     if (hour < 12) return 'Good Morning';
     if (hour < 18) return 'Good Afternoon';
     return 'Good Evening';
+  };
+
+  const handleNotificationClick = (notification) => {
+    if (notification.link) {
+      router.push(notification.link);
+    }
+    markAsRead(notification.id);
   };
 
   if (loading) {
@@ -138,7 +147,14 @@ export default function HomePage() {
           </p>
         </div>
         <div className="dashboard-actions">
-          <NotificationBell count={unreadCount} />
+          <NotificationBell 
+            notifications={notifications || []}
+            unreadCount={unreadCount}
+            onMarkAsRead={markAsRead}
+            onMarkAllAsRead={markAllAsRead}
+            onNotificationClick={handleNotificationClick}
+            onViewAll={() => router.push('/notifications')}
+          />
           <UserMenu user={user} />
         </div>
       </div>
