@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken, removeToken, setToken } from '@/lib/auth'; // Fixed import path
+import { getToken, removeToken, setToken, getUserFromToken } from '@/lib/auth'; // Only client-side functions
 
 const AuthContext = createContext({});
 
@@ -19,6 +19,13 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    // First try to get user from token without API call
+    const tokenUser = getUserFromToken();
+    if (tokenUser) {
+      setUser(tokenUser);
+    }
+
+    // Then verify with server
     try {
       const response = await fetch('/api/auth/me', {
         headers: {
