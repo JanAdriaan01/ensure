@@ -1,306 +1,266 @@
-// components/common/RecentItems/RecentItems.js
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
+import Card from '@/app/components/ui/Card/Card';
+import CurrencyAmount from '@/app/components/CurrencyAmount';
+import StatusBadge from '@/app/components/common/StatusBadge';
 
-export default function RecentItems({ 
-  items = [],
-  title = 'Recent Items',
-  maxItems = 5,
-  showViewAll = true,
-  onViewAll,
-  onItemClick,
-  onPin,
-  onDismiss,
-  typeIcons = {},
-  className = ''
-}) {
-  const [pinnedItems, setPinnedItems] = useState([]);
-  
-  const getItemIcon = (type) => {
-    const defaultIcons = {
-      job: '🔧',
-      quote: '📄',
-      invoice: '💰',
-      client: '👥',
-      employee: '👤',
-      tool: '🔨',
-      stock: '📦',
-      workorder: '📋',
-      team: '👥',
-      report: '📊'
-    };
-    return typeIcons[type] || defaultIcons[type] || '📌';
+export default function RecentItems({ items, type, title, limit = 5 }) {
+  const getItemLink = (item) => {
+    switch (type) {
+      case 'jobs':
+        return `/jobs/${item.id}`;
+      case 'quotes':
+        return `/quotes/${item.id}`;
+      case 'employees':
+        return `/employees/${item.id}`;
+      case 'clients':
+        return `/clients/${item.id}`;
+      case 'invoices':
+        return `/invoicing/${item.id}`;
+      case 'tools':
+        return `/tools/${item.id}`;
+      default:
+        return '#';
+    }
   };
-  
-  const getTimeAgo = (date) => {
-    if (!date) return '';
-    const diff = Math.floor((new Date() - new Date(date)) / 1000);
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
+
+  const getItemDisplay = (item) => {
+    switch (type) {
+      case 'jobs':
+        return {
+          primary: item.lc_number,
+          secondary: item.client_name,
+          value: `${Math.round(item.total_hours || 0)} hrs`,
+          status: item.completion_status,
+        };
+      case 'quotes':
+        return {
+          primary: item.quote_number,
+          secondary: item.client_name,
+          value: <CurrencyAmount amount={item.total_amount || 0} />,
+          status: item.status,
+        };
+      case 'employees':
+        return {
+          primary: `${item.name} ${item.surname}`,
+          secondary: item.employee_number,
+          value: `${Math.round(item.total_hours_worked || 0)} hrs`,
+          status: item.employment_status,
+        };
+      case 'clients':
+        return {
+          primary: item.client_name,
+          secondary: item.contact_person || 'No contact',
+          value: `${item.job_count || 0} jobs`,
+          status: null,
+        };
+      case 'invoices':
+        return {
+          primary: item.invoice_number,
+          secondary: item.client_name,
+          value: <CurrencyAmount amount={item.total_amount || 0} />,
+          status: item.status,
+        };
+      case 'tools':
+        return {
+          primary: item.tool_name,
+          secondary: item.tool_code,
+          value: item.status === 'checked_out' ? 'Checked Out' : 'Available',
+          status: item.status,
+        };
+      default:
+        return {
+          primary: item.name || item.id,
+          secondary: '',
+          value: '',
+          status: null,
+        };
+    }
   };
-  
-  const handlePin = (item, e) => {
-    e.stopPropagation();
-    setPinnedItems(prev => {
-      if (prev.includes(item.id)) {
-        return prev.filter(id => id !== item.id);
-      } else {
-        return [...prev, item.id];
-      }
-    });
-    if (onPin) onPin(item);
-  };
-  
-  const handleDismiss = (item, e) => {
-    e.stopPropagation();
-    if (onDismiss) onDismiss(item);
-  };
-  
-  const sortedItems = [...items].sort((a, b) => {
-    const aPinned = pinnedItems.includes(a.id);
-    const bPinned = pinnedItems.includes(b.id);
-    if (aPinned && !bPinned) return -1;
-    if (!aPinned && bPinned) return 1;
-    return new Date(b.lastAccessed) - new Date(a.lastAccessed);
-  }).slice(0, maxItems);
-  
+
+  const displayItems = Array.isArray(items) ? items.slice(0, limit) : [];
+
+  if (displayItems.length === 0) {
+    return (
+      <Card>
+        <div className="recent-header">
+          <h3>{title}</h3>
+        </div>
+        <div className="empty-state">
+          <span className="empty-icon">📭</span>
+          <p>No {type} found</p>
+        </div>
+        <style jsx>{`
+          .recent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-light);
+          }
+          .recent-header h3 {
+            margin: 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+          }
+          .empty-state {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-tertiary);
+          }
+          .empty-icon {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+          }
+          .empty-state p {
+            margin: 0;
+            font-size: 0.875rem;
+          }
+        `}</style>
+      </Card>
+    );
+  }
+
   return (
-    <div className={`recent-items ${className}`}>
-      <div className="items-header">
-        <h3 className="items-title">{title}</h3>
-        {showViewAll && items.length > maxItems && (
-          <button className="view-all-link" onClick={onViewAll}>
-            View All →
-          </button>
-        )}
+    <Card>
+      <div className="recent-header">
+        <h3>{title}</h3>
+        <Link href={`/${type}`} className="view-all">
+          View All →
+        </Link>
       </div>
-      
-      <div className="items-list">
-        {sortedItems.length === 0 ? (
-          <div className="empty-state">
-            <span className="empty-icon">📭</span>
-            <p>No recent items</p>
-          </div>
-        ) : (
-          sortedItems.map(item => (
-            <div
-              key={item.id}
-              className={`item-row ${pinnedItems.includes(item.id) ? 'pinned' : ''}`}
-              onClick={() => onItemClick && onItemClick(item)}
-            >
-              <div className="item-icon">{getItemIcon(item.type)}</div>
-              <div className="item-details">
-                <div className="item-title">
-                  {item.title || item.name || `Item ${item.id}`}
-                  {item.number && <span className="item-number">#{item.number}</span>}
-                </div>
-                <div className="item-meta">
-                  {item.type && <span className="item-type">{item.type}</span>}
-                  {item.status && (
-                    <span className={`item-status ${item.status.toLowerCase()}`}>
-                      {item.status}
-                    </span>
-                  )}
-                  {item.lastAccessed && (
-                    <span className="item-time">{getTimeAgo(item.lastAccessed)}</span>
-                  )}
-                </div>
-              </div>
-              <div className="item-actions">
-                {onPin && (
-                  <button 
-                    className={`pin-btn ${pinnedItems.includes(item.id) ? 'pinned' : ''}`}
-                    onClick={(e) => handlePin(item, e)}
-                    title={pinnedItems.includes(item.id) ? 'Unpin' : 'Pin'}
-                  >
-                    📌
-                  </button>
-                )}
-                {onDismiss && (
-                  <button 
-                    className="dismiss-btn"
-                    onClick={(e) => handleDismiss(item, e)}
-                    title="Dismiss"
-                  >
-                    ✕
-                  </button>
+      <div className="recent-list">
+        {displayItems.map((item) => {
+          const display = getItemDisplay(item);
+          return (
+            <Link key={item.id} href={getItemLink(item)} className="recent-item">
+              <div className="recent-info">
+                <div className="recent-title">{display.primary}</div>
+                {display.secondary && (
+                  <div className="recent-meta">{display.secondary}</div>
                 )}
               </div>
-            </div>
-          ))
-        )}
+              <div className="recent-right">
+                {display.status && (
+                  <div className="recent-status">
+                    <StatusBadge status={display.status} size="sm" />
+                  </div>
+                )}
+                <div className="recent-value">{display.value}</div>
+              </div>
+            </Link>
+          );
+        })}
       </div>
-      
+      {displayItems.length > 0 && (
+        <div className="recent-footer">
+          <Link href={`/${type}`} className="view-all-link">
+            View all {type} →
+          </Link>
+        </div>
+      )}
       <style jsx>{`
-        .recent-items {
-          background: white;
-          border-radius: 0.75rem;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          overflow: hidden;
-        }
-        
-        .items-header {
+        .recent-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 1rem;
-          border-bottom: 1px solid #e5e7eb;
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--border-light);
         }
-        
-        .items-title {
+        .recent-header h3 {
           margin: 0;
-          font-size: 1rem;
+          font-size: 0.9rem;
           font-weight: 600;
-          color: #111827;
         }
-        
-        .view-all-link {
-          background: none;
-          border: none;
-          color: #3b82f6;
-          font-size: 0.875rem;
-          cursor: pointer;
+        .view-all {
+          font-size: 0.7rem;
+          color: #2563eb;
+          text-decoration: none;
         }
-        
-        .view-all-link:hover {
-          text-decoration: underline;
-        }
-        
-        .items-list {
+        .recent-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
           max-height: 400px;
           overflow-y: auto;
         }
-        
-        .empty-state {
-          text-align: center;
-          padding: 2rem;
+        .recent-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.75rem;
+          text-decoration: none;
+          color: inherit;
+          border-radius: 0.5rem;
+          transition: background 0.2s;
+          gap: 1rem;
         }
-        
-        .empty-icon {
-          font-size: 2rem;
-          display: block;
-          margin-bottom: 0.5rem;
+        .recent-item:hover {
+          background: var(--bg-tertiary);
         }
-        
-        .empty-state p {
-          margin: 0;
-          color: #6b7280;
+        .recent-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .recent-title {
+          font-weight: 500;
           font-size: 0.875rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
-        
-        .item-row {
+        .recent-meta {
+          font-size: 0.7rem;
+          color: var(--text-tertiary);
+          margin-top: 0.15rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .recent-right {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.75rem 1rem;
-          border-bottom: 1px solid #f3f4f6;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        
-        .item-row:hover {
-          background: #f9fafb;
-        }
-        
-        .item-row.pinned {
-          background: #fffbeb;
-        }
-        
-        .item-icon {
-          font-size: 1.25rem;
           flex-shrink: 0;
         }
-        
-        .item-details {
-          flex: 1;
+        .recent-status {
+          min-width: 60px;
         }
-        
-        .item-title {
-          font-weight: 500;
+        .recent-value {
+          font-weight: 600;
+          color: #2563eb;
           font-size: 0.875rem;
-          color: #111827;
-          margin-bottom: 0.25rem;
+          white-space: nowrap;
         }
-        
-        .item-number {
+        .recent-footer {
+          margin-top: 0.75rem;
+          padding-top: 0.5rem;
+          text-align: center;
+          border-top: 1px solid var(--border-light);
+        }
+        .view-all-link {
           font-size: 0.75rem;
-          color: #6b7280;
-          margin-left: 0.5rem;
+          color: #2563eb;
+          text-decoration: none;
         }
-        
-        .item-meta {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          align-items: center;
+        .view-all-link:hover {
+          text-decoration: underline;
         }
-        
-        .item-type {
-          font-size: 0.7rem;
-          color: #6b7280;
-          text-transform: capitalize;
-        }
-        
-        .item-status {
-          padding: 0.125rem 0.375rem;
-          border-radius: 0.25rem;
-          font-size: 0.7rem;
-          font-weight: 500;
-        }
-        
-        .item-status.active, .item-status.completed {
-          background: #d1fae5;
-          color: #065f46;
-        }
-        
-        .item-status.pending, .item-status.in-progress {
-          background: #fed7aa;
-          color: #92400e;
-        }
-        
-        .item-status.overdue {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-        
-        .item-time {
-          font-size: 0.7rem;
-          color: #9ca3af;
-        }
-        
-        .item-actions {
-          display: flex;
-          gap: 0.25rem;
-          flex-shrink: 0;
-        }
-        
-        .pin-btn, .dismiss-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 0.25rem;
-          font-size: 0.875rem;
-          opacity: 0.5;
-          transition: opacity 0.2s;
-        }
-        
-        .pin-btn:hover, .dismiss-btn:hover {
-          opacity: 1;
-        }
-        
-        .pin-btn.pinned {
-          opacity: 1;
-          color: #f59e0b;
-          transform: rotate(-45deg);
-        }
-        
-        .dismiss-btn:hover {
-          color: #ef4444;
+        @media (max-width: 640px) {
+          .recent-item {
+            flex-wrap: wrap;
+          }
+          .recent-right {
+            width: 100%;
+            justify-content: space-between;
+            margin-top: 0.25rem;
+          }
         }
       `}</style>
-    </div>
+    </Card>
   );
 }

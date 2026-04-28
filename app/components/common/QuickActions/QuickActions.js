@@ -1,7 +1,8 @@
-// components/common/QuickActions/QuickActions.js
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { usePermissions } from '@/app/context/PermissionContext';
 
 export default function QuickActions({ 
   actions = [],
@@ -11,26 +12,106 @@ export default function QuickActions({
   onActionClick,
   className = ''
 }) {
+  const router = useRouter();
+  const { can } = usePermissions();
   const [hoveredAction, setHoveredAction] = useState(null);
   
   const getDefaultActions = () => [
-    { id: 'new-job', label: 'New Job', icon: '🔧', color: '#3b82f6', shortcut: '⌘J', action: 'new-job' },
-    { id: 'new-quote', label: 'New Quote', icon: '📄', color: '#10b981', shortcut: '⌘Q', action: 'new-quote' },
-    { id: 'new-invoice', label: 'New Invoice', icon: '💰', color: '#f59e0b', shortcut: '⌘I', action: 'new-invoice' },
-    { id: 'new-client', label: 'Add Client', icon: '👥', color: '#8b5cf6', shortcut: '⌘C', action: 'new-client' },
-    { id: 'new-employee', label: 'Add Employee', icon: '👤', color: '#ec4899', shortcut: '⌘E', action: 'new-employee' },
-    { id: 'new-tool', label: 'Add Tool', icon: '🔨', color: '#06b6d4', shortcut: '⌘T', action: 'new-tool' },
-    { id: 'new-stock', label: 'Add Stock', icon: '📦', color: '#84cc16', shortcut: '⌘S', action: 'new-stock' },
-    { id: 'new-workorder', label: 'Work Order', icon: '📋', color: '#f97316', shortcut: '⌘W', action: 'new-workorder' }
+    { 
+      id: 'new-job', 
+      label: 'New Job', 
+      icon: '🔧', 
+      color: '#3b82f6', 
+      shortcut: '⌘J', 
+      action: 'new-job',
+      href: '/jobs/new',
+      permission: 'job:create'
+    },
+    { 
+      id: 'new-quote', 
+      label: 'New Quote', 
+      icon: '📄', 
+      color: '#10b981', 
+      shortcut: '⌘Q', 
+      action: 'new-quote',
+      href: '/quotes/new',
+      permission: 'quote:create'
+    },
+    { 
+      id: 'new-invoice', 
+      label: 'New Invoice', 
+      icon: '💰', 
+      color: '#f59e0b', 
+      shortcut: '⌘I', 
+      action: 'new-invoice',
+      href: '/invoicing/new',
+      permission: 'invoice:create'
+    },
+    { 
+      id: 'new-client', 
+      label: 'Add Client', 
+      icon: '👥', 
+      color: '#8b5cf6', 
+      shortcut: '⌘C', 
+      action: 'new-client',
+      href: '/clients/new',
+      permission: 'client:create'
+    },
+    { 
+      id: 'new-employee', 
+      label: 'Add Employee', 
+      icon: '👤', 
+      color: '#ec4899', 
+      shortcut: '⌘E', 
+      action: 'new-employee',
+      href: '/employees/new',
+      permission: 'employee:create'
+    },
+    { 
+      id: 'new-tool', 
+      label: 'Add Tool', 
+      icon: '🔨', 
+      color: '#06b6d4', 
+      shortcut: '⌘T', 
+      action: 'new-tool',
+      href: '/tools/new',
+      permission: 'tool:create'
+    },
+    { 
+      id: 'new-stock', 
+      label: 'Add Stock', 
+      icon: '📦', 
+      color: '#84cc16', 
+      shortcut: '⌘S', 
+      action: 'new-stock',
+      href: '/stock/new',
+      permission: 'stock:create'
+    },
+    { 
+      id: 'log-time', 
+      label: 'Log Time', 
+      icon: '⏰', 
+      color: '#f97316', 
+      shortcut: '⌘L', 
+      action: 'log-time',
+      href: '/employees/time',
+      permission: 'employee:edit'
+    }
   ];
   
-  const items = actions.length > 0 ? actions : getDefaultActions();
+  // Filter actions based on user permissions
+  const items = (actions.length > 0 ? actions : getDefaultActions())
+    .filter(action => !action.permission || can(action.permission));
   
   const handleAction = (action) => {
     if (onActionClick) {
       onActionClick(action);
+    } else if (action.href) {
+      router.push(action.href);
     }
   };
+  
+  if (items.length === 0) return null;
   
   return (
     <div className={`quick-actions ${className}`}>
@@ -39,7 +120,7 @@ export default function QuickActions({
         <span className="actions-hint">Quick shortcuts</span>
       </div>
       
-      <div className={`actions-grid columns-${columns}`}>
+      <div className={`actions-grid columns-${Math.min(columns, items.length)}`}>
         {items.map(action => (
           <button
             key={action.id}
@@ -124,6 +205,7 @@ export default function QuickActions({
           cursor: pointer;
           transition: all 0.2s;
           text-align: left;
+          width: 100%;
         }
         
         .action-card:hover {
