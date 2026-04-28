@@ -1,29 +1,33 @@
-import './globals.css';
+import { AuthProvider } from '@/app/context/AuthContext';
+import { NotificationProvider } from '@/app/context/NotificationContext';
+import { ThemeProvider } from '@/app/context/ThemeContext';
+import { SettingsProvider } from '@/app/context/SettingsContext';
+import { PermissionProvider } from '@/app/context/PermissionContext';
+import { WebSocketProvider } from '@/app/context/WebSocketContext';
 import { CurrencyProvider } from '@/app/context/CurrencyContext';
 import { ToastProvider } from '@/app/context/ToastContext';
-import Navbar from '@/app/components/layout/Navbar/Navbar';
-import Footer from '@/app/components/layout/Footer/Footer';
-
-export const metadata = {
-  title: 'ENSURE System',
-  description: 'Complete Project & Workforce Management Platform',
-};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <CurrencyProvider>
-          <ToastProvider>
-            <div className="app-wrapper">
-              <Navbar />
-              <main className="main-content">
-                {children}
-              </main>
-              <Footer />
-            </div>
-          </ToastProvider>
-        </CurrencyProvider>
+        <AuthProvider>
+          <PermissionProvider>
+            <NotificationProvider>
+              <WebSocketProvider>
+                <CurrencyProvider>
+                  <SettingsProvider>
+                    <ThemeProvider>
+                      <ToastProvider>
+                        {children}
+                      </ToastProvider>
+                    </ThemeProvider>
+                  </SettingsProvider>
+                </CurrencyProvider>
+              </WebSocketProvider>
+            </NotificationProvider>
+          </PermissionProvider>
+        </AuthProvider>
       </body>
     </html>
   );
