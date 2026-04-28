@@ -1,6 +1,6 @@
 'use client';
 
-import StatusBadge from '@/app/components/common/StatusBadge';
+import StatusBadge from '@/app/components/common/StatusBadge/StatusBadge';
 
 export default function JobStatusBadge({ status, showLabel = true, size = 'sm' }) {
   const statusConfig = {

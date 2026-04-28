@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
-import StatusBadge from '@/app/components/common/StatusBadge';
+import StatusBadge from '@/app/components/common/StatusBadge/StatusBadge';
 import Table from '@/app/components/ui/Table/Table';
 import Pagination from '@/app/components/ui/Pagination/Pagination';
 import SearchBar from '@/app/components/ui/SearchBar/SearchBar';

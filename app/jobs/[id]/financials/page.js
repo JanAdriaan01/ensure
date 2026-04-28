@@ -8,7 +8,7 @@ import { useToast } from '@/app/context/ToastContext';
 import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
 import Card from '@/app/components/ui/Card/Card';
 import Button from '@/app/components/ui/Button/Button';
-import StatusBadge from '@/app/components/common/StatusBadge';
+import StatusBadge from '@/app/components/common/StatusBadge/StatusBadge';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
 import Modal from '@/app/components/ui/Modal/Modal';

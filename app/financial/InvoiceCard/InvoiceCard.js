@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
-import StatusBadge from '@/app/components/common/StatusBadge';
+import StatusBadge from '@/app/components/common/StatusBadge/StatusBadge';
 
 export default function InvoiceCard({ invoice }) {
   const isOverdue = invoice.due_date && new Date(invoice.due_date) < new Date() && invoice.status !== 'paid';

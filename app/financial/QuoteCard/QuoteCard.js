@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
-import StatusBadge from '@/app/components/common/StatusBadge';
+import StatusBadge from '@/app/components/common/StatusBadge/StatusBadge';
 
 export default function QuoteCard({ quote, compact = false }) {
   if (compact) {

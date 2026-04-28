@@ -3,7 +3,7 @@
 import { useFetch } from '@/app/hooks/useFetch';
 import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
 import Card from '@/app/components/ui/Card/Card';
-import StatusBadge from '@/app/components/common/StatusBadge';
+import StatusBadge from '@/app/components/common/StatusBadge/StatusBadge';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner/LoadingSpinner';
 import Link from 'next/link';
 

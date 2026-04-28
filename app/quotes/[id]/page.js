@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/app/context/ToastContext';
 import CurrencyAmount from '@/app/components/CurrencyAmount';
-import StatusBadge from '@/app/components/common/StatusBadge';
+import StatusBadge from '@/app/components/common/StatusBadge/StatusBadge';
 import Button from '@/app/components/ui/Button/Button';
 import Modal from '@/app/components/ui/Modal/Modal';
 import { FormInput, FormCurrencyInput, FormTextarea } from '@/app/components/ui/Form';
