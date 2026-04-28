@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { verifyAuth } from '@/app/lib/auth';
 import { query } from '@/app/lib/db';
 
+// Force dynamic rendering because this route uses headers
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   try {
     // Verify authentication token
