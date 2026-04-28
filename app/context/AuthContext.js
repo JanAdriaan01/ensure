@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken, removeToken, setToken } from '@/app/lib/auth';
+import { getToken, removeToken, setToken } from '@/lib/auth'; // Fixed import path
 
 const AuthContext = createContext({});
 
