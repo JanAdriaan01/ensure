@@ -1,40 +1,10 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
 
-// GET - Fetch all available certifications
 export async function GET() {
-  try {
-    const result = await query(`
-      SELECT * FROM certifications 
-      ORDER BY certification_name
-    `);
-    return NextResponse.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching certifications:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// POST - Add a new certification
-export async function POST(request) {
-  try {
-    const { certification_name } = await request.json();
-    
-    if (!certification_name) {
-      return NextResponse.json({ error: 'Certification name is required' }, { status: 400 });
-    }
-    
-    const result = await query(
-      'INSERT INTO certifications (certification_name) VALUES ($1) RETURNING *',
-      [certification_name]
-    );
-    
-    return NextResponse.json(result.rows[0], { status: 201 });
-  } catch (error) {
-    if (error.code === '23505') {
-      return NextResponse.json({ error: 'Certification already exists' }, { status: 409 });
-    }
-    console.error('Error creating certification:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const certifications = [
+    { id: 1, employee_id: 1, employee_name: 'John Doe', certification_name: 'First Aid', issued_date: '2023-01-15', expiry_date: '2026-01-15', status: 'valid' },
+    { id: 2, employee_id: 1, employee_name: 'John Doe', certification_name: 'OSHA Safety', issued_date: '2023-03-10', expiry_date: '2026-03-10', status: 'valid' },
+    { id: 3, employee_id: 2, employee_name: 'Jane Smith', certification_name: 'Electrical License', issued_date: '2022-06-20', expiry_date: '2025-06-20', status: 'valid' },
+  ];
+  return NextResponse.json(certifications);
 }
