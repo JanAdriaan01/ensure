@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '../../lib/db.js';
+import { query } from '../../../lib/db.js';
 
 // GET all employees with summary
 export async function GET() {

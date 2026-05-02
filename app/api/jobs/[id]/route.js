@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getJobWithAttendance, updateJob, deleteJob } from '../../../lib/db.js';
+import { getJobWithAttendance, updateJob, deleteJob } from '../../../../lib/db.js';
 
 export async function GET(request, { params }) {
   try {
