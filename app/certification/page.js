@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 export default function CertificationsPage() {
   const [certifications, setCertifications] = useState([]);
@@ -11,14 +12,8 @@ export default function CertificationsPage() {
       try {
         const response = await fetch('/api/employees/certifications');
         const result = await response.json();
-        // Handle both response formats
-        if (Array.isArray(result)) {
-          setCertifications(result);
-        } else if (result.data && Array.isArray(result.data)) {
-          setCertifications(result.data);
-        } else {
-          setCertifications([]);
-        }
+        const data = Array.isArray(result) ? result : (result.data || []);
+        setCertifications(data);
       } catch (error) {
         console.error('Error fetching certifications:', error);
         setCertifications([]);
@@ -65,23 +60,24 @@ export default function CertificationsPage() {
         <p>Track employee certifications and renewals</p>
       </div>
       <div className="table-container">
-        <table className="certifications-table">
-          <thead>
-            <tr>
-              <th>Employee</th>
-              <th>Certification</th>
-              <th>Issued Date</th>
-              <th>Expiry Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {certifications.length === 0 ? (
+        {certifications.length === 0 ? (
+          <div className="empty-state">
+            <p>No certifications found</p>
+            <Link href="/employees/new" className="btn-primary">Add Employee</Link>
+          </div>
+        ) : (
+          <table className="certifications-table">
+            <thead>
               <tr>
-                <td colSpan="5" className="empty-state">No certifications found</td>
+                <th>Employee</th>
+                <th>Certification</th>
+                <th>Issued Date</th>
+                <th>Expiry Date</th>
+                <th>Status</th>
               </tr>
-            ) : (
-              certifications.map((cert) => (
+            </thead>
+            <tbody>
+              {certifications.map((cert) => (
                 <tr key={cert.id}>
                   <td>{cert.employee_name}</td>
                   <td>{cert.certification_name}</td>
@@ -93,10 +89,10 @@ export default function CertificationsPage() {
                     </span>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
       <style jsx>{`
         .certifications-container {
@@ -158,8 +154,17 @@ export default function CertificationsPage() {
         }
         .empty-state {
           text-align: center;
+          padding: 3rem;
           color: #6b7280;
-          padding: 2rem;
+        }
+        .btn-primary {
+          display: inline-block;
+          margin-top: 1rem;
+          padding: 0.5rem 1rem;
+          background: #3b82f6;
+          color: white;
+          text-decoration: none;
+          border-radius: 0.5rem;
         }
         @media (max-width: 768px) {
           .certifications-container { padding: 1rem; }

@@ -3,30 +3,35 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export default function HRPage() {
-  const [stats, setStats] = useState({
+export default function HRReportsPage() {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({
     totalEmployees: 0,
     activeEmployees: 0,
-    onLeave: 0,
+    departments: [],
     monthlyPayroll: 0
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
         const response = await fetch('/api/employees');
-        const result = await response.json();
-        const employees = Array.isArray(result) ? result : (result.data || []);
+        const employees = Array.isArray(await response.json()) ? await response.json() : [];
         
-        setStats({
+        const departments = {};
+        employees.forEach(e => {
+          const dept = e.department || 'Other';
+          departments[dept] = (departments[dept] || 0) + 1;
+        });
+        
+        setData({
           totalEmployees: employees.length,
           activeEmployees: employees.filter(e => e.status === 'active').length,
-          onLeave: employees.filter(e => e.status === 'on_leave').length,
+          departments: Object.entries(departments).map(([name, count]) => ({ name, count })),
           monthlyPayroll: employees.reduce((sum, e) => sum + ((e.hourly_rate || 0) * 160), 0)
         });
       } catch (error) {
-        console.error('Error fetching HR data:', error);
+        console.error('Error fetching HR report:', error);
       } finally {
         setLoading(false);
       }
@@ -34,11 +39,18 @@ export default function HRPage() {
     fetchData();
   }, []);
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR'
+    }).format(amount || 0);
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Loading HR dashboard...</p>
+        <p>Loading report...</p>
         <style jsx>{`
           .loading-container {
             display: flex;
@@ -55,68 +67,51 @@ export default function HRPage() {
             border-radius: 50%;
             animation: spin 1s linear infinite;
           }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
         `}</style>
       </div>
     );
   }
 
   return (
-    <div className="hr-container">
+    <div className="reports-container">
       <div className="page-header">
-        <h1>Human Resources Dashboard</h1>
-        <p>Manage employees, payroll, and HR operations</p>
+        <h1>HR Reports</h1>
+        <p>View workforce analytics and payroll reports</p>
       </div>
 
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-label">Total Employees</div>
-          <div className="stat-value">{stats.totalEmployees}</div>
+          <div className="stat-value">{data.totalEmployees}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Active Employees</div>
-          <div className="stat-value">{stats.activeEmployees}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">On Leave</div>
-          <div className="stat-value">{stats.onLeave}</div>
+          <div className="stat-value">{data.activeEmployees}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Monthly Payroll</div>
-          <div className="stat-value">R {stats.monthlyPayroll.toLocaleString()}</div>
+          <div className="stat-value">{formatCurrency(data.monthlyPayroll)}</div>
         </div>
       </div>
 
       <div className="section-header">
-        <h2>HR Modules</h2>
+        <h2>Employees by Department</h2>
       </div>
-      <div className="modules-grid">
-        <Link href="/employees" className="module-card">
-          <div className="module-icon">👥</div>
-          <div className="module-title">Employee Management</div>
-          <div className="module-desc">Manage employee records, contracts, and documents</div>
-        </Link>
-        <Link href="/payroll" className="module-card">
-          <div className="module-icon">💰</div>
-          <div className="module-title">Payroll</div>
-          <div className="module-desc">Process payroll and manage compensation</div>
-        </Link>
-        <Link href="/employees/skills" className="module-card">
-          <div className="module-icon">⭐</div>
-          <div className="module-title">Skills Management</div>
-          <div className="module-desc">Track employee skills and competencies</div>
-        </Link>
-        <Link href="/employees/certifications" className="module-card">
-          <div className="module-icon">📜</div>
-          <div className="module-title">Certifications</div>
-          <div className="module-desc">Manage employee certifications and renewals</div>
-        </Link>
+      <div className="departments-list">
+        {data.departments.map(dept => (
+          <div key={dept.name} className="dept-item">
+            <span className="dept-name">{dept.name}</span>
+            <span className="dept-count">{dept.count} employees</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="back-link">
+        <Link href="/reports/monthly">← Back to Reports</Link>
       </div>
 
       <style jsx>{`
-        .hr-container {
+        .reports-container {
           max-width: 1280px;
           margin: 0 auto;
           padding: 2rem;
@@ -135,7 +130,7 @@ export default function HRPage() {
         }
         .stats-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 1rem;
           margin-bottom: 2rem;
         }
@@ -164,40 +159,31 @@ export default function HRPage() {
           font-weight: 600;
           color: #111827;
         }
-        .modules-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 1rem;
-        }
-        .module-card {
+        .departments-list {
           background: #ffffff;
-          padding: 1.5rem;
           border-radius: 0.75rem;
           border: 1px solid #e5e7eb;
-          text-decoration: none;
-          transition: all 0.2s;
+          margin-bottom: 2rem;
         }
-        .module-card:hover {
-          border-color: #3b82f6;
-          transform: translateY(-2px);
+        .dept-item {
+          display: flex;
+          justify-content: space-between;
+          padding: 0.75rem 1rem;
+          border-bottom: 1px solid #e5e7eb;
         }
-        .module-icon {
-          font-size: 2rem;
-          margin-bottom: 0.75rem;
+        .dept-item:last-child {
+          border-bottom: none;
         }
-        .module-title {
-          font-weight: 600;
+        .dept-name {
+          font-weight: 500;
           color: #111827;
-          margin-bottom: 0.25rem;
         }
-        .module-desc {
-          font-size: 0.75rem;
+        .dept-count {
           color: #6b7280;
         }
-        @media (max-width: 768px) {
-          .hr-container { padding: 1rem; }
-          .stats-grid { grid-template-columns: repeat(2, 1fr); }
-          .modules-grid { grid-template-columns: repeat(2, 1fr); }
+        .back-link a {
+          color: #3b82f6;
+          text-decoration: none;
         }
       `}</style>
     </div>

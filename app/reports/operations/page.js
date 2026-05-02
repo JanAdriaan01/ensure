@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export default function OperationsPage() {
-  const [stats, setStats] = useState({
-    toolsCount: 0,
+export default function OperationsReportsPage() {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({
+    totalTools: 0,
     toolsCheckedOut: 0,
-    stockItems: 0,
+    totalStock: 0,
     lowStock: 0,
     scheduleCount: 0
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
@@ -26,15 +26,15 @@ export default function OperationsPage() {
         const stock = Array.isArray(await stockRes.json()) ? await stockRes.json() : [];
         const schedule = Array.isArray(await scheduleRes.json()) ? await scheduleRes.json() : [];
         
-        setStats({
-          toolsCount: tools.length,
+        setData({
+          totalTools: tools.length,
           toolsCheckedOut: tools.filter(t => t.status === 'checked_out').length,
-          stockItems: stock.length,
+          totalStock: stock.length,
           lowStock: stock.filter(i => i.quantity <= (i.min_quantity || 0)).length,
           scheduleCount: schedule.length
         });
       } catch (error) {
-        console.error('Error fetching operations data:', error);
+        console.error('Error fetching operations report:', error);
       } finally {
         setLoading(false);
       }
@@ -46,7 +46,7 @@ export default function OperationsPage() {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Loading operations dashboard...</p>
+        <p>Loading report...</p>
         <style jsx>{`
           .loading-container {
             display: flex;
@@ -63,68 +63,43 @@ export default function OperationsPage() {
             border-radius: 50%;
             animation: spin 1s linear infinite;
           }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
         `}</style>
       </div>
     );
   }
 
   return (
-    <div className="operations-container">
+    <div className="reports-container">
       <div className="page-header">
-        <h1>Operations Dashboard</h1>
-        <p>Manage tools, inventory, schedules, and safety</p>
+        <h1>Operations Reports</h1>
+        <p>View tools, inventory, and schedule analytics</p>
       </div>
 
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-label">Total Tools</div>
-          <div className="stat-value">{stats.toolsCount}</div>
+          <div className="stat-value">{data.totalTools}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Tools Checked Out</div>
-          <div className="stat-value">{stats.toolsCheckedOut}</div>
+          <div className="stat-value">{data.toolsCheckedOut}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Stock Items</div>
-          <div className="stat-value">{stats.stockItems}</div>
+          <div className="stat-value">{data.totalStock}</div>
         </div>
         <div className="stat-card warning">
           <div className="stat-label">Low Stock Items</div>
-          <div className="stat-value">{stats.lowStock}</div>
+          <div className="stat-value">{data.lowStock}</div>
         </div>
       </div>
 
-      <div className="section-header">
-        <h2>Operations Modules</h2>
-      </div>
-      <div className="modules-grid">
-        <Link href="/tools" className="module-card">
-          <div className="module-icon">🔧</div>
-          <div className="module-title">Tool Management</div>
-          <div className="module-desc">Track tools, checkouts, and returns</div>
-        </Link>
-        <Link href="/inventory" className="module-card">
-          <div className="module-icon">📦</div>
-          <div className="module-title">Inventory</div>
-          <div className="module-desc">Manage stock levels and materials</div>
-        </Link>
-        <Link href="/schedule" className="module-card">
-          <div className="module-icon">📅</div>
-          <div className="module-title">Work Schedule</div>
-          <div className="module-desc">Manage employee schedules</div>
-        </Link>
-        <Link href="/ohs" className="module-card">
-          <div className="module-icon">🛡️</div>
-          <div className="module-title">OHS</div>
-          <div className="module-desc">Health and safety compliance</div>
-        </Link>
+      <div className="back-link">
+        <Link href="/reports/monthly">← Back to Reports</Link>
       </div>
 
       <style jsx>{`
-        .operations-container {
+        .reports-container {
           max-width: 1280px;
           margin: 0 auto;
           padding: 2rem;
@@ -167,48 +142,12 @@ export default function OperationsPage() {
           font-weight: 700;
           color: #111827;
         }
-        .section-header {
-          margin-bottom: 1rem;
+        .back-link {
+          margin-top: 2rem;
         }
-        .section-header h2 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: #111827;
-        }
-        .modules-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 1rem;
-        }
-        .module-card {
-          background: #ffffff;
-          padding: 1.5rem;
-          border-radius: 0.75rem;
-          border: 1px solid #e5e7eb;
+        .back-link a {
+          color: #3b82f6;
           text-decoration: none;
-          transition: all 0.2s;
-        }
-        .module-card:hover {
-          border-color: #3b82f6;
-          transform: translateY(-2px);
-        }
-        .module-icon {
-          font-size: 2rem;
-          margin-bottom: 0.75rem;
-        }
-        .module-title {
-          font-weight: 600;
-          color: #111827;
-          margin-bottom: 0.25rem;
-        }
-        .module-desc {
-          font-size: 0.75rem;
-          color: #6b7280;
-        }
-        @media (max-width: 768px) {
-          .operations-container { padding: 1rem; }
-          .stats-grid { grid-template-columns: repeat(2, 1fr); }
-          .modules-grid { grid-template-columns: repeat(2, 1fr); }
         }
       `}</style>
     </div>
