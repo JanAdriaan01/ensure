@@ -1,4 +1,4 @@
-import { addAttendance } from '@/app/lib/db';
+import { addAttendance } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
 export async function POST(request, { params }) {

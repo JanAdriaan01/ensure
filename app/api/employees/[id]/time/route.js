@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '../../../../lib/db.js';
+import { query } from '../../../../../lib/db.js';
 
 // POST add daily time entry
 export async function POST(request, { params }) {

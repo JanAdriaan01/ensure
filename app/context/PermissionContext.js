@@ -14,7 +14,7 @@ import {
   getUserEffectivePermissions,
   PERMISSIONS,        // ← ADD THIS LINE
   ROLES,              // ← Also add ROLES if you want to use it
-} from '@/app/lib/permissions';
+} from '@/lib/permissions';
 
 const PermissionContext = createContext();
 

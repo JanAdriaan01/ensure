@@ -1,4 +1,4 @@
-import { getCompletedInvoices } from '@/app/lib/db';
+import { getCompletedInvoices } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
 export async function GET() {

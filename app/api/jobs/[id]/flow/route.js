@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/app/lib/db';
-import { verifyAuth } from '@/app/lib/auth';
+import { query } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
 
 // GET - Get current flow status for a job
 export async function GET(request, { params }) {
