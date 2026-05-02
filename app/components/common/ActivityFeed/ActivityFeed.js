@@ -1,323 +1,302 @@
-// components/common/ActivityFeed/ActivityFeed.js
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
+import { formatDistanceToNow } from 'date-fns';
 
-export default function ActivityFeed({ 
-  activities = [], 
-  title = 'Recent Activity',
-  maxItems = 20,
-  showViewAll = true,
-  onViewAll,
-  onActivityClick,
-  filter = 'all',
-  className = ''
-}) {
-  const [currentFilter, setCurrentFilter] = useState(filter);
-  
-  const filters = [
-    { value: 'all', label: 'All', icon: '📋' },
-    { value: 'create', label: 'Created', icon: '➕' },
-    { value: 'update', label: 'Updated', icon: '✏️' },
-    { value: 'delete', label: 'Deleted', icon: '🗑️' },
-    { value: 'status', label: 'Status Change', icon: '🔄' },
-    { value: 'comment', label: 'Comments', icon: '💬' }
-  ];
-  
-  const getActivityIcon = (type) => {
-    const icons = {
-      create: '➕',
-      update: '✏️',
-      delete: '🗑️',
-      status: '🔄',
-      comment: '💬',
-      upload: '📎',
-      download: '📥',
-      share: '🔗',
-      login: '🔐',
-      logout: '🚪'
-    };
-    return icons[type] || '📌';
-  };
-  
-  const getActivityColor = (type) => {
-    const colors = {
-      create: '#10b981',
-      update: '#3b82f6',
-      delete: '#ef4444',
-      status: '#f59e0b',
-      comment: '#8b5cf6',
-      upload: '#06b6d4',
-      default: '#6b7280'
-    };
-    return colors[type] || colors.default;
-  };
-  
-  const getTimeAgo = (date) => {
-    const diff = Math.floor((new Date() - new Date(date)) / 1000);
-    if (diff < 60) return `${diff} seconds ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
-    return new Date(date).toLocaleDateString();
-  };
-  
-  const filteredActivities = activities.filter(activity => {
-    if (currentFilter === 'all') return true;
-    return activity.type === currentFilter;
-  }).slice(0, maxItems);
-  
-  return (
-    <div className={`activity-feed ${className}`}>
-      <div className="feed-header">
-        <h3 className="feed-title">{title}</h3>
-        <div className="filter-tabs">
-          {filters.map(filter => (
-            <button
-              key={filter.value}
-              className={`filter-tab ${currentFilter === filter.value ? 'active' : ''}`}
-              onClick={() => setCurrentFilter(filter.value)}
-            >
-              <span className="filter-icon">{filter.icon}</span>
-              <span className="filter-label">{filter.label}</span>
-            </button>
-          ))}
+export function ActivityFeed({ activities, loading, limit = 5 }) {
+  if (loading) {
+    return (
+      <div className="activity-feed">
+        <div className="feed-header">
+          <h3>Recent Activity</h3>
         </div>
-      </div>
-      
-      <div className="feed-items">
-        {filteredActivities.length === 0 ? (
-          <div className="empty-state">
-            <span className="empty-icon">📭</span>
-            <p>No activity to display</p>
-          </div>
-        ) : (
-          filteredActivities.map((activity, idx) => (
-            <div
-              key={activity.id || idx}
-              className="feed-item"
-              onClick={() => onActivityClick && onActivityClick(activity)}
-            >
-              <div 
-                className="activity-icon"
-                style={{ background: getActivityColor(activity.type) }}
-              >
-                {getActivityIcon(activity.type)}
-              </div>
-              <div className="activity-content">
-                <div className="activity-header">
-                  <span className="activity-user">{activity.user}</span>
-                  <span className="activity-time">{getTimeAgo(activity.timestamp)}</span>
-                </div>
-                <div className="activity-description">
-                  {activity.description}
-                  {activity.target && (
-                    <span className="activity-target"> • {activity.target}</span>
-                  )}
-                </div>
-                {activity.details && (
-                  <div className="activity-details">
-                    {activity.details}
-                  </div>
-                )}
-                {activity.metadata && Object.keys(activity.metadata).length > 0 && (
-                  <div className="activity-metadata">
-                    {Object.entries(activity.metadata).map(([key, value]) => (
-                      <span key={key} className="metadata-tag">
-                        {key}: {value}
-                      </span>
-                    ))}
-                  </div>
-                )}
+        <div className="feed-list">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="feed-item skeleton">
+              <div className="feed-icon-placeholder"></div>
+              <div className="feed-content">
+                <div className="feed-title-placeholder"></div>
+                <div className="feed-time-placeholder"></div>
               </div>
             </div>
-          ))
-        )}
-      </div>
-      
-      {showViewAll && activities.length > maxItems && (
-        <div className="feed-footer">
-          <button className="view-all-btn" onClick={onViewAll}>
-            View all {activities.length} activities →
-          </button>
+          ))}
         </div>
-      )}
-      
+        <style jsx>{`
+          .activity-feed {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 0.75rem;
+            overflow: hidden;
+          }
+          .feed-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-light);
+          }
+          .feed-header h3 {
+            margin: 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+          }
+          .feed-list {
+            padding: 0.5rem;
+          }
+          .feed-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+          }
+          .feed-icon-placeholder {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-tertiary);
+            border-radius: 0.5rem;
+            animation: pulse 1.5s ease-in-out infinite;
+          }
+          .feed-content {
+            flex: 1;
+          }
+          .feed-title-placeholder {
+            height: 16px;
+            width: 70%;
+            background: var(--bg-tertiary);
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+            animation: pulse 1.5s ease-in-out infinite;
+          }
+          .feed-time-placeholder {
+            height: 12px;
+            width: 40%;
+            background: var(--bg-tertiary);
+            border-radius: 0.25rem;
+            animation: pulse 1.5s ease-in-out infinite;
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (!activities || activities.length === 0) {
+    return (
+      <div className="activity-feed">
+        <div className="feed-header">
+          <h3>Recent Activity</h3>
+          <Link href="/activities" className="view-all">View All →</Link>
+        </div>
+        <div className="empty-state">
+          <span className="empty-icon">📭</span>
+          <p>No recent activity</p>
+        </div>
+        <style jsx>{`
+          .activity-feed {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 0.75rem;
+            overflow: hidden;
+          }
+          .feed-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-light);
+          }
+          .feed-header h3 {
+            margin: 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+          }
+          .view-all {
+            font-size: 0.7rem;
+            color: var(--primary);
+            text-decoration: none;
+          }
+          .view-all:hover {
+            text-decoration: underline;
+          }
+          .empty-state {
+            text-align: center;
+            padding: 2rem;
+          }
+          .empty-icon {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+          }
+          .empty-state p {
+            color: var(--text-tertiary);
+            font-size: 0.875rem;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'job':
+        return '📋';
+      case 'quote':
+        return '💰';
+      case 'employee':
+        return '👤';
+      case 'client':
+        return '🏢';
+      case 'invoice':
+        return '🧾';
+      default:
+        return '📌';
+    }
+  };
+
+  const getActivityColor = (type) => {
+    switch (type) {
+      case 'job':
+        return 'var(--primary)';
+      case 'quote':
+        return 'var(--success)';
+      case 'employee':
+        return 'var(--info)';
+      case 'client':
+        return 'var(--secondary)';
+      case 'invoice':
+        return 'var(--warning)';
+      default:
+        return 'var(--text-tertiary)';
+    }
+  };
+
+  const displayActivities = activities.slice(0, limit);
+
+  return (
+    <div className="activity-feed">
+      <div className="feed-header">
+        <h3>Recent Activity</h3>
+        <Link href="/activities" className="view-all">View All →</Link>
+      </div>
+      <div className="feed-list">
+        {displayActivities.map((activity) => (
+          <div key={activity.id} className="feed-item">
+            <div 
+              className="feed-icon" 
+              style={{ background: `${getActivityColor(activity.type)}20` }}
+            >
+              <span>{getActivityIcon(activity.type)}</span>
+            </div>
+            <div className="feed-content">
+              <div className="feed-title">{activity.title || activity.description}</div>
+              <div className="feed-time">
+                {activity.created_at 
+                  ? formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })
+                  : 'Just now'}
+              </div>
+            </div>
+            {activity.status && (
+              <div className={`feed-status status-${activity.status.toLowerCase().replace(/_/g, '-')}`}>
+                {activity.status.replace(/_/g, ' ')}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
       <style jsx>{`
         .activity-feed {
-          background: white;
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
           border-radius: 0.75rem;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
           overflow: hidden;
         }
-        
         .feed-header {
-          padding: 1rem;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        
-        .feed-title {
-          margin: 0 0 1rem 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: #111827;
-        }
-        
-        .filter-tabs {
           display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-        
-        .filter-tab {
-          display: flex;
+          justify-content: space-between;
           align-items: center;
-          gap: 0.375rem;
-          padding: 0.375rem 0.75rem;
-          background: #f3f4f6;
-          border: none;
-          border-radius: 0.5rem;
-          cursor: pointer;
-          font-size: 0.75rem;
-          transition: all 0.2s;
+          padding: 1rem;
+          border-bottom: 1px solid var(--border-light);
         }
-        
-        .filter-tab:hover {
-          background: #e5e7eb;
-        }
-        
-        .filter-tab.active {
-          background: #3b82f6;
-          color: white;
-        }
-        
-        .filter-icon {
-          font-size: 0.75rem;
-        }
-        
-        .feed-items {
-          max-height: 500px;
-          overflow-y: auto;
-        }
-        
-        .empty-state {
-          text-align: center;
-          padding: 3rem;
-        }
-        
-        .empty-icon {
-          font-size: 3rem;
-          display: block;
-          margin-bottom: 1rem;
-        }
-        
-        .empty-state p {
+        .feed-header h3 {
           margin: 0;
-          color: #6b7280;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: var(--text-primary);
         }
-        
+        .view-all {
+          font-size: 0.7rem;
+          color: var(--primary);
+          text-decoration: none;
+        }
+        .view-all:hover {
+          text-decoration: underline;
+        }
+        .feed-list {
+          padding: 0.5rem;
+        }
         .feed-item {
           display: flex;
-          gap: 1rem;
-          padding: 1rem;
-          border-bottom: 1px solid #f3f4f6;
-          cursor: pointer;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.75rem;
+          border-radius: 0.5rem;
           transition: background 0.2s;
         }
-        
         .feed-item:hover {
-          background: #f9fafb;
+          background: var(--bg-tertiary);
         }
-        
-        .activity-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
+        .feed-icon {
+          width: 36px;
+          height: 36px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
-          font-size: 0.875rem;
-          flex-shrink: 0;
+          border-radius: 0.5rem;
+          font-size: 1.125rem;
         }
-        
-        .activity-content {
+        .feed-content {
           flex: 1;
         }
-        
-        .activity-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          margin-bottom: 0.25rem;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-        
-        .activity-user {
-          font-weight: 600;
+        .feed-title {
           font-size: 0.875rem;
-          color: #111827;
-        }
-        
-        .activity-time {
-          font-size: 0.7rem;
-          color: #9ca3af;
-        }
-        
-        .activity-description {
-          font-size: 0.875rem;
-          color: #6b7280;
-          margin-bottom: 0.25rem;
-        }
-        
-        .activity-target {
           font-weight: 500;
-          color: #3b82f6;
+          color: var(--text-primary);
+          margin-bottom: 0.25rem;
         }
-        
-        .activity-details {
-          font-size: 0.75rem;
-          color: #9ca3af;
-          margin-top: 0.25rem;
-        }
-        
-        .activity-metadata {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-top: 0.5rem;
-        }
-        
-        .metadata-tag {
-          padding: 0.125rem 0.375rem;
-          background: #f3f4f6;
-          border-radius: 0.25rem;
+        .feed-time {
           font-size: 0.7rem;
-          color: #6b7280;
+          color: var(--text-tertiary);
         }
-        
-        .feed-footer {
-          padding: 0.75rem;
-          text-align: center;
-          border-top: 1px solid #e5e7eb;
+        .feed-status {
+          font-size: 0.7rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 9999px;
+          font-weight: 500;
         }
-        
-        .view-all-btn {
-          background: none;
-          border: none;
-          color: #3b82f6;
-          font-size: 0.875rem;
-          cursor: pointer;
+        .status-pending {
+          background: var(--warning-bg);
+          color: var(--warning-dark);
         }
-        
-        .view-all-btn:hover {
-          text-decoration: underline;
+        .status-approved,
+        .status-completed,
+        .status-paid {
+          background: var(--success-bg);
+          color: var(--success-dark);
+        }
+        .status-in-progress,
+        .status-in_progress {
+          background: var(--primary-bg);
+          color: var(--primary-dark);
+        }
+        .status-rejected {
+          background: var(--danger-bg);
+          color: var(--danger-dark);
         }
       `}</style>
     </div>
   );
 }
-
-// Add named export for compatibility with the import in page.js
-export { ActivityFeed as RecentActivity };
