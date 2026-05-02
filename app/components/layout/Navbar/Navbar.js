@@ -14,7 +14,6 @@ export default function Navbar() {
   const dropdownRef = useRef(null);
   let closeTimeout = null;
 
-  // Handle mouse enter with delay to prevent accidental closes
   const handleMouseEnter = (moduleTitle) => {
     if (closeTimeout) {
       clearTimeout(closeTimeout);
@@ -23,21 +22,18 @@ export default function Navbar() {
     setOpenDropdown(moduleTitle);
   };
 
-  // Handle mouse leave with delay to allow moving to dropdown
   const handleMouseLeave = () => {
     closeTimeout = setTimeout(() => {
       setOpenDropdown(null);
-    }, 150); // 150ms delay gives time to move mouse to dropdown
+    }, 200);
   };
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (closeTimeout) clearTimeout(closeTimeout);
     };
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -51,37 +47,51 @@ export default function Navbar() {
   const navModules = [
     {
       title: 'Financial',
-      icon: '💰',
       links: [
-        { href: '/financial', label: 'Dashboard', icon: '📊' },
-        { href: '/jobs', label: 'Job Management', icon: '📋' },
-        { href: '/quotes', label: 'Quoting', icon: '📄' },
-        { href: '/invoicing', label: 'Invoicing', icon: '🧾' },
-        { href: '/reconciliation', label: 'Reconciliation', icon: '🔄' },
-        { href: '/clients', label: 'Client Management', icon: '🏢' },
+        { href: '/financial', label: 'Dashboard' },
+        { href: '/jobs', label: 'Jobs' },
+        { href: '/quotes', label: 'Quotes' },
+        { href: '/invoicing', label: 'Invoicing' },
+        { href: '/reconciliation', label: 'Reconciliation' },
+        { href: '/clients', label: 'Clients' },
       ]
     },
     {
       title: 'HR',
-      icon: '👥',
       links: [
-        { href: '/hr', label: 'Dashboard', icon: '📊' },
-        { href: '/employees', label: 'Employees', icon: '👤' },
-        { href: '/employees/new', label: 'Add Employee', icon: '➕' },
-        { href: '/payroll', label: 'Payroll', icon: '💰' },
-        { href: '/employees/skills', label: 'Skills', icon: '⭐' },
-        { href: '/employees/certifications', label: 'Certifications', icon: '📜' },
+        { href: '/hr', label: 'Dashboard' },
+        { href: '/employees', label: 'Employees' },
+        { href: '/payroll', label: 'Payroll' },
+        { href: '/employees/skills', label: 'Skills' },
+        { href: '/employees/certifications', label: 'Certifications' },
       ]
     },
     {
       title: 'Operations',
-      icon: '⚙️',
       links: [
-        { href: '/operations', label: 'Dashboard', icon: '📊' },
-        { href: '/tools', label: 'Tools', icon: '🔧' },
-        { href: '/inventory', label: 'Inventory', icon: '📦' },
-        { href: '/schedule', label: 'Schedule', icon: '📅' },
-        { href: '/ohs', label: 'OHS', icon: '🛡️' },
+        { href: '/operations', label: 'Dashboard' },
+        { href: '/tools', label: 'Tools' },
+        { href: '/inventory', label: 'Inventory' },
+        { href: '/schedule', label: 'Schedule' },
+        { href: '/ohs', label: 'OHS' },
+      ]
+    },
+    {
+      title: 'Reports',
+      links: [
+        { href: '/reports/monthly', label: 'Monthly Reports' },
+        { href: '/reports/financial', label: 'Financial Reports' },
+        { href: '/reports/hr', label: 'HR Reports' },
+        { href: '/reports/operations', label: 'Operations Reports' },
+      ]
+    },
+    {
+      title: 'Settings',
+      links: [
+        { href: '/Settings', label: 'System Settings' },
+        { href: '/users', label: 'User Management' },
+        { href: '/backup', label: 'Backup' },
+        { href: '/audit-logs', label: 'Audit Logs' },
       ]
     }
   ];
@@ -90,7 +100,7 @@ export default function Navbar() {
     <nav className="navbar" ref={dropdownRef}>
       <div className="nav-container">
         <div className="nav-brand">
-          <Link href="/">🔧 ENSURE</Link>
+          <Link href="/">ENSURE</Link>
         </div>
         
         <div className="nav-desktop">
@@ -101,8 +111,7 @@ export default function Navbar() {
               onMouseEnter={() => handleMouseEnter(module.title)}
               onMouseLeave={handleMouseLeave}
             >
-              <button className="nav-dropdown-btn">
-                <span className="nav-icon">{module.icon}</span>
+              <button className={`nav-dropdown-btn ${openDropdown === module.title ? 'active' : ''}`}>
                 {module.title}
                 <span className={`dropdown-arrow ${openDropdown === module.title ? 'open' : ''}`}>▼</span>
               </button>
@@ -116,7 +125,6 @@ export default function Navbar() {
                         className={`nav-dropdown-link ${pathname === link.href ? 'active' : ''}`}
                         onClick={() => setOpenDropdown(null)}
                       >
-                        <span className="nav-link-icon">{link.icon}</span>
                         {link.label}
                       </Link>
                     ))}
@@ -129,7 +137,7 @@ export default function Navbar() {
         
         <div className="nav-actions">
           <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? 'Light' : 'Dark'}
           </button>
           <CurrencySelector />
           <button 
@@ -137,7 +145,7 @@ export default function Navbar() {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Menu"
           >
-            ☰
+            Menu
           </button>
         </div>
       </div>
@@ -147,7 +155,6 @@ export default function Navbar() {
           {navModules.map(module => (
             <div key={module.title} className="nav-mobile-module">
               <div className="nav-mobile-title">
-                <span className="nav-icon">{module.icon}</span>
                 {module.title}
               </div>
               <div className="nav-mobile-links">
@@ -158,7 +165,6 @@ export default function Navbar() {
                     className="nav-mobile-link"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <span className="nav-link-icon">{link.icon}</span>
                     {link.label}
                   </Link>
                 ))}
@@ -166,44 +172,56 @@ export default function Navbar() {
             </div>
           ))}
           <button onClick={toggleTheme} className="mobile-theme-toggle">
-            {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           </button>
         </div>
       )}
 
       <style jsx>{`
         .navbar {
-          background: var(--bg-primary);
-          border-bottom: 1px solid var(--border-light);
+          background: #ffffff;
+          border-bottom: 1px solid #e5e7eb;
           position: sticky;
           top: 0;
           z-index: 100;
-          backdrop-filter: blur(10px);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .dark .navbar {
+          background: #1f2937;
+          border-bottom: 1px solid #374151;
         }
         
         .nav-container {
-          max-width: 1400px;
+          max-width: 1280px;
           margin: 0 auto;
-          padding: 0.75rem 2rem;
+          padding: 0 1.5rem;
           display: flex;
           justify-content: space-between;
           align-items: center;
+          height: 64px;
         }
         
         .nav-brand a {
-          color: var(--text-primary);
+          color: #111827;
           font-size: 1.25rem;
-          font-weight: bold;
+          font-weight: 600;
           text-decoration: none;
+          letter-spacing: -0.025em;
+        }
+        
+        .dark .nav-brand a {
+          color: #f9fafb;
         }
         
         .nav-brand a:hover {
-          color: var(--primary);
+          color: #3b82f6;
         }
         
         .nav-desktop {
           display: flex;
-          gap: 0.5rem;
+          gap: 0.25rem;
+          align-items: center;
         }
         
         .nav-dropdown {
@@ -212,27 +230,41 @@ export default function Navbar() {
         
         .nav-dropdown-btn {
           background: transparent;
-          color: var(--text-secondary);
-          padding: 0.5rem 1rem;
+          color: #4b5563;
+          padding: 0.5rem 0.875rem;
           border: none;
-          border-radius: 0.5rem;
+          border-radius: 0.375rem;
           cursor: pointer;
           font-size: 0.875rem;
           font-weight: 500;
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          transition: all 0.2s;
+          gap: 0.375rem;
+          transition: all 0.15s ease;
+        }
+        
+        .dark .nav-dropdown-btn {
+          color: #d1d5db;
         }
         
         .nav-dropdown-btn:hover {
-          background: var(--bg-tertiary);
-          color: var(--text-primary);
+          background: #f3f4f6;
+          color: #111827;
+        }
+        
+        .dark .nav-dropdown-btn:hover {
+          background: #374151;
+          color: #f9fafb;
+        }
+        
+        .nav-dropdown-btn.active {
+          color: #3b82f6;
         }
         
         .dropdown-arrow {
           font-size: 0.6rem;
-          transition: transform 0.2s;
+          transition: transform 0.15s ease;
+          opacity: 0.6;
         }
         
         .dropdown-arrow.open {
@@ -241,12 +273,12 @@ export default function Navbar() {
         
         .nav-dropdown-content {
           position: absolute;
-          background: var(--bg-primary);
-          min-width: 260px;
-          max-height: 400px;
-          box-shadow: var(--shadow-lg);
-          border-radius: 0.75rem;
-          border: 1px solid var(--border-light);
+          background: #ffffff;
+          min-width: 200px;
+          max-height: 360px;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          border-radius: 0.5rem;
+          border: 1px solid #e5e7eb;
           z-index: 1000;
           top: 100%;
           left: 0;
@@ -254,10 +286,15 @@ export default function Navbar() {
           animation: dropdownFadeIn 0.15s ease;
         }
         
+        .dark .nav-dropdown-content {
+          background: #1f2937;
+          border-color: #374151;
+        }
+        
         @keyframes dropdownFadeIn {
           from {
             opacity: 0;
-            transform: translateY(-10px);
+            transform: translateY(-8px);
           }
           to {
             opacity: 1;
@@ -266,99 +303,127 @@ export default function Navbar() {
         }
         
         .nav-dropdown-scroll {
-          max-height: 380px;
+          max-height: 340px;
           overflow-y: auto;
-          overflow-x: hidden;
+          padding: 0.25rem 0;
         }
         
-        /* Custom scrollbar */
         .nav-dropdown-scroll::-webkit-scrollbar {
-          width: 6px;
+          width: 4px;
         }
         
         .nav-dropdown-scroll::-webkit-scrollbar-track {
-          background: var(--bg-tertiary);
-          border-radius: 3px;
+          background: #f3f4f6;
+          border-radius: 2px;
+        }
+        
+        .dark .nav-dropdown-scroll::-webkit-scrollbar-track {
+          background: #374151;
         }
         
         .nav-dropdown-scroll::-webkit-scrollbar-thumb {
-          background: var(--border-medium);
-          border-radius: 3px;
+          background: #9ca3af;
+          border-radius: 2px;
         }
         
-        .nav-dropdown-scroll::-webkit-scrollbar-thumb:hover {
-          background: var(--primary);
+        .dark .nav-dropdown-scroll::-webkit-scrollbar-thumb {
+          background: #6b7280;
         }
         
         .nav-dropdown-link {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem 1rem;
+          display: block;
+          padding: 0.5rem 1rem;
           text-decoration: none;
-          color: var(--text-secondary);
+          color: #4b5563;
           font-size: 0.875rem;
-          transition: all 0.2s;
-          border-bottom: 1px solid var(--border-light);
+          transition: all 0.15s ease;
+          white-space: nowrap;
         }
         
-        .nav-dropdown-link:last-child {
-          border-bottom: none;
+        .dark .nav-dropdown-link {
+          color: #d1d5db;
         }
         
         .nav-dropdown-link:hover {
-          background: var(--bg-tertiary);
-          color: var(--text-primary);
-          padding-left: 1.25rem;
+          background: #f3f4f6;
+          color: #111827;
+        }
+        
+        .dark .nav-dropdown-link:hover {
+          background: #374151;
+          color: #f9fafb;
         }
         
         .nav-dropdown-link.active {
-          color: var(--primary);
-          background: var(--primary-bg);
-          border-left: 3px solid var(--primary);
+          color: #3b82f6;
+          background: #eff6ff;
         }
         
-        .nav-icon, .nav-link-icon {
-          font-size: 1rem;
-          min-width: 20px;
+        .dark .nav-dropdown-link.active {
+          color: #60a5fa;
+          background: #1e3a5f;
         }
         
         .nav-actions {
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 0.75rem;
         }
         
         .theme-toggle {
-          background: var(--bg-tertiary);
+          background: #f3f4f6;
           border: none;
-          border-radius: 0.5rem;
-          padding: 0.5rem;
+          border-radius: 0.375rem;
+          padding: 0.375rem 0.75rem;
           cursor: pointer;
-          font-size: 1rem;
-          transition: background 0.2s;
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: #4b5563;
+          transition: all 0.15s ease;
+        }
+        
+        .dark .theme-toggle {
+          background: #374151;
+          color: #d1d5db;
         }
         
         .theme-toggle:hover {
-          background: var(--bg-quaternary);
+          background: #e5e7eb;
+        }
+        
+        .dark .theme-toggle:hover {
+          background: #4b5563;
         }
         
         .mobile-menu-btn {
-          background: none;
+          background: #f3f4f6;
           border: none;
-          color: var(--text-primary);
-          font-size: 1.25rem;
+          border-radius: 0.375rem;
+          padding: 0.375rem 0.75rem;
+          color: #4b5563;
+          font-size: 0.75rem;
+          font-weight: 500;
           cursor: pointer;
           display: none;
+        }
+        
+        .dark .mobile-menu-btn {
+          background: #374151;
+          color: #d1d5db;
         }
         
         .nav-mobile {
           display: none;
-          padding: 1rem;
-          background: var(--bg-primary);
-          border-top: 1px solid var(--border-light);
-          max-height: 70vh;
+          padding: 1rem 1.5rem;
+          background: #ffffff;
+          border-top: 1px solid #e5e7eb;
+          max-height: calc(100vh - 64px);
           overflow-y: auto;
+        }
+        
+        .dark .nav-mobile {
+          background: #1f2937;
+          border-top-color: #374151;
         }
         
         .nav-mobile-module {
@@ -366,44 +431,53 @@ export default function Navbar() {
         }
         
         .nav-mobile-title {
-          padding: 0.5rem;
-          font-weight: bold;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: var(--text-primary);
-          border-bottom: 1px solid var(--border-light);
+          padding: 0.5rem 0;
+          font-weight: 600;
+          color: #111827;
+          font-size: 0.875rem;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .dark .nav-mobile-title {
+          color: #f9fafb;
+          border-bottom-color: #374151;
         }
         
         .nav-mobile-links {
-          padding-left: 1.5rem;
+          padding: 0.5rem 0;
         }
         
         .nav-mobile-link {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.5rem;
+          display: block;
+          padding: 0.5rem 0;
           text-decoration: none;
-          color: var(--text-secondary);
+          color: #4b5563;
           font-size: 0.875rem;
         }
         
+        .dark .nav-mobile-link {
+          color: #d1d5db;
+        }
+        
         .nav-mobile-link:hover {
-          color: var(--primary);
-          background: var(--bg-tertiary);
-          border-radius: 0.5rem;
+          color: #3b82f6;
         }
         
         .mobile-theme-toggle {
           width: 100%;
           padding: 0.5rem;
           margin-top: 0.5rem;
-          background: var(--bg-tertiary);
+          background: #f3f4f6;
           border: none;
-          border-radius: 0.5rem;
-          color: var(--text-primary);
+          border-radius: 0.375rem;
+          color: #4b5563;
+          font-size: 0.75rem;
           cursor: pointer;
+        }
+        
+        .dark .mobile-theme-toggle {
+          background: #374151;
+          color: #d1d5db;
         }
         
         @media (max-width: 900px) {
