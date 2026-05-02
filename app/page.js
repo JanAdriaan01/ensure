@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/hooks/useAuth';
-import { useToast } from '@/app/hooks/useToast';
+import { useToast } from '@/app/context/ToastContext';
 import { useFetch } from '@/app/hooks/useFetch';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useNotifications } from '@/app/hooks/useNotifications';

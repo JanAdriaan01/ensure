@@ -1,5 +1,5 @@
 import './globals.css';
-import ClientLayout from './ClientLayout';  // Remove dynamic import
+import ClientLayout from './ClientLayout';
 
 export const metadata = {
   title: 'ENSURE System - Complete Business Management Platform',

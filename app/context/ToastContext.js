@@ -1,24 +1,35 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 const ToastContext = createContext();
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const addToast = useCallback((message, type = 'info', duration = 3000) => {
+    // During prerender, just log to console
+    if (!mounted) {
+      console.log(`[${type}] ${message}`);
+      return;
+    }
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
     
     setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== id));
     }, duration);
-  }, []);
+  }, [mounted]);
 
   const removeToast = useCallback((id) => {
+    if (!mounted) return;
     setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
+  }, [mounted]);
 
   const success = useCallback((message) => addToast(message, 'success'), [addToast]);
   const error = useCallback((message) => addToast(message, 'error'), [addToast]);
@@ -35,20 +46,22 @@ export function ToastProvider({ children }) {
   };
 
   return (
-    <ToastContext.Provider value={{ addToast, removeToast, success, error, info, warning }}>
+    <ToastContext.Provider value={{ addToast, removeToast, success, error, info, warning, mounted }}>
       {children}
-      <div className="toast-container">
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            className="toast"
-            style={getToastStyles(toast.type)}
-          >
-            <span>{toast.message}</span>
-            <button onClick={() => removeToast(toast.id)} className="toast-close">×</button>
-          </div>
-        ))}
-      </div>
+      {mounted && (
+        <div className="toast-container">
+          {toasts.map(toast => (
+            <div
+              key={toast.id}
+              className="toast"
+              style={getToastStyles(toast.type)}
+            >
+              <span>{toast.message}</span>
+              <button onClick={() => removeToast(toast.id)} className="toast-close">×</button>
+            </div>
+          ))}
+        </div>
+      )}
       <style jsx global>{`
         .toast-container {
           position: fixed;
@@ -100,8 +113,18 @@ export function ToastProvider({ children }) {
 
 export function useToast() {
   const context = useContext(ToastContext);
+  // Don't throw error during prerender - return mock instead
   if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
+    // Return mock functions during build/prerender
+    return {
+      addToast: (msg, type) => console.log(`[${type}] ${msg}`),
+      removeToast: () => {},
+      success: (msg) => console.log(`[success] ${msg}`),
+      error: (msg) => console.log(`[error] ${msg}`),
+      info: (msg) => console.log(`[info] ${msg}`),
+      warning: (msg) => console.log(`[warning] ${msg}`),
+      mounted: false,
+    };
   }
   return context;
 }
