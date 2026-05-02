@@ -88,10 +88,10 @@ export default function Navbar() {
     {
       title: 'Settings',
       links: [
-        { href: '/settings', label: 'System Settings' },        // lowercase
-        { href: '/settings/users', label: 'User Management' },  // lowercase
-        { href: '/settings/backup', label: 'Backup' },          // lowercase
-        { href: '/settings/audit-logs', label: 'Audit Logs' },  // lowercase
+        { href: '/Settings', label: 'System Settings' },        // Capital S
+        { href: '/Settings/users', label: 'User Management' },  // Capital S
+        { href: '/Settings/backup', label: 'Backup' },          // Capital S
+        { href: '/Settings/audit-logs', label: 'Audit Logs' },  // Capital S
       ]
     }
   ];
