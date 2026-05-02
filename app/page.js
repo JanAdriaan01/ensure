@@ -12,7 +12,7 @@ import CurrencyAmount from '@/app/components/CurrencyAmount';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 import Card from '@/app/components/ui/Card/Card';
 import { QuickStats } from '@/app/components/dashboard/QuickStats';
-import { RecentActivity } from '@/app/components/common/ActivityFeed';
+import ActivityFeed from '@/app/components/common/ActivityFeed/ActivityFeed';
 import { ModuleCards } from '@/app/components/dashboard/ModuleCards';
 import { FinancialWidget } from '@/app/components/dashboard/FinancialWidget';
 import { HRWidget } from '@/app/components/dashboard/HRWidget';
@@ -51,7 +51,7 @@ export default function HomePage() {
     operations: {
       toolsCheckedOut: 0,
       lowStockItems: 0,
-      lowStock: 0,  // Added for compatibility
+      lowStock: 0,
       activeWorkOrders: 0,
       overdueTools: 0,
     },
@@ -114,7 +114,7 @@ export default function HomePage() {
       operations: {
         toolsCheckedOut: 0,
         lowStockItems: 0,
-        lowStock: 0,  // Added for compatibility
+        lowStock: 0,
         activeWorkOrders: activeJobs,
         overdueTools: 0,
       },
@@ -196,7 +196,7 @@ export default function HomePage() {
         
         {/* Recent Activity Feed */}
         <div className="dashboard-widget full-width">
-          <RecentActivity activities={activities || []} loading={activitiesLoading} />
+          <ActivityFeed activities={activities || []} loading={activitiesLoading} />
         </div>
       </div>
 
@@ -274,11 +274,12 @@ export default function HomePage() {
         }
         
         .dashboard-widget {
-          background: var(--bg-primary);
+          background: var(--card-bg);
           border-radius: 0.75rem;
           overflow: hidden;
           box-shadow: var(--shadow-sm);
           transition: box-shadow var(--transition-normal);
+          border: 1px solid var(--card-border);
         }
         
         .dashboard-widget:hover {
@@ -312,12 +313,11 @@ export default function HomePage() {
           align-items: center;
           gap: 0.5rem;
           padding: 1rem;
-          background: var(--bg-primary);
+          background: var(--card-bg);
           border-radius: 0.75rem;
           text-decoration: none;
-          color: var(--text-primary);
           transition: all var(--transition-normal);
-          border: 1px solid var(--border-light);
+          border: 1px solid var(--card-border);
         }
         
         .quick-action-card:hover {
@@ -333,6 +333,7 @@ export default function HomePage() {
         .action-label {
           font-size: 0.75rem;
           font-weight: 500;
+          color: var(--text-secondary);
         }
         
         @media (max-width: 1024px) {

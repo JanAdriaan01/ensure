@@ -1,2 +1,2 @@
 export { default } from './ActivityFeed';
-export { RecentActivity } from './ActivityFeed';
+export { default as ActivityFeed } from './ActivityFeed';

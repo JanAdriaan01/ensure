@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 
-export function ActivityFeed({ activities, loading, limit = 5 }) {
+export default function ActivityFeed({ activities, loading, limit = 5 }) {
   if (loading) {
     return (
       <div className="activity-feed">
