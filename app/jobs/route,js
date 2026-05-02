@@ -1,0 +1,30 @@
+import { NextResponse } from 'next/server';
+
+const mockJobs = [
+  {
+    id: 1,
+    lc_number: 'LC-2024-001',
+    client_name: 'ABC Corp',
+    po_status: 'approved',
+    completion_status: 'in_progress',
+    po_amount: 50000,
+    total_invoiced: 25000,
+    completed_month: null,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 2,
+    lc_number: 'LC-2024-002',
+    client_name: 'XYZ Ltd',
+    po_status: 'pending',
+    completion_status: 'not_started',
+    po_amount: 35000,
+    total_invoiced: 0,
+    completed_month: null,
+    created_at: new Date().toISOString()
+  }
+];
+
+export async function GET() {
+  return NextResponse.json(mockJobs);
+}

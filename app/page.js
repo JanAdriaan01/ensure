@@ -23,14 +23,16 @@ import { UserMenu } from '@/app/components/common/UserMenu';
 export default function HomePage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const { showToast } = useToast();
+  const toast = useToast();
+  const showToast = toast?.showToast || ((msg, type) => console.log(`[${type}] ${msg}`));
   const { hasPermission } = usePermissions();
   const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications();
   
-  const { data: jobs, loading: jobsLoading } = useFetch('/api/jobs');
-  const { data: quotes, loading: quotesLoading } = useFetch('/api/quotes');
-  const { data: employees, loading: employeesLoading } = useFetch('/api/employees');
-  const { data: activities, loading: activitiesLoading } = useFetch('/api/activities?limit=10');
+  // Safe fetch with error handling - don't break if APIs don't exist yet
+  const { data: jobs, loading: jobsLoading, error: jobsError } = useFetch('/api/jobs');
+  const { data: quotes, loading: quotesLoading, error: quotesError } = useFetch('/api/quotes');
+  const { data: employees, loading: employeesLoading, error: employeesError } = useFetch('/api/employees');
+  const { data: activities, loading: activitiesLoading, error: activitiesError } = useFetch('/api/activities?limit=10');
   
   const [stats, setStats] = useState({
     financial: {
@@ -49,6 +51,7 @@ export default function HomePage() {
     operations: {
       toolsCheckedOut: 0,
       lowStockItems: 0,
+      lowStock: 0,  // Added for compatibility
       activeWorkOrders: 0,
       overdueTools: 0,
     },
@@ -57,23 +60,26 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!jobsLoading && !quotesLoading && !employeesLoading) {
+    // Always calculate stats after a short delay or when data is available
+    const timer = setTimeout(() => {
       calculateStats();
-    }
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [jobs, quotes, employees, jobsLoading, quotesLoading, employeesLoading]);
 
   // Fetch notifications on mount
   useEffect(() => {
     if (isAuthenticated) {
-      fetchNotifications();
+      fetchNotifications().catch(console.error);
     }
   }, [isAuthenticated, fetchNotifications]);
 
   const calculateStats = () => {
     // Safe null checks with optional chaining and fallbacks
-    const safeJobs = jobs || [];
-    const safeQuotes = quotes || [];
-    const safeEmployees = employees || [];
+    const safeJobs = Array.isArray(jobs) ? jobs : [];
+    const safeQuotes = Array.isArray(quotes) ? quotes : [];
+    const safeEmployees = Array.isArray(employees) ? employees : [];
     
     const activeJobs = safeJobs.filter(j => j?.completion_status !== 'completed').length || 0;
     const pendingQuotes = safeQuotes.filter(q => q?.status === 'pending' && !q?.po_received).length || 0;
@@ -86,7 +92,7 @@ export default function HomePage() {
     const thisMonthRevenue = safeJobs.reduce((sum, j) => {
       const jobMonth = j?.completed_month;
       if (jobMonth === thisMonth && j?.total_invoiced) {
-        return sum + j.total_invoiced;
+        return sum + (j.total_invoiced || 0);
       }
       return sum;
     }, 0) || 0;
@@ -108,6 +114,7 @@ export default function HomePage() {
       operations: {
         toolsCheckedOut: 0,
         lowStockItems: 0,
+        lowStock: 0,  // Added for compatibility
         activeWorkOrders: activeJobs,
         overdueTools: 0,
       },
