@@ -7,14 +7,49 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/schedule')
-      .then(res => res.json())
-      .then(data => {
-        setSchedule(data.data || []);
+    async function fetchSchedule() {
+      try {
+        const response = await fetch('/api/schedule');
+        const result = await response.json();
+        setSchedule(result.data || []);
+      } catch (error) {
+        console.error('Error fetching schedule:', error);
+        setSchedule([]);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    }
+    fetchSchedule();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading schedule...</p>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+          }
+          .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="schedule-container">
@@ -69,15 +104,14 @@ export default function SchedulePage() {
           color: #111827;
           margin-bottom: 0.25rem;
         }
+        .page-header p {
+          color: #6b7280;
+        }
         .table-container {
           background: #ffffff;
           border-radius: 0.75rem;
           border: 1px solid #e5e7eb;
           overflow-x: auto;
-        }
-        .dark .table-container {
-          background: #1f2937;
-          border-color: #374151;
         }
         .schedule-table {
           width: 100%;
@@ -88,6 +122,7 @@ export default function SchedulePage() {
           padding: 0.75rem 1rem;
           font-size: 0.75rem;
           font-weight: 600;
+          text-transform: uppercase;
           color: #6b7280;
           border-bottom: 1px solid #e5e7eb;
         }
@@ -96,9 +131,6 @@ export default function SchedulePage() {
           font-size: 0.875rem;
           color: #111827;
           border-bottom: 1px solid #e5e7eb;
-        }
-        .dark td {
-          color: #f9fafb;
         }
         .empty-state {
           text-align: center;

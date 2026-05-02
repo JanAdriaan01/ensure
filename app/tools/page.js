@@ -7,14 +7,49 @@ export default function ToolsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/tools')
-      .then(res => res.json())
-      .then(data => {
-        setTools(data.data || []);
+    async function fetchTools() {
+      try {
+        const response = await fetch('/api/tools');
+        const result = await response.json();
+        setTools(result.data || []);
+      } catch (error) {
+        console.error('Error fetching tools:', error);
+        setTools([]);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    }
+    fetchTools();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading tools...</p>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+          }
+          .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="tools-container">
@@ -46,7 +81,7 @@ export default function ToolsPage() {
                   <td>{tool.category || '-'}</td>
                   <td>
                     <span className={`status ${tool.status}`}>
-                      {tool.status || 'available'}
+                      {tool.status === 'available' ? 'Available' : tool.status === 'checked_out' ? 'Checked Out' : tool.status}
                     </span>
                   </td>
                   <td>{tool.location || '-'}</td>
@@ -71,15 +106,14 @@ export default function ToolsPage() {
           color: #111827;
           margin-bottom: 0.25rem;
         }
+        .page-header p {
+          color: #6b7280;
+        }
         .table-container {
           background: #ffffff;
           border-radius: 0.75rem;
           border: 1px solid #e5e7eb;
           overflow-x: auto;
-        }
-        .dark .table-container {
-          background: #1f2937;
-          border-color: #374151;
         }
         .tools-table {
           width: 100%;
@@ -90,6 +124,7 @@ export default function ToolsPage() {
           padding: 0.75rem 1rem;
           font-size: 0.75rem;
           font-weight: 600;
+          text-transform: uppercase;
           color: #6b7280;
           border-bottom: 1px solid #e5e7eb;
         }
@@ -98,9 +133,6 @@ export default function ToolsPage() {
           font-size: 0.875rem;
           color: #111827;
           border-bottom: 1px solid #e5e7eb;
-        }
-        .dark td {
-          color: #f9fafb;
         }
         .status {
           display: inline-block;
@@ -117,10 +149,17 @@ export default function ToolsPage() {
           background: #fef3c7;
           color: #92400e;
         }
+        .status.maintenance {
+          background: #fee2e2;
+          color: #991b1b;
+        }
         .empty-state {
           text-align: center;
           color: #6b7280;
           padding: 2rem;
+        }
+        @media (max-width: 768px) {
+          .tools-container { padding: 1rem; }
         }
       `}</style>
     </div>
