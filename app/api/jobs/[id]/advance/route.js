@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
+import { query } from '../../../../lib/db';  // Fixed path
+import { verifyAuth } from '@/lib/auth-server'; 
 
 // POST /api/jobs/[id]/advance - Advance job to next stage
 export async function POST(request, { params }) {
