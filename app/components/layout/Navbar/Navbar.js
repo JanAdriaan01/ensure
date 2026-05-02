@@ -88,16 +88,16 @@ export default function Navbar() {
     {
       title: 'Settings',
       links: [
-        { href: '/Settings', label: 'System Settings' },        // Capital S
-        { href: '/Settings/users', label: 'User Management' },  // Capital S
-        { href: '/Settings/backup', label: 'Backup' },          // Capital S
-        { href: '/Settings/audit-logs', label: 'Audit Logs' },  // Capital S
+        { href: '/Settings', label: 'System Settings' },
+        { href: '/Settings/users', label: 'User Management' },
+        { href: '/Settings/backup', label: 'Backup' },
+        { href: '/Settings/audit-logs', label: 'Audit Logs' },
       ]
     }
   ];
 
   return (
-    <nav className="navbar" ref={dropdownRef}>
+    <nav className={`navbar ${theme === 'dark' ? 'dark-nav' : ''}`}>
       <div className="nav-container">
         <div className="nav-brand">
           <Link href="/">ENSURE</Link>
@@ -136,8 +136,8 @@ export default function Navbar() {
         </div>
         
         <div className="nav-actions">
-          <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
-            {theme === 'dark' ? 'Light' : 'Dark'}
+          <button onClick={toggleTheme} className="theme-toggle">
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
           </button>
           <CurrencySelector />
           <button 
@@ -185,11 +185,12 @@ export default function Navbar() {
           top: 0;
           z-index: 100;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          transition: all 0.3s ease;
         }
         
-        .dark .navbar {
-          background: #1f2937;
-          border-bottom: 1px solid #374151;
+        .navbar.dark-nav {
+          background: #1e293b;
+          border-bottom: 1px solid #334155;
         }
         
         .nav-container {
@@ -210,7 +211,7 @@ export default function Navbar() {
           letter-spacing: -0.025em;
         }
         
-        .dark .nav-brand a {
+        .navbar.dark-nav .nav-brand a {
           color: #f9fafb;
         }
         
@@ -243,8 +244,8 @@ export default function Navbar() {
           transition: all 0.15s ease;
         }
         
-        .dark .nav-dropdown-btn {
-          color: #d1d5db;
+        .navbar.dark-nav .nav-dropdown-btn {
+          color: #cbd5e1;
         }
         
         .nav-dropdown-btn:hover {
@@ -252,8 +253,8 @@ export default function Navbar() {
           color: #111827;
         }
         
-        .dark .nav-dropdown-btn:hover {
-          background: #374151;
+        .navbar.dark-nav .nav-dropdown-btn:hover {
+          background: #334155;
           color: #f9fafb;
         }
         
@@ -276,7 +277,7 @@ export default function Navbar() {
           background: #ffffff;
           min-width: 200px;
           max-height: 360px;
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
           border-radius: 0.5rem;
           border: 1px solid #e5e7eb;
           z-index: 1000;
@@ -286,9 +287,9 @@ export default function Navbar() {
           animation: dropdownFadeIn 0.15s ease;
         }
         
-        .dark .nav-dropdown-content {
-          background: #1f2937;
-          border-color: #374151;
+        .navbar.dark-nav .nav-dropdown-content {
+          background: #1e293b;
+          border-color: #334155;
         }
         
         @keyframes dropdownFadeIn {
@@ -308,24 +309,6 @@ export default function Navbar() {
           padding: 0.25rem 0;
         }
         
-        .nav-dropdown-scroll::-webkit-scrollbar {
-          width: 4px;
-        }
-        
-        .nav-dropdown-scroll::-webkit-scrollbar-track {
-          background: #f3f4f6;
-          border-radius: 2px;
-        }
-        
-        .dark .nav-dropdown-scroll::-webkit-scrollbar-track {
-          background: #374151;
-        }
-        
-        .nav-dropdown-scroll::-webkit-scrollbar-thumb {
-          background: #9ca3af;
-          border-radius: 2px;
-        }
-        
         .nav-dropdown-link {
           display: block;
           padding: 0.5rem 1rem;
@@ -336,8 +319,8 @@ export default function Navbar() {
           white-space: nowrap;
         }
         
-        .dark .nav-dropdown-link {
-          color: #d1d5db;
+        .navbar.dark-nav .nav-dropdown-link {
+          color: #cbd5e1;
         }
         
         .nav-dropdown-link:hover {
@@ -345,8 +328,8 @@ export default function Navbar() {
           color: #111827;
         }
         
-        .dark .nav-dropdown-link:hover {
-          background: #374151;
+        .navbar.dark-nav .nav-dropdown-link:hover {
+          background: #334155;
           color: #f9fafb;
         }
         
@@ -355,7 +338,7 @@ export default function Navbar() {
           background: #eff6ff;
         }
         
-        .dark .nav-dropdown-link.active {
+        .navbar.dark-nav .nav-dropdown-link.active {
           color: #60a5fa;
           background: #1e3a5f;
         }
@@ -378,17 +361,17 @@ export default function Navbar() {
           transition: all 0.15s ease;
         }
         
-        .dark .theme-toggle {
-          background: #374151;
-          color: #d1d5db;
+        .navbar.dark-nav .theme-toggle {
+          background: #334155;
+          color: #cbd5e1;
         }
         
         .theme-toggle:hover {
           background: #e5e7eb;
         }
         
-        .dark .theme-toggle:hover {
-          background: #4b5563;
+        .navbar.dark-nav .theme-toggle:hover {
+          background: #475569;
         }
         
         .mobile-menu-btn {
@@ -403,9 +386,9 @@ export default function Navbar() {
           display: none;
         }
         
-        .dark .mobile-menu-btn {
-          background: #374151;
-          color: #d1d5db;
+        .navbar.dark-nav .mobile-menu-btn {
+          background: #334155;
+          color: #cbd5e1;
         }
         
         .nav-mobile {
@@ -417,9 +400,9 @@ export default function Navbar() {
           overflow-y: auto;
         }
         
-        .dark .nav-mobile {
-          background: #1f2937;
-          border-top-color: #374151;
+        .navbar.dark-nav .nav-mobile {
+          background: #1e293b;
+          border-top-color: #334155;
         }
         
         .nav-mobile-module {
@@ -434,9 +417,9 @@ export default function Navbar() {
           border-bottom: 1px solid #e5e7eb;
         }
         
-        .dark .nav-mobile-title {
+        .navbar.dark-nav .nav-mobile-title {
           color: #f9fafb;
-          border-bottom-color: #374151;
+          border-bottom-color: #334155;
         }
         
         .nav-mobile-links {
@@ -451,8 +434,8 @@ export default function Navbar() {
           font-size: 0.875rem;
         }
         
-        .dark .nav-mobile-link {
-          color: #d1d5db;
+        .navbar.dark-nav .nav-mobile-link {
+          color: #cbd5e1;
         }
         
         .nav-mobile-link:hover {
@@ -471,9 +454,9 @@ export default function Navbar() {
           cursor: pointer;
         }
         
-        .dark .mobile-theme-toggle {
-          background: #374151;
-          color: #d1d5db;
+        .navbar.dark-nav .mobile-theme-toggle {
+          background: #334155;
+          color: #cbd5e1;
         }
         
         @media (max-width: 900px) {

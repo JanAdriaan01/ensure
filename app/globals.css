@@ -850,4 +850,37 @@ tr:hover td {
 
 .border-medium {
   border-color: var(--border-medium);
+  /* Add at the end of globals.css */
+    .dashboard-widget,
+    .financial-widget,
+    .hr-widget,
+    .operations-widget,
+    .quick-stats .stat-card {
+      background: var(--card-bg) !important;
+      border: 1px solid var(--card-border) !important;
+      color: var(--text-primary) !important;
+    }
+  
+    .dashboard-widget .widget-header h3,
+    .financial-widget .widget-header h3,
+    .hr-widget .widget-header h3,
+    .operations-widget .widget-header h3 {
+      color: var(--text-primary) !important;
+    }
+  
+    .dashboard-widget .stat-value,
+    .financial-widget .stat-value,
+    .hr-widget .stat-value,
+    .operations-widget .stat-value,
+    .quick-stats .stat-value {
+      color: var(--text-primary) !important;
+    }
+  
+    .dashboard-widget .stat-label,
+    .financial-widget .stat-label,
+    .hr-widget .stat-label,
+    .operations-widget .stat-label,
+    .quick-stats .stat-label {
+      color: var(--text-tertiary) !important;
+    }
 }
