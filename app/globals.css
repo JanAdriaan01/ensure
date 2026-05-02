@@ -47,11 +47,11 @@
   --info-light: #a78bfa;
   --info-bg: #ede9fe;
 
-  /* Neutral Colors - Light Mode */
+  /* Light Mode Colors */
   --text-primary: #1e293b;
   --text-secondary: #475569;
   --text-tertiary: #64748b;
-  --text-disabled: #94a3b8;
+  --text-muted: #94a3b8;
   --text-white: #ffffff;
 
   --bg-primary: #ffffff;
@@ -59,16 +59,14 @@
   --bg-tertiary: #f1f5f9;
   --bg-quaternary: #e2e8f0;
 
+  /* Card and Component Backgrounds */
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --card-hover: #f8fafc;
+
   --border-light: #e2e8f0;
   --border-medium: #cbd5e1;
   --border-dark: #94a3b8;
-
-  /* Card and Component Backgrounds */
-  --card-bg: #ffffff;
-  --card-bg-hover: #f8fafc;
-  --sidebar-bg: #ffffff;
-  --header-bg: #ffffff;
-  --footer-bg: #1f2937;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -90,7 +88,7 @@
 }
 
 /* ============================================
-   Dark Mode Variables
+   Dark Mode Variables - Better Contrast
    ============================================ */
 .dark {
   /* Primary Colors */
@@ -129,28 +127,32 @@
   --info-light: #c4b5fd;
   --info-bg: #2e1065;
 
-  /* Neutral Colors - Dark Mode */
+  /* Dark Mode Text Colors - Light text on dark background */
   --text-primary: #f1f5f9;
   --text-secondary: #cbd5e1;
   --text-tertiary: #94a3b8;
-  --text-disabled: #64748b;
+  --text-muted: #64748b;
   --text-white: #ffffff;
 
+  /* Dark Mode Backgrounds - Darker backgrounds */
   --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --bg-quaternary: #475569;
+  --bg-secondary: #0f172a;
+  --bg-tertiary: #1e293b;
+  --bg-quaternary: #334155;
+
+  /* Dark Mode Cards - Dark but visible */
+  --card-bg: #1e293b;
+  --card-border: #334155;
+  --card-hover: #334155;
 
   --border-light: #334155;
   --border-medium: #475569;
   --border-dark: #64748b;
 
-  /* Card and Component Backgrounds - Dark Mode */
-  --card-bg: #1e293b;
-  --card-bg-hover: #334155;
-  --sidebar-bg: #1e293b;
-  --header-bg: #1e293b;
-  --footer-bg: #0f172a;
+  /* Shadows for dark mode */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 }
 
 /* ============================================
@@ -233,69 +235,126 @@ a:hover {
 }
 
 /* ============================================
-   Card Styles
+   Card Styles - Critical for Dark Mode
    ============================================ */
-.card {
-  background: var(--card-bg);
+.card,
+.dashboard-widget,
+.stat-card,
+.module-card,
+.settings-card,
+.table-container,
+.modal-content,
+.quick-action-card {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
   border-radius: var(--radius-xl);
-  padding: 1.25rem;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
-  border: 1px solid var(--border-light);
+  transition: all var(--transition-normal);
 }
 
-.card:hover {
+.card:hover,
+.dashboard-widget:hover,
+.stat-card:hover,
+.module-card:hover,
+.quick-action-card:hover {
   box-shadow: var(--shadow-md);
+  border-color: var(--primary-light) !important;
+  transform: translateY(-2px);
+}
+
+/* Card text colors - Ensures readability */
+.card p,
+.card span:not(.stat-value):not(.badge),
+.dashboard-widget p,
+.dashboard-widget span:not(.stat-value),
+.stat-card p,
+.stat-card span:not(.stat-value),
+.module-card p,
+.module-card span,
+.settings-card p,
+.settings-card span,
+.quick-action-card span {
+  color: var(--text-secondary) !important;
+}
+
+.card h1,
+.card h2,
+.card h3,
+.card h4,
+.dashboard-widget h1,
+.dashboard-widget h2,
+.dashboard-widget h3,
+.stat-card h1,
+.stat-card h2,
+.stat-card h3,
+.module-card h1,
+.module-card h2,
+.module-card h3,
+.settings-card h1,
+.settings-card h2,
+.settings-card h3,
+.quick-action-card h1,
+.quick-action-card h2,
+.quick-action-card h3 {
+  color: var(--text-primary) !important;
 }
 
 /* ============================================
    Dashboard Stats Cards
    ============================================ */
 .stat-card {
-  background: var(--card-bg);
-  border-radius: var(--radius-xl);
   padding: 1rem;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
-  border: 1px solid var(--border-light);
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
 }
 
 .stat-value {
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 0.75rem;
-  color: var(--text-tertiary);
+  color: var(--text-tertiary) !important;
   margin-top: 0.25rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 /* ============================================
+   Dashboard Widget Specific
+   ============================================ */
+.dashboard-widget {
+  overflow: hidden;
+}
+
+.dashboard-widget .widget-header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.dashboard-widget .widget-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.dashboard-widget .widget-stats {
+  padding: 1rem;
+}
+
+.dashboard-widget .widget-footer {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-tertiary);
+}
+
+/* ============================================
    Module Cards
    ============================================ */
 .module-card {
-  background: var(--card-bg);
-  border-radius: var(--radius-xl);
   padding: 1.5rem;
-  transition: all var(--transition-normal);
-  border: 1px solid var(--border-light);
   cursor: pointer;
-}
-
-.module-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--primary-light);
+  text-align: center;
 }
 
 .module-icon {
@@ -313,7 +372,29 @@ a:hover {
 .module-description {
   font-size: 0.75rem;
   color: var(--text-tertiary);
-  margin-bottom: 1rem;
+}
+
+/* ============================================
+   Quick Action Cards
+   ============================================ */
+.quick-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  text-decoration: none;
+  transition: all var(--transition-normal);
+}
+
+.quick-action-card .action-icon {
+  font-size: 1.5rem;
+}
+
+.quick-action-card .action-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 /* ============================================
@@ -346,7 +427,6 @@ a:hover {
   border: none;
   cursor: pointer;
   font-weight: 500;
-  transition: all var(--transition-fast);
 }
 
 .btn-secondary:hover {
@@ -361,7 +441,6 @@ a:hover {
   border: none;
   cursor: pointer;
   font-weight: 500;
-  transition: all var(--transition-fast);
 }
 
 .btn-danger:hover {
@@ -376,7 +455,6 @@ a:hover {
   border: none;
   cursor: pointer;
   font-weight: 500;
-  transition: all var(--transition-fast);
 }
 
 .btn-success:hover {
@@ -436,10 +514,7 @@ label {
    Tables
    ============================================ */
 .table-container {
-  background: var(--card-bg);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-  border: 1px solid var(--border-light);
+  overflow-x: auto;
 }
 
 table {
@@ -486,7 +561,8 @@ tr:hover td {
   color: var(--warning-dark);
 }
 
-.status-approved {
+.status-approved,
+.status-paid {
   background: var(--success-bg);
   color: var(--success-dark);
 }
@@ -529,13 +605,10 @@ tr:hover td {
 }
 
 .modal-content {
-  background: var(--card-bg);
-  border-radius: var(--radius-xl);
   padding: 1.5rem;
   max-width: 90%;
   max-height: 85vh;
   overflow-y: auto;
-  border: 1px solid var(--border-light);
 }
 
 .modal-header {
@@ -609,33 +682,10 @@ tr:hover td {
 }
 
 /* ============================================
-   Responsive
-   ============================================ */
-@media (max-width: 768px) {
-  h1 {
-    font-size: 1.5rem;
-  }
-
-  h2 {
-    font-size: 1.25rem;
-  }
-
-  .stat-value {
-    font-size: 1.25rem;
-  }
-
-  .card,
-  .stat-card,
-  .module-card {
-    padding: 1rem;
-  }
-}
-
-/* ============================================
    Navigation Styles
    ============================================ */
 .navbar {
-  background: var(--header-bg);
+  background: var(--bg-primary);
   border-bottom: 1px solid var(--border-light);
   position: sticky;
   top: 0;
@@ -692,9 +742,35 @@ tr:hover td {
   cursor: pointer;
   font-size: 1rem;
   color: var(--text-primary);
+  transition: background 0.2s;
 }
 
+.theme-toggle:hover {
+  background: var(--bg-quaternary);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
 @media (max-width: 768px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+  }
+
+  .card,
+  .stat-card,
+  .module-card {
+    padding: 1rem;
+  }
+
   .nav-container {
     padding: 0.75rem;
   }
@@ -702,4 +778,76 @@ tr:hover td {
   .nav-links {
     display: none;
   }
+}
+
+/* ============================================
+   Footer Styles
+   ============================================ */
+.footer {
+  background: #1f2937;
+  color: #e5e7eb;
+  margin-top: 3rem;
+}
+
+.dark .footer {
+  background: #0f172a;
+}
+
+.footer a {
+  color: #9ca3af;
+}
+
+.footer a:hover {
+  color: white;
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-tertiary {
+  color: var(--text-tertiary);
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.text-warning {
+  color: var(--warning);
+}
+
+.bg-primary {
+  background: var(--bg-primary);
+}
+
+.bg-secondary {
+  background: var(--bg-secondary);
+}
+
+.bg-tertiary {
+  background: var(--bg-tertiary);
+}
+
+.bg-card {
+  background: var(--card-bg);
+}
+
+.border-light {
+  border-color: var(--border-light);
+}
+
+.border-medium {
+  border-color: var(--border-medium);
 }
