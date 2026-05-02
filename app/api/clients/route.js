@@ -1,38 +1,48 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
 
-// GET all clients
-export async function GET() {
-  try {
-    const result = await query(`
-      SELECT c.*, 
-        COUNT(DISTINCT q.id) as quote_count,
-        COUNT(DISTINCT j.id) as job_count
-      FROM clients c
-      LEFT JOIN quotes q ON c.id = q.client_id
-      LEFT JOIN jobs j ON c.id = j.client_id
-      GROUP BY c.id
-      ORDER BY c.client_name
-    `);
-    return NextResponse.json(result.rows);
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+const mockClients = [
+  {
+    id: 1,
+    name: 'ABC Construction',
+    contact_person: 'John Smith',
+    email: 'john@abcconstruction.com',
+    phone: '+27 11 123 4567',
+    vat_number: 'ZA1234567890',
+    status: 'active'
+  },
+  {
+    id: 2,
+    name: 'XYZ Developers',
+    contact_person: 'Sarah Jones',
+    email: 'sarah@xyzdevelopers.com',
+    phone: '+27 21 987 6543',
+    vat_number: 'ZA0987654321',
+    status: 'active'
+  },
+  {
+    id: 3,
+    name: 'Smith Properties',
+    contact_person: 'Mike Smith',
+    email: 'mike@smithproperties.com',
+    phone: '+27 31 456 7890',
+    vat_number: 'ZA5678901234',
+    status: 'inactive'
   }
+];
+
+export async function GET() {
+  return NextResponse.json(mockClients);
 }
 
-// POST create client
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { client_name, contact_person, client_address, signup_date, email, phone } = body;
-    
-    const result = await query(
-      `INSERT INTO clients (client_name, contact_person, client_address, signup_date, email, phone)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [client_name, contact_person, client_address, signup_date || new Date().toISOString().split('T')[0], email, phone]
-    );
-    
-    return NextResponse.json(result.rows[0], { status: 201 });
+    const newClient = {
+      id: mockClients.length + 1,
+      ...body,
+      created_at: new Date().toISOString()
+    };
+    return NextResponse.json(newClient, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
