@@ -5,51 +5,42 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('light');
   const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    // Check localStorage only on client
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') || 'light';
+    }
+    return 'light';
+  });
 
   useEffect(() => {
     setMounted(true);
     const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
-    setTheme(initialTheme);
-    applyTheme(initialTheme);
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    }
   }, []);
 
-  const applyTheme = (newTheme) => {
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('theme', newTheme);
-  };
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem('theme', theme);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme, mounted]);
 
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    applyTheme(newTheme);
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const setThemeMode = (mode) => {
-    setTheme(mode);
-    applyTheme(mode);
+  const value = {
+    theme,
+    toggleTheme,
+    mounted,
   };
-
-  if (!mounted) {
-    return <>{children}</>;
-  }
 
   return (
-    <ThemeContext.Provider value={{
-      theme,
-      toggleTheme,
-      setThemeMode,
-      isDark: theme === 'dark',
-      isLight: theme === 'light',
-    }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
@@ -57,8 +48,13 @@ export function ThemeProvider({ children }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+  // During SSR/prerender, return mock values
+  if (!context || !context.mounted) {
+    return {
+      theme: 'light',
+      toggleTheme: () => {},
+      mounted: false,
+    };
   }
   return context;
 }

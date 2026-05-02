@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '../../../../../lib/db';  // Fixed path
+import { query } from '../../../../lib/db';  // Fixed path
 import { verifyAuth } from '@/lib/auth';
 
 // POST /api/jobs/[id]/advance - Advance job to next stage
