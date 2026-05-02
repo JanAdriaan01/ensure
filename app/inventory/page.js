@@ -1,61 +1,129 @@
 'use client';
 
-import { useFetch } from '@/app/hooks/useFetch';
-import PageHeader from '@/app/components/layout/PageHeader';
-import Card from '@/app/components/ui/Card/Card';
-import CurrencyAmount from '@/app/components/CurrencyAmount';
-import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
-import Link from 'next/link';
-
-// Force dynamic rendering to avoid static generation issues
-export const dynamic = 'force-dynamic';
+import { useState, useEffect } from 'react';
 
 export default function InventoryPage() {
-  const { data: stock, loading } = useFetch('/api/stock');
+  const [stock, setStock] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  if (loading) return <LoadingSpinner text="Loading inventory..." />;
+  useEffect(() => {
+    fetch('/api/stock')
+      .then(res => res.json())
+      .then(data => {
+        setStock(data.data || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-      <PageHeader 
-        title="📦 Inventory Management" 
-        description="Manage stock, purchasing, and materials"
-        action={
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Link href="/stock/purchasing">
-              <button className="btn">➕ Purchasing</button>
-            </Link>
-            <Link href="/stock/issued">
-              <button className="btn btn-outline">📤 Issued to Jobs</button>
-            </Link>
-          </div>
-        }
-      />
-
-      <div className="stats-grid">
-        <Card><div className="stat-value">{stock?.length || 0}</div><div className="stat-label">Total Items</div></Card>
-        <Card><div className="stat-value">{stock?.filter(s => (s.quantity_on_hand || 0) < (s.min_stock_level || 5)).length || 0}</div><div className="stat-label">Low Stock Alert</div></Card>
+    <div className="inventory-container">
+      <div className="page-header">
+        <h1>Inventory Management</h1>
+        <p>Track stock levels, materials, and supplies</p>
       </div>
-
-      <div className="stock-grid">
-        {stock?.map(item => (
-          <Card key={item.id} className={item.quantity_on_hand < item.min_stock_level ? 'low-stock' : ''}>
-            <div><strong>{item.item_code}</strong> - {item.item_name}</div>
-            <div>On Hand: {item.quantity_on_hand} {item.unit_of_measure || 'units'}</div>
-            <div>Cost: <CurrencyAmount amount={item.unit_cost} /></div>
-          </Card>
-        ))}
+      <div className="table-container">
+        <table className="inventory-table">
+          <thead>
+            <tr>
+              <th>Item Name</th>
+              <th>SKU</th>
+              <th>Category</th>
+              <th>Quantity</th>
+              <th>Min Quantity</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stock.length === 0 ? (
+              <tr>
+                <td colSpan="6" className="empty-state">No inventory items found</td>
+              </tr>
+            ) : (
+              stock.map(item => (
+                <tr key={item.id}>
+                  <td>{item.name}</td>
+                  <td>{item.sku}</td>
+                  <td>{item.category || '-'}</td>
+                  <td>{item.quantity}</td>
+                  <td>{item.min_quantity || 0}</td>
+                  <td>
+                    <span className={`status ${item.quantity <= (item.min_quantity || 0) ? 'low' : 'normal'}`}>
+                      {item.quantity <= (item.min_quantity || 0) ? 'Low Stock' : 'In Stock'}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-
       <style jsx>{`
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-        .stat-value { font-size: 1.5rem; font-weight: bold; }
-        .stat-label { font-size: 0.75rem; color: #6b7280; }
-        .stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
-        .low-stock { border-left: 3px solid #f59e0b; background: #fffbeb; }
-        .btn { background: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; text-decoration: none; display: inline-block; }
-        .btn-outline { background: transparent; border: 1px solid #2563eb; color: #2563eb; }
-        .btn-outline:hover { background: #eff6ff; }
+        .inventory-container {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
+        .page-header {
+          margin-bottom: 2rem;
+        }
+        .page-header h1 {
+          font-size: 1.875rem;
+          font-weight: 600;
+          color: #111827;
+          margin-bottom: 0.25rem;
+        }
+        .table-container {
+          background: #ffffff;
+          border-radius: 0.75rem;
+          border: 1px solid #e5e7eb;
+          overflow-x: auto;
+        }
+        .dark .table-container {
+          background: #1f2937;
+          border-color: #374151;
+        }
+        .inventory-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th {
+          text-align: left;
+          padding: 0.75rem 1rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #6b7280;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        td {
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+          color: #111827;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .dark td {
+          color: #f9fafb;
+        }
+        .status {
+          display: inline-block;
+          padding: 0.25rem 0.5rem;
+          border-radius: 9999px;
+          font-size: 0.7rem;
+          font-weight: 500;
+        }
+        .status.normal {
+          background: #d1fae5;
+          color: #065f46;
+        }
+        .status.low {
+          background: #fee2e2;
+          color: #991b1b;
+        }
+        .empty-state {
+          text-align: center;
+          color: #6b7280;
+          padding: 2rem;
+        }
       `}</style>
     </div>
   );

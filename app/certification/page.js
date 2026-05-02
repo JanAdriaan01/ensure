@@ -1,17 +1,17 @@
 'use client';
 
-export default function SkillsPage() {
+export default function CertificationsPage() {
   return (
-    <div className="skills-container">
+    <div className="certifications-container">
       <div className="page-header">
-        <h1>Employee Skills Management</h1>
-        <p>Track and manage employee skills and competencies</p>
+        <h1>Employee Certifications</h1>
+        <p>Track employee certifications and renewals</p>
       </div>
       <div className="content-card">
-        <p>Skills management interface will be available soon.</p>
+        <p>Certifications management interface will be available soon.</p>
       </div>
       <style jsx>{`
-        .skills-container {
+        .certifications-container {
           max-width: 1280px;
           margin: 0 auto;
           padding: 2rem;
