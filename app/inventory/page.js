@@ -11,7 +11,14 @@ export default function InventoryPage() {
       try {
         const response = await fetch('/api/stock');
         const result = await response.json();
-        setStock(result.data || []);
+        // Handle both response formats
+        if (Array.isArray(result)) {
+          setStock(result);
+        } else if (result.data && Array.isArray(result.data)) {
+          setStock(result.data);
+        } else {
+          setStock([]);
+        }
       } catch (error) {
         console.error('Error fetching stock:', error);
         setStock([]);
@@ -51,6 +58,8 @@ export default function InventoryPage() {
     );
   }
 
+  const lowStockCount = stock.filter(i => i.quantity <= (i.min_quantity || 0)).length;
+
   return (
     <div className="inventory-container">
       <div className="page-header">
@@ -59,7 +68,7 @@ export default function InventoryPage() {
       </div>
       <div className="stats-summary">
         <div className="stat">Total Items: {stock.length}</div>
-        <div className="stat">Low Stock Items: {stock.filter(i => i.quantity <= i.min_quantity).length}</div>
+        <div className="stat warning">Low Stock Items: {lowStockCount}</div>
       </div>
       <div className="table-container">
         <table className="inventory-table">
@@ -79,7 +88,7 @@ export default function InventoryPage() {
                 <td colSpan="6" className="empty-state">No inventory items found</td>
               </tr>
             ) : (
-              stock.map(item => (
+              stock.map((item) => (
                 <tr key={item.id}>
                   <td>{item.name}</td>
                   <td>{item.sku}</td>
@@ -119,12 +128,18 @@ export default function InventoryPage() {
           display: flex;
           gap: 1rem;
           margin-bottom: 1.5rem;
+          flex-wrap: wrap;
         }
         .stat {
           background: #f3f4f6;
           padding: 0.5rem 1rem;
           border-radius: 0.5rem;
           font-size: 0.875rem;
+          font-weight: 500;
+        }
+        .stat.warning {
+          background: #fef3c7;
+          color: #92400e;
         }
         .table-container {
           background: #ffffff;
@@ -170,6 +185,9 @@ export default function InventoryPage() {
           text-align: center;
           color: #6b7280;
           padding: 2rem;
+        }
+        @media (max-width: 768px) {
+          .inventory-container { padding: 1rem; }
         }
       `}</style>
     </div>

@@ -11,7 +11,14 @@ export default function SchedulePage() {
       try {
         const response = await fetch('/api/schedule');
         const result = await response.json();
-        setSchedule(result.data || []);
+        // Handle both response formats
+        if (Array.isArray(result)) {
+          setSchedule(result);
+        } else if (result.data && Array.isArray(result.data)) {
+          setSchedule(result.data);
+        } else {
+          setSchedule([]);
+        }
       } catch (error) {
         console.error('Error fetching schedule:', error);
         setSchedule([]);
@@ -75,7 +82,7 @@ export default function SchedulePage() {
                 <td colSpan="6" className="empty-state">No schedule entries found</td>
               </tr>
             ) : (
-              schedule.map(entry => (
+              schedule.map((entry) => (
                 <tr key={entry.id}>
                   <td>{entry.employee_name}</td>
                   <td>{entry.job_number}</td>
@@ -136,6 +143,9 @@ export default function SchedulePage() {
           text-align: center;
           color: #6b7280;
           padding: 2rem;
+        }
+        @media (max-width: 768px) {
+          .schedule-container { padding: 1rem; }
         }
       `}</style>
     </div>

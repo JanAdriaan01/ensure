@@ -11,7 +11,14 @@ export default function CertificationsPage() {
       try {
         const response = await fetch('/api/employees/certifications');
         const result = await response.json();
-        setCertifications(result.data || []);
+        // Handle both response formats
+        if (Array.isArray(result)) {
+          setCertifications(result);
+        } else if (result.data && Array.isArray(result.data)) {
+          setCertifications(result.data);
+        } else {
+          setCertifications([]);
+        }
       } catch (error) {
         console.error('Error fetching certifications:', error);
         setCertifications([]);
@@ -74,7 +81,7 @@ export default function CertificationsPage() {
                 <td colSpan="5" className="empty-state">No certifications found</td>
               </tr>
             ) : (
-              certifications.map(cert => (
+              certifications.map((cert) => (
                 <tr key={cert.id}>
                   <td>{cert.employee_name}</td>
                   <td>{cert.certification_name}</td>
@@ -153,6 +160,9 @@ export default function CertificationsPage() {
           text-align: center;
           color: #6b7280;
           padding: 2rem;
+        }
+        @media (max-width: 768px) {
+          .certifications-container { padding: 1rem; }
         }
       `}</style>
     </div>
