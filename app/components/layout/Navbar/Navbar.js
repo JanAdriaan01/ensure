@@ -88,10 +88,10 @@ export default function Navbar() {
     {
       title: 'Settings',
       links: [
-        { href: '/Settings', label: 'System Settings' },
-        { href: '/users', label: 'User Management' },
-        { href: '/backup', label: 'Backup' },
-        { href: '/audit-logs', label: 'Audit Logs' },
+        { href: '/settings', label: 'System Settings' },        // lowercase
+        { href: '/settings/users', label: 'User Management' },  // lowercase
+        { href: '/settings/backup', label: 'Backup' },          // lowercase
+        { href: '/settings/audit-logs', label: 'Audit Logs' },  // lowercase
       ]
     }
   ];
@@ -324,10 +324,6 @@ export default function Navbar() {
         .nav-dropdown-scroll::-webkit-scrollbar-thumb {
           background: #9ca3af;
           border-radius: 2px;
-        }
-        
-        .dark .nav-dropdown-scroll::-webkit-scrollbar-thumb {
-          background: #6b7280;
         }
         
         .nav-dropdown-link {
