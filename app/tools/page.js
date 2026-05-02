@@ -11,7 +11,14 @@ export default function ToolsPage() {
       try {
         const response = await fetch('/api/tools');
         const result = await response.json();
-        setTools(result.data || []);
+        // Handle both response formats: direct array or { data: [] }
+        if (Array.isArray(result)) {
+          setTools(result);
+        } else if (result.data && Array.isArray(result.data)) {
+          setTools(result.data);
+        } else {
+          setTools([]);
+        }
       } catch (error) {
         console.error('Error fetching tools:', error);
         setTools([]);
@@ -74,14 +81,14 @@ export default function ToolsPage() {
                 <td colSpan="5" className="empty-state">No tools found</td>
               </tr>
             ) : (
-              tools.map(tool => (
+              tools.map((tool) => (
                 <tr key={tool.id}>
                   <td>{tool.name}</td>
                   <td>{tool.serial_number || '-'}</td>
                   <td>{tool.category || '-'}</td>
                   <td>
                     <span className={`status ${tool.status}`}>
-                      {tool.status === 'available' ? 'Available' : tool.status === 'checked_out' ? 'Checked Out' : tool.status}
+                      {tool.status === 'available' ? 'Available' : tool.status === 'checked_out' ? 'Checked Out' : tool.status || 'Unknown'}
                     </span>
                   </td>
                   <td>{tool.location || '-'}</td>
