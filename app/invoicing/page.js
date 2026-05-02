@@ -61,7 +61,7 @@ export default function InvoicingPage() {
       const result = await response.json();
       
       if (result.success) {
-        fetchInvoices(); // Refresh the list
+        fetchInvoices();
       }
     } catch (error) {
       console.error('Error marking invoice as paid:', error);
@@ -80,7 +80,7 @@ export default function InvoicingPage() {
       const result = await response.json();
       
       if (result.success) {
-        fetchInvoices(); // Refresh the list
+        fetchInvoices();
       }
     } catch (error) {
       console.error('Error deleting invoice:', error);
@@ -231,13 +231,13 @@ export default function InvoicingPage() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map(invoice => (
+              {invoices.map((invoice) => (
                 <tr key={invoice.id}>
                   <td className="invoice-link">
                     <Link href={`/invoicing/${invoice.id}`}>
                       {invoice.invoice_number}
                     </Link>
-                  </table>
+                  </td>
                   <td>{invoice.client_name}</td>
                   <td>{invoice.job_number || '-'}</td>
                   <td>{invoice.issue_date || '-'}</td>
