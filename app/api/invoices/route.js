@@ -1,147 +1,88 @@
 import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
 
-// Mock data - replace with database queries later
-const invoices = [
-  {
-    id: 1,
-    invoice_number: 'INV-2024-001',
-    client_name: 'ABC Construction',
-    client_id: 1,
-    job_number: 'LC-2024-001',
-    job_id: 1,
-    amount: 25000,
-    vat_rate: 15,
-    vat_amount: 3750,
-    total_amount: 28750,
-    status: 'paid',
-    issue_date: '2024-02-01',
-    due_date: '2024-03-01',
-    paid_date: '2024-02-28',
-    payment_method: 'bank_transfer',
-    notes: '',
-    created_at: '2024-02-01T10:00:00Z',
-    updated_at: '2024-02-28T14:30:00Z'
-  },
-  {
-    id: 2,
-    invoice_number: 'INV-2024-002',
-    client_name: 'ABC Construction',
-    client_id: 1,
-    job_number: 'LC-2024-001',
-    job_id: 1,
-    amount: 20000,
-    vat_rate: 15,
-    vat_amount: 3000,
-    total_amount: 23000,
-    status: 'pending',
-    issue_date: '2024-03-01',
-    due_date: '2024-04-01',
-    paid_date: null,
-    payment_method: null,
-    notes: '',
-    created_at: '2024-03-01T09:00:00Z',
-    updated_at: '2024-03-01T09:00:00Z'
-  },
-  {
-    id: 3,
-    invoice_number: 'INV-2024-003',
-    client_name: 'XYZ Developers',
-    client_id: 2,
-    job_number: 'LC-2024-002',
-    job_id: 2,
-    amount: 50000,
-    vat_rate: 15,
-    vat_amount: 7500,
-    total_amount: 57500,
-    status: 'overdue',
-    issue_date: '2024-02-15',
-    due_date: '2024-03-15',
-    paid_date: null,
-    payment_method: null,
-    notes: 'Second reminder sent',
-    created_at: '2024-02-15T11:00:00Z',
-    updated_at: '2024-03-16T08:00:00Z'
-  },
-  {
-    id: 4,
-    invoice_number: 'INV-2024-004',
-    client_name: 'Smith Properties',
-    client_id: 3,
-    job_number: 'LC-2024-003',
-    job_id: 3,
-    amount: 15000,
-    vat_rate: 15,
-    vat_amount: 2250,
-    total_amount: 17250,
-    status: 'draft',
-    issue_date: null,
-    due_date: null,
-    paid_date: null,
-    payment_method: null,
-    notes: 'Awaiting approval',
-    created_at: '2024-03-20T14:00:00Z',
-    updated_at: '2024-03-20T14:00:00Z'
-  },
-  {
-    id: 5,
-    invoice_number: 'INV-2024-005',
-    client_name: 'Johnson Holdings',
-    client_id: 4,
-    job_number: 'LC-2024-004',
-    job_id: 4,
-    amount: 32500,
-    vat_rate: 15,
-    vat_amount: 4875,
-    total_amount: 37375,
-    status: 'pending',
-    issue_date: '2024-03-10',
-    due_date: '2024-04-10',
-    paid_date: null,
-    payment_method: null,
-    notes: '',
-    created_at: '2024-03-10T10:30:00Z',
-    updated_at: '2024-03-10T10:30:00Z'
-  }
-];
-
+// GET - Fetch invoices with optional filters
 export async function GET(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const job_id = searchParams.get('job_id');
     const client_id = searchParams.get('client_id');
     
-    let filteredInvoices = [...invoices];
+    let sql = `
+      SELECT 
+        i.*,
+        c.name as client_name,
+        j.lc_number as job_number
+      FROM invoices i
+      LEFT JOIN clients c ON i.client_id = c.id
+      LEFT JOIN jobs j ON i.job_id = j.id
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 1;
     
     if (status && status !== 'all') {
-      filteredInvoices = filteredInvoices.filter(inv => inv.status === status);
+      sql += ` AND i.status = $${paramCount}`;
+      params.push(status);
+      paramCount++;
     }
     
     if (job_id) {
-      filteredInvoices = filteredInvoices.filter(inv => inv.job_id === parseInt(job_id));
+      sql += ` AND i.job_id = $${paramCount}`;
+      params.push(parseInt(job_id));
+      paramCount++;
     }
     
     if (client_id) {
-      filteredInvoices = filteredInvoices.filter(inv => inv.client_id === parseInt(client_id));
+      sql += ` AND i.client_id = $${paramCount}`;
+      params.push(parseInt(client_id));
+      paramCount++;
     }
     
-    const stats = {
-      total_invoiced: invoices.reduce((sum, inv) => sum + inv.total_amount, 0),
-      total_paid: invoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total_amount, 0),
-      total_pending: invoices.filter(inv => inv.status === 'pending').reduce((sum, inv) => sum + inv.total_amount, 0),
-      total_overdue: invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total_amount, 0),
-      total_draft: invoices.filter(inv => inv.status === 'draft').reduce((sum, inv) => sum + inv.total_amount, 0),
-      count_paid: invoices.filter(inv => inv.status === 'paid').length,
-      count_pending: invoices.filter(inv => inv.status === 'pending').length,
-      count_overdue: invoices.filter(inv => inv.status === 'overdue').length,
-      count_draft: invoices.filter(inv => inv.status === 'draft').length
+    sql += ` ORDER BY i.created_at DESC`;
+    
+    const result = await query(sql, params);
+    const invoices = result.rows;
+    
+    // Get stats
+    const statsResult = await query(`
+      SELECT 
+        COALESCE(SUM(total_amount), 0) as total_invoiced,
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN total_amount ELSE 0 END), 0) as total_paid,
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN total_amount ELSE 0 END), 0) as total_pending,
+        COALESCE(SUM(CASE WHEN status = 'overdue' THEN total_amount ELSE 0 END), 0) as total_overdue,
+        COALESCE(SUM(CASE WHEN status = 'draft' THEN total_amount ELSE 0 END), 0) as total_draft,
+        COUNT(CASE WHEN status = 'paid' THEN 1 END) as count_paid,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as count_pending,
+        COUNT(CASE WHEN status = 'overdue' THEN 1 END) as count_overdue,
+        COUNT(CASE WHEN status = 'draft' THEN 1 END) as count_draft
+      FROM invoices
+    `);
+    
+    const stats = statsResult.rows[0] || {
+      total_invoiced: 0,
+      total_paid: 0,
+      total_pending: 0,
+      total_overdue: 0,
+      total_draft: 0,
+      count_paid: 0,
+      count_pending: 0,
+      count_overdue: 0,
+      count_draft: 0
     };
     
     return NextResponse.json({
       success: true,
-      data: filteredInvoices,
+      data: invoices,
       stats: stats,
-      total: filteredInvoices.length
+      total: invoices.length
     });
     
   } catch (error) {
@@ -154,23 +95,69 @@ export async function GET(request) {
   }
 }
 
+// POST - Create new invoice
 export async function POST(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
+    const { 
+      client_id, 
+      job_id, 
+      amount, 
+      vat_rate = 15,
+      issue_date,
+      due_date,
+      notes 
+    } = body;
     
-    const newInvoice = {
-      id: invoices.length + 1,
-      invoice_number: `INV-2024-00${invoices.length + 1}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      ...body
-    };
+    // Calculate amounts
+    const vat_amount = (amount * vat_rate) / 100;
+    const total_amount = amount + vat_amount;
     
-    invoices.push(newInvoice);
+    // Generate invoice number
+    const year = new Date().getFullYear();
+    const countResult = await query(
+      `SELECT COUNT(*) as count FROM invoices WHERE EXTRACT(YEAR FROM created_at) = $1`,
+      [year]
+    );
+    const count = parseInt(countResult.rows[0].count) + 1;
+    const invoice_number = `INV-${year}-${String(count).padStart(4, '0')}`;
+    
+    // Get client name and job number
+    let client_name = null;
+    let job_number = null;
+    
+    if (client_id) {
+      const clientResult = await query(`SELECT name FROM clients WHERE id = $1`, [client_id]);
+      if (clientResult.rows[0]) client_name = clientResult.rows[0].name;
+    }
+    
+    if (job_id) {
+      const jobResult = await query(`SELECT lc_number FROM jobs WHERE id = $1`, [job_id]);
+      if (jobResult.rows[0]) job_number = jobResult.rows[0].lc_number;
+    }
+    
+    const result = await query(
+      `INSERT INTO invoices (
+        invoice_number, client_id, client_name, job_id, job_number,
+        amount, vat_rate, vat_amount, total_amount, status,
+        issue_date, due_date, notes, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING *`,
+      [
+        invoice_number, client_id, client_name, job_id, job_number,
+        amount, vat_rate, vat_amount, total_amount, 'draft',
+        issue_date, due_date, notes, auth.userId
+      ]
+    );
     
     return NextResponse.json({
       success: true,
-      data: newInvoice
+      data: result.rows[0]
     }, { status: 201 });
     
   } catch (error) {
@@ -182,27 +169,53 @@ export async function POST(request) {
   }
 }
 
+// PUT - Update invoice (mark as paid, update status)
 export async function PUT(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, status, paid_date } = body;
     
-    const invoiceIndex = invoices.findIndex(inv => inv.id === id);
-    
-    if (invoiceIndex === -1) {
+    // Get current invoice
+    const currentResult = await query(`SELECT * FROM invoices WHERE id = $1`, [id]);
+    if (currentResult.rows.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'Invoice not found'
       }, { status: 404 });
     }
     
-    if (status) invoices[invoiceIndex].status = status;
-    if (paid_date) invoices[invoiceIndex].paid_date = paid_date;
-    invoices[invoiceIndex].updated_at = new Date().toISOString();
+    const updates = [];
+    const params = [];
+    let paramCount = 1;
+    
+    if (status) {
+      updates.push(`status = $${paramCount}`);
+      params.push(status);
+      paramCount++;
+    }
+    
+    if (paid_date) {
+      updates.push(`paid_date = $${paramCount}`);
+      params.push(paid_date);
+      paramCount++;
+    }
+    
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(id);
+    
+    const result = await query(
+      `UPDATE invoices SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+      params
+    );
     
     return NextResponse.json({
       success: true,
-      data: invoices[invoiceIndex]
+      data: result.rows[0]
     });
     
   } catch (error) {
@@ -214,21 +227,34 @@ export async function PUT(request) {
   }
 }
 
+// DELETE - Delete invoice (only draft status)
 export async function DELETE(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
-    const invoiceIndex = invoices.findIndex(inv => inv.id === parseInt(id));
-    
-    if (invoiceIndex === -1) {
+    // Check if invoice exists and is draft
+    const checkResult = await query(`SELECT status FROM invoices WHERE id = $1`, [id]);
+    if (checkResult.rows.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'Invoice not found'
       }, { status: 404 });
     }
     
-    invoices.splice(invoiceIndex, 1);
+    if (checkResult.rows[0].status !== 'draft') {
+      return NextResponse.json({
+        success: false,
+        error: 'Only draft invoices can be deleted'
+      }, { status: 400 });
+    }
+    
+    await query(`DELETE FROM invoices WHERE id = $1`, [id]);
     
     return NextResponse.json({
       success: true,
