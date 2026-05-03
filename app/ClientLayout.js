@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ThemeProvider } from '@/app/context/ThemeContext';
-import { AuthProvider } from '@/app/context/AuthContext';
+import { AuthProvider } from '@/app/hooks/useAuth';
 import { CurrencyProvider } from '@/app/context/CurrencyContext';
 import { NotificationProvider } from '@/app/context/NotificationContext';
 import { PermissionProvider } from '@/app/context/PermissionContext';
