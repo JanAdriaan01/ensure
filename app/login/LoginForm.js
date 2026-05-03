@@ -19,10 +19,10 @@ export default function LoginForm() {
   // If already authenticated, redirect immediately
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      console.log('Already authenticated, redirecting to:', redirectTo);
-      router.replace(redirectTo);
+      console.log('Already authenticated in form, redirecting');
+      window.location.href = redirectTo;
     }
-  }, [isAuthenticated, authLoading, router, redirectTo]);
+  }, [isAuthenticated, authLoading, redirectTo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,8 +36,7 @@ export default function LoginForm() {
       console.log('Login result:', result);
       
       if (result && result.success === true) {
-        console.log('Login successful, redirecting to:', redirectTo);
-        // Use window.location for a hard redirect to ensure it works
+        console.log('Login successful, redirecting');
         window.location.href = redirectTo;
       } else {
         setError(result?.error || 'Login failed. Please check your credentials.');
@@ -50,6 +49,11 @@ export default function LoginForm() {
     }
   };
 
+  // Clear any stale error when email/password change
+  useEffect(() => {
+    if (error) setError('');
+  }, [email, password]);
+
   // Don't show form if already authenticated (will redirect)
   if (!authLoading && isAuthenticated) {
     return (
@@ -57,7 +61,7 @@ export default function LoginForm() {
         <div className="login-card">
           <div className="login-header">
             <h1>ENSURE System</h1>
-            <p>Redirecting to dashboard...</p>
+            <p>Already logged in. Redirecting to dashboard...</p>
           </div>
         </div>
       </div>
