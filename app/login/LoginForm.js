@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/app/hooks/useAuth';
 
@@ -8,13 +8,21 @@ export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // If already authenticated, redirect immediately
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      console.log('Already authenticated, redirecting to:', redirectTo);
+      router.replace(redirectTo);
+    }
+  }, [isAuthenticated, authLoading, router, redirectTo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,10 +37,8 @@ export default function LoginForm() {
       
       if (result && result.success === true) {
         console.log('Login successful, redirecting to:', redirectTo);
-        // Small delay to ensure state updates
-        setTimeout(() => {
-          router.push(redirectTo);
-        }, 100);
+        // Use window.location for a hard redirect to ensure it works
+        window.location.href = redirectTo;
       } else {
         setError(result?.error || 'Login failed. Please check your credentials.');
       }
@@ -43,6 +49,20 @@ export default function LoginForm() {
       setLoading(false);
     }
   };
+
+  // Don't show form if already authenticated (will redirect)
+  if (!authLoading && isAuthenticated) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <div className="login-header">
+            <h1>ENSURE System</h1>
+            <p>Redirecting to dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-container">
