@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
@@ -11,7 +13,7 @@ export async function GET(request) {
 
     // Get user details
     const result = await query(
-      `SELECT id, email, name, role, is_active, created_at 
+      `SELECT id, email, name, role, is_active, created_at, phone, avatar_url, last_login 
        FROM users 
        WHERE id = $1 AND is_active = true`,
       [auth.userId]
@@ -22,6 +24,12 @@ export async function GET(request) {
     }
 
     const user = result.rows[0];
+
+    // Update last login
+    await query(
+      `UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1`,
+      [auth.userId]
+    );
 
     // Get user permissions based on role
     const permissions = getPermissionsForRole(user.role);
