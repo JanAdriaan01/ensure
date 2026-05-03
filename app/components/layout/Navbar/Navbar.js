@@ -11,7 +11,6 @@ export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const [openDropdown, setOpenDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const dropdownRef = useRef(null);
   let closeTimeout = null;
 
   const handleMouseEnter = (moduleTitle) => {
@@ -32,16 +31,6 @@ export default function Navbar() {
     return () => {
       if (closeTimeout) clearTimeout(closeTimeout);
     };
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const navModules = [
@@ -99,36 +88,33 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="nav-container">
-        {/* Logo / Brand */}
+        {/* Logo */}
         <div className="nav-brand">
-          <Link href="/">
-            <span className="brand-text">ENSURE</span>
-          </Link>
+          <Link href="/">ENSURE</Link>
         </div>
 
         {/* Desktop Navigation */}
-        <div className="nav-menu">
+        <div className="nav-links">
           {navModules.map((module) => (
             <div
               key={module.title}
               className="nav-item"
-              ref={dropdownRef}
               onMouseEnter={() => handleMouseEnter(module.title)}
               onMouseLeave={handleMouseLeave}
             >
-              <button className="nav-link">
+              <button className="nav-button">
                 {module.title}
-                <svg className={`dropdown-icon ${openDropdown === module.title ? 'rotate' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className={`dropdown-arrow ${openDropdown === module.title ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </button>
               {openDropdown === module.title && (
-                <div className="dropdown-menu">
+                <div className="dropdown">
                   {module.links.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}
-                      className={`dropdown-item ${pathname === link.href ? 'active' : ''}`}
+                      className={`dropdown-link ${pathname === link.href ? 'active' : ''}`}
                       onClick={() => setOpenDropdown(null)}
                     >
                       {link.label}
@@ -140,34 +126,14 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right Side Actions */}
+        {/* Right Side */}
         <div className="nav-actions">
-          <button onClick={toggleTheme} className="theme-toggle">
-            {theme === 'dark' ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="5" />
-                <line x1="12" y1="1" x2="12" y2="3" />
-                <line x1="12" y1="21" x2="12" y2="23" />
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                <line x1="1" y1="12" x2="3" y2="12" />
-                <line x1="21" y1="12" x2="23" y2="12" />
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-              </svg>
-            )}
+          <button onClick={toggleTheme} className="theme-btn">
+            {theme === 'dark' ? '☀️' : '🌙'}
           </button>
           <CurrencySelector />
-          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
+          <button className="mobile-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            ☰
           </button>
         </div>
       </div>
@@ -176,20 +142,18 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="mobile-menu">
           {navModules.map((module) => (
-            <div key={module.title} className="mobile-module">
-              <div className="mobile-module-title">{module.title}</div>
-              <div className="mobile-module-links">
-                {module.links.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`mobile-link ${pathname === link.href ? 'active' : ''}`}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
+            <div key={module.title} className="mobile-group">
+              <div className="mobile-group-title">{module.title}</div>
+              {module.links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="mobile-link"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
           ))}
           <button onClick={toggleTheme} className="mobile-theme-btn">
@@ -199,14 +163,12 @@ export default function Navbar() {
       )}
 
       <style jsx>{`
-        /* Navbar Container */
         .navbar {
-          background: var(--card-bg);
+          background: var(--bg-primary);
           border-bottom: 1px solid var(--border-light);
           position: sticky;
           top: 0;
-          z-index: 1000;
-          width: 100%;
+          z-index: 100;
         }
 
         .nav-container {
@@ -219,73 +181,64 @@ export default function Navbar() {
           height: 64px;
         }
 
-        /* Brand */
         .nav-brand a {
-          text-decoration: none;
-        }
-
-        .brand-text {
           font-size: 1.25rem;
           font-weight: 700;
           color: var(--text-primary);
-          letter-spacing: -0.5px;
+          text-decoration: none;
         }
 
-        .brand-text:hover {
-          color: var(--primary);
-        }
-
-        /* Desktop Menu */
-        .nav-menu {
+        .nav-links {
           display: flex;
+          gap: 0.5rem;
           align-items: center;
-          gap: 0.25rem;
         }
 
         .nav-item {
           position: relative;
         }
 
-        .nav-link {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.5rem 1rem;
+        .nav-button {
           background: transparent;
           border: none;
+          padding: 0.5rem 1rem;
           font-size: 0.875rem;
           font-weight: 500;
           color: var(--text-secondary);
           cursor: pointer;
-          border-radius: 0.5rem;
-          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          border-radius: 0.375rem;
+          transition: all 0.2s;
         }
 
-        .nav-link:hover {
+        .nav-button:hover {
           background: var(--bg-tertiary);
           color: var(--text-primary);
         }
 
-        .dropdown-icon {
-          transition: transform 0.2s ease;
+        .dropdown-arrow {
+          transition: transform 0.2s;
         }
 
-        .dropdown-icon.rotate {
+        .dropdown-arrow.open {
           transform: rotate(180deg);
         }
 
-        /* Dropdown Menu */
-        .dropdown-menu {
+        .dropdown {
           position: absolute;
-          top: calc(100% + 0.5rem);
+          top: 100%;
           left: 0;
+          margin-top: 0.5rem;
           min-width: 200px;
           background: var(--card-bg);
           border: 1px solid var(--border-light);
           border-radius: 0.5rem;
           box-shadow: var(--shadow-lg);
-          z-index: 1001;
-          overflow: hidden;
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
           animation: fadeIn 0.15s ease;
         }
 
@@ -300,104 +253,74 @@ export default function Navbar() {
           }
         }
 
-        .dropdown-item {
-          display: block;
+        .dropdown-link {
           padding: 0.625rem 1rem;
-          font-size: 0.875rem;
           color: var(--text-secondary);
           text-decoration: none;
-          transition: all 0.15s ease;
+          font-size: 0.875rem;
+          transition: all 0.15s;
           border-left: 2px solid transparent;
         }
 
-        .dropdown-item:hover {
+        .dropdown-link:hover {
           background: var(--bg-tertiary);
           color: var(--text-primary);
         }
 
-        .dropdown-item.active {
+        .dropdown-link.active {
           color: var(--primary);
           background: var(--primary-bg);
           border-left-color: var(--primary);
         }
 
-        /* Right Actions */
         .nav-actions {
           display: flex;
           align-items: center;
           gap: 0.5rem;
         }
 
-        .theme-toggle {
+        .theme-btn {
+          background: var(--bg-tertiary);
+          border: none;
+          width: 36px;
+          height: 36px;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          font-size: 1rem;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
-          background: var(--bg-tertiary);
-          border: none;
-          border-radius: 0.5rem;
-          cursor: pointer;
-          color: var(--text-secondary);
-          transition: all 0.2s ease;
         }
 
-        .theme-toggle:hover {
-          background: var(--bg-quaternary);
-          color: var(--text-primary);
-        }
-
-        .mobile-menu-btn {
+        .mobile-btn {
           display: none;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
           background: var(--bg-tertiary);
           border: none;
+          width: 36px;
+          height: 36px;
           border-radius: 0.5rem;
           cursor: pointer;
-          color: var(--text-secondary);
+          font-size: 1.25rem;
+          font-weight: 500;
         }
 
-        /* Mobile Menu */
         .mobile-menu {
-          position: fixed;
-          top: 64px;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          display: none;
+          padding: 1rem 1.5rem;
           background: var(--card-bg);
           border-top: 1px solid var(--border-light);
-          padding: 1rem 1.5rem;
+          max-height: calc(100vh - 64px);
           overflow-y: auto;
-          z-index: 999;
-          animation: slideIn 0.25s ease;
         }
 
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        .mobile-module {
+        .mobile-group {
           margin-bottom: 1rem;
           padding-bottom: 1rem;
           border-bottom: 1px solid var(--border-light);
         }
 
-        .mobile-module:last-child {
-          border-bottom: none;
-        }
-
-        .mobile-module-title {
-          font-size: 0.75rem;
+        .mobile-group-title {
+          font-size: 0.7rem;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -405,45 +328,40 @@ export default function Navbar() {
           margin-bottom: 0.5rem;
         }
 
-        .mobile-module-links {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
         .mobile-link {
+          display: block;
           padding: 0.5rem 0;
-          font-size: 0.875rem;
           color: var(--text-secondary);
           text-decoration: none;
-          transition: color 0.15s ease;
+          font-size: 0.875rem;
         }
 
-        .mobile-link:hover,
-        .mobile-link.active {
+        .mobile-link:hover {
           color: var(--primary);
         }
 
         .mobile-theme-btn {
           width: 100%;
-          padding: 0.625rem;
+          padding: 0.5rem;
           background: var(--bg-tertiary);
           border: none;
           border-radius: 0.5rem;
           color: var(--text-primary);
-          font-size: 0.875rem;
-          font-weight: 500;
           cursor: pointer;
-          margin-top: 1rem;
+          margin-top: 0.5rem;
         }
 
-        /* Responsive */
         @media (max-width: 900px) {
-          .nav-menu {
+          .nav-links {
             display: none;
           }
-          .mobile-menu-btn {
+          .mobile-btn {
             display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .mobile-menu {
+            display: block;
           }
         }
       `}</style>
