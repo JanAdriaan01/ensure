@@ -1,3 +1,4 @@
+// app/api/quotes/route.js
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
@@ -107,8 +108,8 @@ export async function POST(request) {
         quote_number, client_id, client_name, site_name, contact_person,
         quote_prepared_by, scope_subject, quote_date, status, notes,
         subtotal, vat_rate, vat_amount, total_amount, currency,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12, $13, $14, NOW())
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12, $13, $14, NOW(), NOW())
       RETURNING *`,
       [
         quote_number, client_id || null, finalClientName, site_name || null,
@@ -120,16 +121,28 @@ export async function POST(request) {
     
     const quoteId = result.rows[0].id;
     
+    // Insert line items with proper calculations
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+      const quantity = parseFloat(item.quantity) || 1;
+      const unit_price = parseFloat(item.unit_price) || 0;
+      const total_price = quantity * unit_price;
+      
       await query(
         `INSERT INTO quote_items (
           quote_id, description, quantity, unit_price, total_price,
-          item_type, notes, sort_order
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [quoteId, item.description, item.quantity || 1, item.unit_price || 0,
-         (item.quantity || 1) * (item.unit_price || 0), item.item_type || 'service',
-         item.notes || null, i + 1]
+          item_type, notes, sort_order, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+        [
+          quoteId, 
+          item.description, 
+          quantity, 
+          unit_price, 
+          total_price, 
+          item.item_type || 'service',
+          item.notes || null, 
+          i + 1
+        ]
       );
     }
     
@@ -227,40 +240,50 @@ export async function PUT(request) {
           [po_number, po_date || now.toISOString().split('T')[0], quote.total_amount, id]
         );
         
-        // Create job ONLY when PO is received
-        const year = new Date().getFullYear();
-        const jobCountResult = await query(
-          `SELECT COUNT(*) as count FROM jobs WHERE EXTRACT(YEAR FROM created_at) = $1`,
-          [year]
-        );
-        const jobCount = parseInt(jobCountResult.rows[0].count) + 1;
-        const lcNumber = `LC-${year}-${String(jobCount).padStart(4, '0')}`;
-        
-        // Create the job
-        const jobResult = await query(
-          `INSERT INTO jobs (
-            lc_number, client_id, description, po_status, completion_status,
-            po_number, po_amount, total_budget, quote_id, created_by, created_at, updated_at
-          ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $5, $6, $7, NOW(), NOW())
-          RETURNING id, lc_number`,
-          [lcNumber, quote.client_id, `Job from quote: ${quote.quote_number}`, po_number, quote.total_amount, id, auth.userId]
-        );
-        
-        const jobId = jobResult.rows[0].id;
-        
-        // Update quote with job reference
-        await query(`UPDATE quotes SET job_id = $1 WHERE id = $2`, [jobId, id]);
-        
-        // Copy quote items to job items
-        const quoteItems = await query(`SELECT * FROM quote_items WHERE quote_id = $1 ORDER BY sort_order`, [id]);
-        for (const item of quoteItems.rows) {
-          await query(
-            `INSERT INTO job_items (
-              job_id, description, quantity, unit_price, total_price,
-              item_type, status, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())`,
-            [jobId, item.description, item.quantity, item.unit_price, item.total_price, item.item_type || 'service']
+        // Check if job already exists for this quote
+        if (!quote.job_id) {
+          // Create job ONLY when PO is received
+          const year = new Date().getFullYear();
+          const jobCountResult = await query(
+            `SELECT COUNT(*) as count FROM jobs WHERE EXTRACT(YEAR FROM created_at) = $1`,
+            [year]
           );
+          const jobCount = parseInt(jobCountResult.rows[0].count) + 1;
+          const lcNumber = `LC-${year}-${String(jobCount).padStart(4, '0')}`;
+          
+          // Create the job
+          const jobResult = await query(
+            `INSERT INTO jobs (
+              lc_number, client_id, description, po_status, completion_status,
+              po_number, po_amount, total_budget, quote_id, created_by, created_at, updated_at
+            ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $5, $6, $7, NOW(), NOW())
+            RETURNING id, lc_number`,
+            [lcNumber, quote.client_id, `Job from quote: ${quote.quote_number}`, po_number, quote.total_amount, id, auth.userId]
+          );
+          
+          const jobId = jobResult.rows[0].id;
+          
+          // Update quote with job reference
+          await query(`UPDATE quotes SET job_id = $1, updated_at = NOW() WHERE id = $2`, [jobId, id]);
+          
+          // Copy quote items to job items
+          const quoteItems = await query(
+            `SELECT description, quantity, unit_price, total_price, item_type 
+             FROM quote_items 
+             WHERE quote_id = $1 
+             ORDER BY sort_order`, 
+            [id]
+          );
+          
+          for (const item of quoteItems.rows) {
+            await query(
+              `INSERT INTO job_items (
+                job_id, description, quantity, unit_price, total_price,
+                item_type, status, created_at, updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())`,
+              [jobId, item.description, item.quantity, item.unit_price, item.total_price, item.item_type || 'service']
+            );
+          }
         }
         break;
         
@@ -278,9 +301,13 @@ export async function PUT(request) {
     
     await query('COMMIT');
     
+    const message = action === 'receive_po' 
+      ? 'PO received and job created successfully' 
+      : `Quote ${action}ed successfully`;
+    
     return NextResponse.json({ 
       success: true, 
-      message: `Quote ${action === 'receive_po' ? 'PO received and job created' : action + 'ed'} successfully` 
+      message 
     });
   } catch (error) {
     await query('ROLLBACK');
@@ -313,11 +340,14 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Only draft quotes can be deleted' }, { status: 400 });
     }
     
+    await query('BEGIN');
     await query(`DELETE FROM quote_items WHERE quote_id = $1`, [id]);
     await query(`DELETE FROM quotes WHERE id = $1`, [id]);
+    await query('COMMIT');
     
     return NextResponse.json({ success: true, message: 'Quote deleted successfully' });
   } catch (error) {
+    await query('ROLLBACK');
     console.error('Error deleting quote:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
