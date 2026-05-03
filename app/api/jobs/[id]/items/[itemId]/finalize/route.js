@@ -1,30 +1,39 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
 
+// POST - Finalize a job item
 export async function POST(request, { params }) {
   try {
-    const { id, itemId } = params;
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id, itemId } = await params;
+    const jobId = parseInt(id);
+    const itemIdNum = parseInt(itemId);
     const { actual_quantity, actual_cost } = await request.json();
     
-    console.log('Finalizing item:', { id, itemId, actual_quantity, actual_cost });
-    
-    // Validate inputs
     if (!actual_quantity || !actual_cost) {
       return NextResponse.json({ error: 'Actual quantity and cost are required' }, { status: 400 });
     }
     
     await query('BEGIN');
     
-    // Update the job item
+    // Update job item
     const result = await query(
       `UPDATE job_items 
        SET actual_quantity = $1,
            actual_cost = $2,
            is_finalized = TRUE,
-           completion_status = 'completed'
+           completion_status = 'completed',
+           finalized_at = CURRENT_TIMESTAMP
        WHERE id = $3 AND job_id = $4
        RETURNING *`,
-      [actual_quantity, actual_cost, itemId, id]
+      [actual_quantity, actual_cost, itemIdNum, jobId]
     );
     
     if (result.rows.length === 0) {
@@ -32,46 +41,61 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
     
-    // Calculate unit price
-    const unitPrice = actual_cost / actual_quantity;
-    
-    // Create invoice line item
-    await query(
-      `INSERT INTO invoice_line_items (
-        job_id, 
-        job_item_id, 
-        invoice_date, 
-        quantity, 
-        unit_price, 
-        total_amount, 
-        is_billed
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [id, itemId, new Date().toISOString().split('T')[0], actual_quantity, unitPrice, actual_cost, false]
-    );
-    
     // Update job totals
     await query(
       `UPDATE jobs 
        SET total_actual = (
-         SELECT COALESCE(SUM(actual_cost), 0) 
-         FROM job_items 
+         SELECT COALESCE(SUM(actual_cost), 0)
+         FROM job_items
          WHERE job_id = $1 AND is_finalized = TRUE
        )
        WHERE id = $1`,
-      [id]
+      [jobId]
     );
     
     await query('COMMIT');
     
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       item: result.rows[0],
-      message: 'Item finalized and ready for invoicing'
+      message: 'Item finalized successfully'
     });
-    
   } catch (error) {
     await query('ROLLBACK');
     console.error('Error finalizing item:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// GET - Check if item can be finalized
+export async function GET(request, { params }) {
+  try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id, itemId } = await params;
+    const jobId = parseInt(id);
+    const itemIdNum = parseInt(itemId);
+    
+    const item = await query(
+      `SELECT * FROM job_items WHERE id = $1 AND job_id = $2`,
+      [itemIdNum, jobId]
+    );
+    
+    if (item.rows.length === 0) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
+    
+    const canFinalize = !item.rows[0].is_finalized;
+    
+    return NextResponse.json({
+      can_finalize: canFinalize,
+      item: item.rows[0]
+    });
+  } catch (error) {
+    console.error('Error checking finalize status:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

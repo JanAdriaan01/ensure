@@ -1,10 +1,18 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
 
-// GET - Fetch all skills for a specific employee
 export async function GET(request, { params }) {
   try {
-    const employeeId = parseInt(params.id);
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const employeeId = parseInt(id);
     
     if (isNaN(employeeId)) {
       return NextResponse.json({ error: 'Invalid employee ID' }, { status: 400 });
@@ -35,38 +43,38 @@ export async function GET(request, { params }) {
   }
 }
 
-// POST - Replace all skills for a specific employee (bulk update)
 export async function POST(request, { params }) {
   try {
-    const employeeId = parseInt(params.id);
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const employeeId = parseInt(id);
     
     if (isNaN(employeeId)) {
       return NextResponse.json({ error: 'Invalid employee ID' }, { status: 400 });
     }
 
     const body = await request.json();
-    const { skills } = body; // Array of { skill_id, years_experience } or { skill_name, years_experience }
+    const { skills } = body;
     
     if (!skills || !Array.isArray(skills)) {
       return NextResponse.json({ error: 'Skills array is required' }, { status: 400 });
     }
 
-    // Start transaction
     await query('BEGIN');
     
     try {
-      // Delete existing skills for this employee
       await query('DELETE FROM employee_skills WHERE employee_id = $1', [employeeId]);
       
-      // Insert new skills
       for (const skill of skills) {
         let skillId;
         
         if (skill.skill_id) {
-          // Already have the ID
           skillId = skill.skill_id;
         } else if (skill.skill_name) {
-          // Find or create skill by name
           const existingSkill = await query(
             'SELECT id FROM skills WHERE skill_name = $1',
             [skill.skill_name]
@@ -81,7 +89,7 @@ export async function POST(request, { params }) {
             skillId = newSkill.rows[0].id;
           }
         } else {
-          continue; // Skip invalid entries
+          continue;
         }
         
         await query(
@@ -93,7 +101,6 @@ export async function POST(request, { params }) {
       
       await query('COMMIT');
       
-      // Fetch and return updated skills
       const updated = await query(`
         SELECT s.skill_name, es.years_experience
         FROM employee_skills es
@@ -112,71 +119,6 @@ export async function POST(request, { params }) {
     }
   } catch (error) {
     console.error('Error updating employee skills:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// PUT - Update a specific skill for an employee (years of experience)
-export async function PUT(request, { params }) {
-  try {
-    const employeeId = parseInt(params.id);
-    const { skill_id, years_experience } = await request.json();
-    
-    if (isNaN(employeeId)) {
-      return NextResponse.json({ error: 'Invalid employee ID' }, { status: 400 });
-    }
-    
-    if (!skill_id) {
-      return NextResponse.json({ error: 'Skill ID is required' }, { status: 400 });
-    }
-    
-    // Check if employee has this skill
-    const exists = await query(
-      'SELECT * FROM employee_skills WHERE employee_id = $1 AND skill_id = $2',
-      [employeeId, skill_id]
-    );
-    
-    if (exists.rows.length === 0) {
-      return NextResponse.json({ error: 'Employee does not have this skill' }, { status: 404 });
-    }
-    
-    await query(
-      `UPDATE employee_skills 
-       SET years_experience = $1
-       WHERE employee_id = $2 AND skill_id = $3`,
-      [years_experience || 0, employeeId, skill_id]
-    );
-    
-    return NextResponse.json({ success: true, message: 'Skill updated successfully' });
-  } catch (error) {
-    console.error('Error updating employee skill:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// DELETE - Remove a specific skill from an employee
-export async function DELETE(request, { params }) {
-  try {
-    const employeeId = parseInt(params.id);
-    const url = new URL(request.url);
-    const skillId = url.searchParams.get('skill_id');
-    
-    if (isNaN(employeeId)) {
-      return NextResponse.json({ error: 'Invalid employee ID' }, { status: 400 });
-    }
-    
-    if (!skillId) {
-      return NextResponse.json({ error: 'Skill ID is required' }, { status: 400 });
-    }
-    
-    await query(
-      'DELETE FROM employee_skills WHERE employee_id = $1 AND skill_id = $2',
-      [employeeId, parseInt(skillId)]
-    );
-    
-    return NextResponse.json({ success: true, message: 'Skill removed from employee successfully' });
-  } catch (error) {
-    console.error('Error removing employee skill:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

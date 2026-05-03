@@ -1,69 +1,64 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
 
+// GET - Fetch invoices for a job
+export async function GET(request, { params }) {
+  try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const jobId = parseInt(id);
+    
+    const invoices = await query(`
+      SELECT 
+        i.*,
+        COUNT(ili.id) as line_items_count
+      FROM invoices i
+      LEFT JOIN invoice_line_items ili ON i.id = ili.invoice_id
+      WHERE i.job_id = $1
+      GROUP BY i.id
+      ORDER BY i.created_at DESC
+    `, [jobId]);
+    
+    return NextResponse.json(invoices.rows);
+  } catch (error) {
+    console.error('Error fetching job invoices:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// POST - Create invoice for job
 export async function POST(request, { params }) {
   try {
-    const jobId = parseInt(params.id);
-    const { invoice_number, invoice_date, due_date, notes, item_ids } = await request.json();
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const jobId = parseInt(id);
+    const { invoice_number, invoice_date, due_date, total_amount, notes } = await request.json();
     
-    if (!invoice_number || !item_ids || item_ids.length === 0) {
-      return NextResponse.json({ error: 'Invoice number and items are required' }, { status: 400 });
+    if (!invoice_number || !total_amount) {
+      return NextResponse.json({ error: 'Invoice number and amount are required' }, { status: 400 });
     }
     
-    await query('BEGIN');
-    
-    // Calculate total amount
-    const itemsResult = await query(
-      `SELECT SUM(ji.quoted_quantity * ji.quoted_unit_price) as total
-       FROM job_items ji
-       WHERE ji.id = ANY($1::int[]) AND ji.job_id = $2 AND ji.is_finalized = TRUE`,
-      [item_ids, jobId]
+    const result = await query(
+      `INSERT INTO invoices (job_id, invoice_number, invoice_date, due_date, total_amount, notes, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_DATE)
+       RETURNING *`,
+      [jobId, invoice_number, invoice_date, due_date, total_amount, notes]
     );
     
-    const totalAmount = itemsResult.rows[0].total || 0;
-    
-    // Create invoice record
-    const invoiceResult = await query(
-      `INSERT INTO invoices (job_id, invoice_number, invoice_date, due_date, total_amount, notes, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'sent') RETURNING *`,
-      [jobId, invoice_number, invoice_date, due_date, totalAmount, notes]
-    );
-    
-    const invoiceId = invoiceResult.rows[0].id;
-    
-    // Create invoice line items
-    for (const itemId of item_ids) {
-      await query(
-        `INSERT INTO invoice_line_items (invoice_id, job_item_id, quantity, unit_price, total_amount)
-         SELECT $1, ji.id, ji.quoted_quantity, ji.quoted_unit_price, ji.quoted_quantity * ji.quoted_unit_price
-         FROM job_items ji
-         WHERE ji.id = $2`,
-        [invoiceId, itemId]
-      );
-      
-      // Mark item as invoiced (optional - you might want to track this separately)
-      await query(
-        `UPDATE job_items SET invoiced = TRUE WHERE id = $1`,
-        [itemId]
-      );
-    }
-    
-    // Update monthly invoicing summary
-    const month = invoice_date.substring(0, 7);
-    await query(
-      `INSERT INTO job_monthly_invoicing (job_id, invoice_month, amount_invoiced)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (job_id, invoice_month) 
-       DO UPDATE SET amount_invoiced = job_monthly_invoicing.amount_invoiced + $3`,
-      [jobId, month, totalAmount]
-    );
-    
-    await query('COMMIT');
-    
-    return NextResponse.json(invoiceResult.rows[0], { status: 201 });
+    return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) {
-    await query('ROLLBACK');
-    console.error('Error creating invoice:', error);
+    console.error('Error creating job invoice:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

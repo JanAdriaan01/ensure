@@ -1,8 +1,10 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import { query } from '../../../../../lib/db';  // Fixed path
+import { query } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 
-// POST /api/jobs/[id]/advance - Advance job to next stage
+// POST - Advance job to next stage
 export async function POST(request, { params }) {
   try {
     const auth = await verifyAuth(request);
@@ -11,7 +13,7 @@ export async function POST(request, { params }) {
     }
 
     const { id } = await params;
-    const { target_stage, force = false } = await request.json();
+    const { target_stage } = await request.json();
 
     // Call PostgreSQL function to advance stage
     const result = await query(
@@ -30,24 +32,11 @@ export async function POST(request, { params }) {
       }, { status: 422 });
     }
 
-    // If auto-advance happened, log it
-    if (advanceResult.new_stage !== target_stage) {
-      return NextResponse.json({
-        success: true,
-        message: `Auto-advanced from ${target_stage} to ${advanceResult.new_stage}`,
-        current_stage: advanceResult.new_stage,
-        warnings: advanceResult.warning_count,
-        info: advanceResult.info_count,
-        messages: advanceResult.messages
-      });
-    }
-
     return NextResponse.json({
       success: true,
       message: `Advanced to stage: ${target_stage}`,
       current_stage: target_stage,
       warnings: advanceResult.warning_count,
-      info: advanceResult.info_count,
       messages: advanceResult.messages
     });
 
@@ -60,7 +49,7 @@ export async function POST(request, { params }) {
   }
 }
 
-// GET /api/jobs/[id]/advance - Get available next stages
+// GET - Get available next stages
 export async function GET(request, { params }) {
   try {
     const auth = await verifyAuth(request);
@@ -70,7 +59,6 @@ export async function GET(request, { params }) {
 
     const { id } = await params;
 
-    // Get current stage
     const currentResult = await query(
       `SELECT current_stage, stage_status 
        FROM job_flow_tracking 
@@ -85,36 +73,17 @@ export async function GET(request, { params }) {
 
     const currentStage = currentResult.rows[0].current_stage;
 
-    // Get possible next stages
     const nextStages = await query(
-      `SELECT fs.stage_name, fs.stage_order, fs.description, fs.auto_advance, fs.approval_required
+      `SELECT fs.stage_name, fs.stage_order, fs.description, fs.auto_advance
        FROM flow_stages fs
        WHERE fs.stage_order > (SELECT stage_order FROM flow_stages WHERE stage_name = $1)
-       ORDER BY fs.stage_order ASC
-       LIMIT 3`,
+       ORDER BY fs.stage_order ASC`,
       [currentStage]
-    );
-
-    // Check validation for each potential next stage
-    const stagesWithValidation = await Promise.all(
-      nextStages.rows.map(async (stage) => {
-        const validation = await query(
-          `SELECT * FROM can_advance_stage($1, $2)`,
-          [id, stage.stage_name]
-        );
-        return {
-          ...stage,
-          can_advance: validation.rows[0].can_advance,
-          blocker_count: validation.rows[0].blocker_count,
-          warning_count: validation.rows[0].warning_count,
-          messages: validation.rows[0].messages
-        };
-      })
     );
 
     return NextResponse.json({
       current_stage: currentStage,
-      available_stages: stagesWithValidation
+      available_stages: nextStages.rows
     });
 
   } catch (error) {

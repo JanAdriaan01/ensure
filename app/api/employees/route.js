@@ -1,10 +1,17 @@
-import { NextResponse } from 'next/server';
-import { query } from '../../../lib/db.js';
+export const dynamic = 'force-dynamic';
 
-// GET all employees with summary
-export async function GET() {
+import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
+
+export async function GET(request) {
   try {
-    const employees = await query(`
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const result = await query(`
       SELECT 
         e.*,
         EXTRACT(YEAR FROM age(CURRENT_DATE, e.date_of_birth)) as age,
@@ -15,29 +22,39 @@ export async function GET() {
       GROUP BY e.id
       ORDER BY e.employee_number
     `);
-    return NextResponse.json(employees.rows);
+    
+    return NextResponse.json(result.rows);
   } catch (error) {
     console.error('Error fetching employees:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json([], { status: 200 });
   }
 }
 
-// POST create new employee
 export async function POST(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { 
-      employee_number, name, surname, date_of_birth, 
-      nationality, passport_number, work_permit, company_start_date 
+      employee_number, first_name, last_name, date_of_birth, 
+      nationality, passport_number, work_permit, company_start_date,
+      email, phone, position, department, hourly_rate
     } = body;
     
     const result = await query(
-      `INSERT INTO employees (employee_number, name, surname, date_of_birth, 
-        nationality, passport_number, work_permit, company_start_date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [employee_number, name, surname, date_of_birth, 
-       nationality, passport_number, work_permit, company_start_date]
+      `INSERT INTO employees (
+        employee_number, first_name, last_name, date_of_birth, 
+        nationality, passport_number, work_permit, company_start_date,
+        email, phone, position, department, hourly_rate, created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+      RETURNING *`,
+      [employee_number, first_name, last_name, date_of_birth, 
+       nationality, passport_number, work_permit, company_start_date,
+       email, phone, position, department, hourly_rate]
     );
     
     return NextResponse.json(result.rows[0], { status: 201 });

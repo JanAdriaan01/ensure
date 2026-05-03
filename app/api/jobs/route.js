@@ -1,35 +1,47 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
 
 // GET - Fetch all jobs
-export async function GET() {
+export async function GET(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const result = await query(`
       SELECT 
         j.*,
-        c.client_name,
+        c.name as client_name,
         q.quote_number,
-        COALESCE(SUM(ji.quoted_total), 0) as total_quoted,
+        COALESCE(SUM(ji.quoted_quantity * ji.quoted_unit_price), 0) as total_quoted,
         COALESCE(SUM(ji.actual_cost), 0) as total_actual
       FROM jobs j
       LEFT JOIN clients c ON j.client_id = c.id
       LEFT JOIN quotes q ON j.quote_id = q.id
       LEFT JOIN job_items ji ON j.id = ji.job_id
-      GROUP BY j.id, c.client_name, q.quote_number
+      GROUP BY j.id, c.name, q.quote_number
       ORDER BY j.id DESC
     `);
     
-    console.log(`Found ${result.rows.length} jobs`);
     return NextResponse.json(result.rows);
   } catch (error) {
     console.error('Error fetching jobs:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json([], { status: 200 });
   }
 }
 
-// POST - Create new job (manual creation - rarely used)
+// POST - Create new job
 export async function POST(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { lc_number, client_id, po_status, completion_status, po_amount, quote_id } = body;
     
@@ -49,6 +61,11 @@ export async function POST(request) {
 // PUT - Update job status
 export async function PUT(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
     const body = await request.json();
@@ -90,6 +107,11 @@ export async function PUT(request) {
 // DELETE - Delete job
 export async function DELETE(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
     

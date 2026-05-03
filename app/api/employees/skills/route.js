@@ -1,23 +1,35 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
 
-// GET - Fetch all available skills
-export async function GET() {
+export async function GET(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const result = await query(`
       SELECT * FROM skills 
       ORDER BY skill_name
     `);
+    
     return NextResponse.json(result.rows);
   } catch (error) {
     console.error('Error fetching skills:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json([], { status: 200 });
   }
 }
 
-// POST - Add a new skill
 export async function POST(request) {
   try {
+    const auth = await verifyAuth(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { skill_name } = await request.json();
     
     if (!skill_name) {
