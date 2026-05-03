@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 
-const WebSocketContext = createContext();
+const WebSocketContext = createContext(null);
 
 export function WebSocketProvider({ children }) {
   const { token, isAuthenticated } = useAuth();
@@ -11,16 +11,21 @@ export function WebSocketProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const eventSourceRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Track when we're on client side
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const connectSSE = useCallback(() => {
-    if (!isAuthenticated || !token) return;
+    if (!isClient || !isAuthenticated || !token) return;
     if (eventSourceRef.current) return;
 
     try {
       const eventSource = new EventSource(`/api/events?token=${token}`);
       
-      eventSource.addEventListener('connected', (event) => {
-        console.log('SSE connected');
+      eventSource.addEventListener('connected', () => {
         setIsConnected(true);
       });
 
@@ -33,12 +38,7 @@ export function WebSocketProvider({ children }) {
         }
       });
 
-      eventSource.addEventListener('heartbeat', (event) => {
-        // Keep connection alive
-      });
-
       eventSource.onerror = () => {
-        console.error('SSE error');
         setIsConnected(false);
         
         if (eventSourceRef.current) {
@@ -46,7 +46,6 @@ export function WebSocketProvider({ children }) {
           eventSourceRef.current = null;
         }
         
-        // Reconnect after delay
         reconnectTimeoutRef.current = setTimeout(() => {
           connectSSE();
         }, 5000);
@@ -56,7 +55,7 @@ export function WebSocketProvider({ children }) {
     } catch (error) {
       console.error('SSE connection error:', error);
     }
-  }, [isAuthenticated, token]);
+  }, [isClient, isAuthenticated, token]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -70,15 +69,16 @@ export function WebSocketProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && token) {
+    if (isClient && isAuthenticated && token) {
       connectSSE();
     }
     return () => {
       disconnect();
     };
-  }, [isAuthenticated, token, connectSSE, disconnect]);
+  }, [isClient, isAuthenticated, token, connectSSE, disconnect]);
 
   const sendMessage = useCallback(async (message) => {
+    if (!isClient) return;
     try {
       await fetch('/api/ws', {
         method: 'POST',
@@ -91,7 +91,7 @@ export function WebSocketProvider({ children }) {
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  }, [token]);
+  }, [token, isClient]);
 
   const value = {
     isConnected,
@@ -109,8 +109,14 @@ export function WebSocketProvider({ children }) {
 
 export function useWebSocket() {
   const context = useContext(WebSocketContext);
+  // Return safe default values instead of throwing error
   if (!context) {
-    throw new Error('useWebSocket must be used within a WebSocketProvider');
+    return {
+      isConnected: false,
+      messages: [],
+      sendMessage: () => {},
+      reconnect: () => {},
+    };
   }
   return context;
 }

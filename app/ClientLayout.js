@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { ThemeProvider } from '@/app/context/ThemeContext';
 import { AuthProvider } from '@/app/context/AuthContext';
 import { CurrencyProvider } from '@/app/context/CurrencyContext';
@@ -12,25 +13,46 @@ import Navbar from '@/app/components/layout/Navbar';
 import Footer from '@/app/components/layout/Footer';
 
 export default function ClientLayout({ children }) {
-  return (
-    <ThemeProvider>
-      <AuthProvider>
-        <CurrencyProvider>
-          <NotificationProvider>
-            <PermissionProvider>
-              <SettingsProvider>
-                <ToastProvider>
-                  <WebSocketProvider>
-                    <Navbar />
-                    <main>{children}</main>
-                    <Footer />
-                  </WebSocketProvider>
-                </ToastProvider>
-              </SettingsProvider>
-            </PermissionProvider>
-          </NotificationProvider>
-        </CurrencyProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  );
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Only render WebSocketProvider on client side
+  const renderProviders = () => {
+    const providers = (
+      <ThemeProvider>
+        <AuthProvider>
+          <CurrencyProvider>
+            <NotificationProvider>
+              <PermissionProvider>
+                <SettingsProvider>
+                  <ToastProvider>
+                    {mounted ? (
+                      <WebSocketProvider>
+                        <Navbar />
+                        <main>{children}</main>
+                        <Footer />
+                      </WebSocketProvider>
+                    ) : (
+                      <>
+                        <Navbar />
+                        <main>{children}</main>
+                        <Footer />
+                      </>
+                    )}
+                  </ToastProvider>
+                </SettingsProvider>
+              </PermissionProvider>
+            </NotificationProvider>
+          </CurrencyProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    );
+
+    return providers;
+  };
+
+  return renderProviders();
 }
