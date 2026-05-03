@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth';
 
 export default function LoginForm() {
@@ -27,7 +26,7 @@ export default function LoginForm() {
     if (result.success) {
       router.push(redirectTo);
     } else {
-      setError(result.error || 'Login failed. Please check your credentials.');
+      setError(result.error || 'Login failed');
     }
     setLoading(false);
   };
