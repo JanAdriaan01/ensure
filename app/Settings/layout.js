@@ -9,17 +9,23 @@ export default function SettingsLayout({ children }) {
   return (
     <div className="settings-layout">
       <div className="settings-sidebar">
-        <Link href="/settings" className={`sidebar-link ${pathname === '/settings' ? 'active' : ''}`}>
-          ⚙️ General Settings
+        <Link href="/Settings" className={`sidebar-link ${pathname === '/Settings' ? 'active' : ''}`}>
+          General Settings
         </Link>
-        <Link href="/settings/users" className={`sidebar-link ${pathname === '/settings/users' ? 'active' : ''}`}>
-          👥 User Management
+        <Link href="/Settings/company" className={`sidebar-link ${pathname === '/Settings/company' ? 'active' : ''}`}>
+          Company Information
         </Link>
-        <Link href="/settings/backup" className={`sidebar-link ${pathname === '/settings/backup' ? 'active' : ''}`}>
-          💾 Backup
+        <Link href="/Settings/terms" className={`sidebar-link ${pathname === '/Settings/terms' ? 'active' : ''}`}>
+          Terms & Conditions
         </Link>
-        <Link href="/settings/audit-logs" className={`sidebar-link ${pathname === '/settings/audit-logs' ? 'active' : ''}`}>
-          📋 Audit Logs
+        <Link href="/Settings/users" className={`sidebar-link ${pathname === '/Settings/users' ? 'active' : ''}`}>
+          User Management
+        </Link>
+        <Link href="/Settings/backup" className={`sidebar-link ${pathname === '/Settings/backup' ? 'active' : ''}`}>
+          Backup
+        </Link>
+        <Link href="/Settings/audit-logs" className={`sidebar-link ${pathname === '/Settings/audit-logs' ? 'active' : ''}`}>
+          Audit Logs
         </Link>
       </div>
       <div className="settings-content">
@@ -36,9 +42,9 @@ export default function SettingsLayout({ children }) {
         }
         .settings-sidebar {
           width: 260px;
-          background: #ffffff;
+          background: var(--card-bg);
           border-radius: 0.75rem;
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--card-border);
           padding: 0.5rem;
         }
         .dark .settings-sidebar {
@@ -71,9 +77,9 @@ export default function SettingsLayout({ children }) {
         }
         .settings-content {
           flex: 1;
-          background: #ffffff;
+          background: var(--card-bg);
           border-radius: 0.75rem;
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--card-border);
           padding: 1.5rem;
         }
         .dark .settings-content {
