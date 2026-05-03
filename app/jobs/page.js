@@ -1,3 +1,4 @@
+// app/jobs/page.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,7 +13,9 @@ export default function JobsPage() {
       try {
         const response = await fetch('/api/jobs');
         const data = await response.json();
-        setJobs(Array.isArray(data) ? data : (data.data || []));
+        // Handle both response formats
+        const jobsArray = data.data || (Array.isArray(data) ? data : []);
+        setJobs(jobsArray);
       } catch (error) {
         console.error('Error fetching jobs:', error);
       } finally {
@@ -22,18 +25,13 @@ export default function JobsPage() {
     fetchJobs();
   }, []);
 
-  const getStatusClass = (status) => {
-    switch(status) {
-      case 'approved': return 'status-approved';
-      case 'pending': return 'status-pending';
-      case 'in_progress': return 'status-in-progress';
-      case 'completed': return 'status-completed';
-      default: return 'status-not-started';
-    }
-  };
-
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 0 }).format(amount || 0);
+    if (!amount) return 'R 0';
+    return new Intl.NumberFormat('en-ZA', { 
+      style: 'currency', 
+      currency: 'ZAR', 
+      minimumFractionDigits: 0 
+    }).format(amount);
   };
 
   if (loading) {
@@ -43,7 +41,7 @@ export default function JobsPage() {
         <p>Loading jobs...</p>
         <style jsx>{`
           .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; }
-          .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--border-light); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+          .loading-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
           @keyframes spin { to { transform: rotate(360deg); } }
         `}</style>
       </div>
@@ -57,65 +55,71 @@ export default function JobsPage() {
           <h1>Job Management</h1>
           <p>Track and manage all construction jobs</p>
         </div>
-        <Link href="/jobs/new" className="btn-primary">+ New Job</Link>
+        <Link href="/quotes" className="btn-primary">+ New Job (from Quote)</Link>
       </div>
 
-      <div className="jobs-grid">
-        {jobs.map(job => (
-          <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
-            <div className="job-header">
-              <span className="job-number">{job.lc_number}</span>
-              <span className={`status-badge ${getStatusClass(job.completion_status || job.po_status)}`}>
-                {job.completion_status || job.po_status || 'Pending'}
-              </span>
-            </div>
-            <div className="job-client">{job.client_name || 'Unknown Client'}</div>
-            <div className="job-details">
-              <div className="job-detail">
-                <span className="detail-label">PO Amount</span>
-                <span className="detail-value">{formatCurrency(job.po_amount)}</span>
+      {jobs.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">📋</div>
+          <h3>No Jobs Available</h3>
+          <p>Jobs are automatically created when a PO number is entered for an approved quote.</p>
+          <Link href="/quotes" className="btn-primary">Go to Quotes</Link>
+        </div>
+      ) : (
+        <div className="jobs-grid">
+          {jobs.map(job => (
+            <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
+              <div className="job-header">
+                <span className="job-number">{job.job_number || `JOB-${job.id}`}</span>
+                <span className={`status-badge ${job.po_status === 'approved' ? 'status-approved' : 'status-pending'}`}>
+                  {job.po_status === 'approved' ? 'Ready for Management' : (job.po_status || 'Pending')}
+                </span>
               </div>
-              <div className="job-detail">
-                <span className="detail-label">Invoiced</span>
-                <span className="detail-value">{formatCurrency(job.total_invoiced || 0)}</span>
+              <div className="job-client">{job.client_name || 'Unknown Client'}</div>
+              <div className="job-details">
+                <div className="job-detail">
+                  <span className="detail-label">PO Number</span>
+                  <span className="detail-value">{job.po_number || 'Not assigned'}</span>
+                </div>
+                <div className="job-detail">
+                  <span className="detail-label">PO Amount</span>
+                  <span className="detail-value">{formatCurrency(job.po_amount)}</span>
+                </div>
               </div>
-            </div>
-            <div className="job-footer">
-              <span className="view-link">View Details →</span>
-            </div>
-          </Link>
-        ))}
-        {jobs.length === 0 && (
-          <div className="empty-state">
-            <p>No jobs found. Create your first job to get started.</p>
-          </div>
-        )}
-      </div>
+              <div className="job-footer">
+                <span className="view-link">Manage Job →</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
       <style jsx>{`
         .jobs-container { max-width: 1280px; margin: 0 auto; padding: 2rem; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
-        .page-header h1 { font-size: 1.875rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
-        .page-header p { color: var(--text-tertiary); }
-        .btn-primary { background: var(--primary); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; }
-        .jobs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
-        .job-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 0.75rem; padding: 1rem; text-decoration: none; transition: all 0.2s; display: block; }
-        .job-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--primary); }
-        .job-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-        .job-number { font-weight: 600; font-size: 1rem; color: var(--text-primary); }
-        .status-badge { padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
-        .status-approved, .status-completed { background: var(--success-bg); color: var(--success-dark); }
-        .status-pending, .status-not-started { background: var(--warning-bg); color: var(--warning-dark); }
-        .status-in-progress { background: var(--primary-bg); color: var(--primary-dark); }
-        .job-client { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem; }
-        .job-details { display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border-light); }
-        .job-detail { display: flex; flex-direction: column; }
-        .detail-label { font-size: 0.65rem; color: var(--text-tertiary); }
-        .detail-value { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
-        .job-footer { text-align: right; padding-top: 0.5rem; border-top: 1px solid var(--border-light); }
-        .view-link { font-size: 0.7rem; color: var(--primary); }
-        .empty-state { text-align: center; padding: 3rem; color: var(--text-tertiary); }
-        @media (max-width: 768px) { .jobs-container { padding: 1rem; } }
+        .page-header h1 { font-size: 1.875rem; font-weight: 600; margin-bottom: 0.25rem; }
+        .page-header p { color: #64748b; }
+        .btn-primary { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; display: inline-block; }
+        .btn-primary:hover { background: #2563eb; }
+        .jobs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem; }
+        .job-card { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; text-decoration: none; transition: all 0.2s; display: block; }
+        .job-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: #3b82f6; }
+        .job-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+        .job-number { font-weight: 600; font-size: 1rem; color: #1e293b; }
+        .status-badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
+        .status-approved { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fed7aa; color: #92400e; }
+        .job-client { color: #64748b; font-size: 0.875rem; margin-bottom: 1rem; }
+        .job-details { display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0; }
+        .job-detail { display: flex; flex-direction: column; gap: 0.25rem; }
+        .detail-label { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; }
+        .detail-value { font-size: 0.875rem; font-weight: 600; color: #1e293b; }
+        .job-footer { text-align: right; padding-top: 0.75rem; border-top: 1px solid #e2e8f0; }
+        .view-link { font-size: 0.75rem; color: #3b82f6; font-weight: 500; }
+        .empty-state { text-align: center; padding: 4rem 2rem; background: #f8fafc; border-radius: 1rem; }
+        .empty-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .empty-state h3 { margin-bottom: 0.5rem; }
+        .empty-state p { color: #64748b; margin-bottom: 1.5rem; }
       `}</style>
     </div>
   );
