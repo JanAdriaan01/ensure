@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/app/hooks/useAuth';
 
 export default function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
   const { login, isAuthenticated, loading: authLoading } = useAuth();
@@ -37,8 +36,9 @@ export default function LoginForm() {
       
       if (result && result.success === true) {
         console.log('Login successful! Redirecting to:', redirectTo);
-        // Force hard redirect using window.location
+        // Force a hard redirect
         window.location.href = redirectTo;
+        return;
       } else {
         setError(result?.error || 'Login failed. Please check your credentials.');
         setLoading(false);

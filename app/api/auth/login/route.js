@@ -1,98 +1,153 @@
-export const dynamic = 'force-dynamic';
+'use client';
 
-import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { generateToken, verifyPassword } from '@/lib/auth';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
-export async function POST(request) {
-  try {
-    const { email, password, rememberMe } = await request.json();
+const AuthContext = createContext();
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+export function AuthProvider({ children }) {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [permissions, setPermissions] = useState([]);
+  const authChecked = useRef(false);
+
+  // Verify token with server
+  const verifyToken = useCallback(async (storedToken) => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${storedToken}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return { valid: true, user: data.user, permissions: data.permissions || [] };
+      }
+      return { valid: false, user: null, permissions: [] };
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return { valid: false, user: null, permissions: [] };
     }
+  }, []);
 
-    // Find user by email
-    const result = await query(
-      `SELECT id, email, name, role, password_hash, is_active 
-       FROM users 
-       WHERE email = $1`,
-      [email.toLowerCase()]
-    );
+  // Initialize auth
+  useEffect(() => {
+    const initAuth = async () => {
+      if (authChecked.current) return;
+      authChecked.current = true;
+      
+      const storedToken = localStorage.getItem('auth_token');
+      const storedUser = localStorage.getItem('user');
+      
+      if (storedToken && storedUser) {
+        const verification = await verifyToken(storedToken);
+        
+        if (verification.valid) {
+          setToken(storedToken);
+          setUser(verification.user);
+          setPermissions(verification.permissions);
+        } else {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('user_permissions');
+        }
+      }
+      setLoading(false);
+    };
+    
+    initAuth();
+  }, [verifyToken]);
 
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
+  const setCookie = (name, value, days) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+  };
+
+  const login = async (email, password, rememberMe = false) => {
+    try {
+      console.log('Login function called');
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, rememberMe }),
+      });
+      
+      const data = await response.json();
+      console.log('API Response:', data);
+      
+      // Check if login was successful - handle both response formats
+      if (data.success === true || data.token) {
+        console.log('Login successful, storing data');
+        
+        const userData = data.user || { email, name: email.split('@')[0], role: 'user' };
+        const tokenData = data.token;
+        const permissionsData = data.permissions || [];
+        
+        localStorage.setItem('auth_token', tokenData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('user_permissions', JSON.stringify(permissionsData));
+        setCookie('auth_token', tokenData, rememberMe ? 30 : 7);
+        
+        setToken(tokenData);
+        setUser(userData);
+        setPermissions(permissionsData);
+        
+        console.log('State updated, returning success');
+        return { success: true };
+      }
+      
+      console.log('Login failed:', data.error);
+      return { success: false, error: data.error || 'Invalid email or password' };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: 'Network error. Please try again.' };
     }
+  };
 
-    const user = result.rows[0];
+  const logout = useCallback(() => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('user_permissions');
+    document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    setToken(null);
+    setUser(null);
+    setPermissions([]);
+    router.push('/login');
+  }, [router]);
 
-    if (!user.is_active) {
-      return NextResponse.json(
-        { error: 'Account is disabled. Please contact support.' },
-        { status: 401 }
-      );
-    }
+  const value = {
+    user,
+    token,
+    loading,
+    permissions,
+    isAuthenticated: !!user && !!token,
+    isAdmin: user?.role === 'admin',
+    login,
+    logout,
+  };
 
-    // Verify password using bcrypt
-    const isValid = await verifyPassword(password, user.password_hash);
-
-    if (!isValid) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
-
-    // Generate token
-    const expiresIn = rememberMe ? '30d' : '7d';
-    const token = generateToken(user.id, user.email, user.role, expiresIn);
-
-    // Remove password hash from response
-    const { password_hash, ...userWithoutPassword } = user;
-
-    return NextResponse.json({
-      success: true,
-      token,
-      user: userWithoutPassword,
-      permissions: getPermissionsForRole(user.role)
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { error: 'Login failed. Please try again.' },
-      { status: 500 }
-    );
-  }
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-function getPermissionsForRole(role) {
-  const permissions = {
-    admin: [
-      'job:view', 'job:create', 'job:edit', 'job:delete', 'job:finalize',
-      'quote:view', 'quote:create', 'quote:edit', 'quote:delete', 'quote:approve',
-      'employee:view', 'employee:create', 'employee:edit', 'employee:delete', 'employee:payroll',
-      'client:view', 'client:create', 'client:edit', 'client:delete',
-      'invoice:view', 'invoice:create', 'invoice:edit', 'invoice:delete', 'invoice:pay',
-      'stock:view', 'stock:create', 'stock:edit', 'stock:delete', 'stock:adjust',
-      'tool:view', 'tool:create', 'tool:edit', 'tool:delete', 'tool:checkout',
-      'schedule:view', 'schedule:create', 'schedule:edit', 'schedule:delete',
-      'ohs:view', 'ohs:create', 'ohs:edit', 'ohs:delete',
-      'report:view', 'report:export',
-      'payroll:view', 'payroll:process', 'payroll:edit',
-      'reconciliation:view', 'reconciliation:match', 'reconciliation:edit',
-      'admin:access', 'user:manage', 'settings:edit'
-    ],
-    user: [
-      'job:view', 'quote:view', 'employee:view', 'client:view', 'invoice:view',
-      'stock:view', 'tool:view', 'schedule:view', 'ohs:view'
-    ]
-  };
-  return permissions[role] || permissions.user;
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    return {
+      user: null,
+      token: null,
+      loading: false,
+      permissions: [],
+      isAuthenticated: false,
+      isAdmin: false,
+      login: async () => ({ success: false }),
+      logout: async () => {},
+    };
+  }
+  return context;
 }
