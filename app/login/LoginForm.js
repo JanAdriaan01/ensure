@@ -21,9 +21,12 @@ export default function LoginForm() {
     setLoading(true);
     setError('');
 
+    console.log('Attempting login with:', email);
     const result = await login(email, password, rememberMe);
+    console.log('Login result:', result);
     
     if (result.success) {
+      console.log('Login successful, redirecting to:', redirectTo);
       router.push(redirectTo);
     } else {
       setError(result.error || 'Login failed');

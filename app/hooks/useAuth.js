@@ -42,6 +42,7 @@ export function AuthProvider({ children }) {
       });
       
       const data = await response.json();
+      console.log('Login response:', data);
       
       if (response.ok && data.success) {
         localStorage.setItem('auth_token', data.token);
@@ -56,7 +57,7 @@ export function AuthProvider({ children }) {
         
         return { success: true };
       } else {
-        return { success: false, error: data.error };
+        return { success: false, error: data.error || 'Login failed' };
       }
     } catch (error) {
       console.error('Login error:', error);
