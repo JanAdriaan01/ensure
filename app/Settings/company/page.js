@@ -30,13 +30,23 @@ export default function CompanySettingsPage() {
     timezone: 'Africa/Johannesburg'
   });
 
+  // Get auth token from localStorage
+  const getAuthToken = () => {
+    return localStorage.getItem('auth_token');
+  };
+
   useEffect(() => {
     fetchCompanySettings();
   }, []);
 
   const fetchCompanySettings = async () => {
     try {
-      const res = await fetch('/api/settings/company');
+      const token = getAuthToken();
+      const res = await fetch('/api/settings/company', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await res.json();
       if (data.success && data.data) {
         setCompany(data.data);
@@ -70,9 +80,13 @@ export default function CompanySettingsPage() {
     setMessage({ type: '', text: '' });
 
     try {
+      const token = getAuthToken();
       const res = await fetch('/api/settings/company', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(company)
       });
       const data = await res.json();

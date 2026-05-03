@@ -52,6 +52,11 @@ export async function PUT(request) {
       timezone
     } = body;
 
+    // Validate required fields
+    if (!company_name) {
+      return NextResponse.json({ success: false, error: 'Company name is required' }, { status: 400 });
+    }
+
     // Check if settings exist
     const existing = await query(`SELECT id FROM company_settings LIMIT 1`);
     
