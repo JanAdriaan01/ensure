@@ -218,10 +218,17 @@ export default function NewClientPage() {
           border-color: var(--primary);
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+          color: var(--text-muted);
+        }
         .form-actions {
           display: flex;
           gap: 1rem;
           justify-content: flex-end;
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid var(--border-light);
         }
         .btn-primary {
           background: var(--primary);
@@ -232,6 +239,7 @@ export default function NewClientPage() {
           cursor: pointer;
           font-size: 0.875rem;
           font-weight: 500;
+          transition: background 0.2s;
         }
         .btn-primary:hover {
           background: var(--primary-dark);
@@ -249,6 +257,7 @@ export default function NewClientPage() {
           font-size: 0.875rem;
           font-weight: 500;
           display: inline-block;
+          transition: background 0.2s;
         }
         .btn-secondary:hover {
           background: var(--secondary-dark);
@@ -262,12 +271,14 @@ export default function NewClientPage() {
           }
           .form-grid {
             grid-template-columns: 1fr;
+            gap: 1rem;
           }
           .full-width {
             grid-column: span 1;
           }
           .form-actions {
             flex-direction: column-reverse;
+            gap: 0.75rem;
           }
           .form-actions button,
           .form-actions a {
