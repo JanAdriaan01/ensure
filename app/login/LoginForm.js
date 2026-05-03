@@ -1,14 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/app/hooks/useAuth';
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
-  const { login } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,22 +14,48 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Check if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      router.push(redirectTo);
+    }
+  }, [router, redirectTo]);
+
+  const setCookie = (name, value, days) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    console.log('Attempting login with:', email);
-    const result = await login(email, password, rememberMe);
-    console.log('Login result:', result);
-    
-    if (result.success) {
-      console.log('Login successful, redirecting to:', redirectTo);
-      router.push(redirectTo);
-    } else {
-      setError(result.error || 'Login failed');
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, rememberMe }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
+        setCookie('auth_token', data.token, rememberMe ? 30 : 7);
+        router.push(redirectTo);
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -90,9 +114,7 @@ export default function LoginForm() {
         </form>
 
         <div className="login-footer">
-          <p>
-            Demo: jan@netcamsa.co.za / 0615458693
-          </p>
+          <p>Demo: jan@netcamsa.co.za / 0615458693</p>
         </div>
       </div>
 
