@@ -49,6 +49,8 @@ export default function QuotesPage() {
         payload.po_date = poDateValue;
       }
       
+      console.log('Sending request:', { id, action, payload });
+      
       const response = await fetch(`/api/quotes/${id}`, {
         method: 'PATCH',
         headers: {
@@ -59,6 +61,7 @@ export default function QuotesPage() {
       });
       
       const data = await response.json();
+      console.log('Response:', data);
       
       if (response.ok) {
         await fetchQuotes();
@@ -75,13 +78,37 @@ export default function QuotesPage() {
     }
   };
 
+  const deleteQuote = async (id) => {
+    if (!confirm('Delete this quote? This action cannot be undone.')) return;
+    
+    setActionLoading(id);
+    try {
+      const response = await fetch(`/api/quotes/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        await fetchQuotes();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to delete quote');
+      }
+    } catch (error) {
+      console.error('Error deleting quote:', error);
+      alert('Failed to delete quote');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const getAvailableActions = (status) => {
     switch(status) {
       case 'draft':
-        return [{ action: 'send', label: 'Send to Client', color: 'primary' }];
+        return [{ action: 'send', label: 'Send', color: 'primary' }];
       case 'sent':
         return [
-          { action: 'mark_viewed', label: 'Mark as Viewed', color: 'info' },
+          { action: 'mark_viewed', label: 'Mark Viewed', color: 'info' },
           { action: 'approve', label: 'Approve', color: 'success' },
           { action: 'reject', label: 'Reject', color: 'danger' }
         ];
@@ -93,7 +120,6 @@ export default function QuotesPage() {
       case 'approved':
         return [{ action: 'receive_po', label: 'Receive PO', color: 'success' }];
       case 'po_received':
-        return [];
       case 'rejected':
         return [];
       default:
@@ -103,6 +129,10 @@ export default function QuotesPage() {
 
   const canDelete = (status) => {
     return status === 'draft' || status === 'pending';
+  };
+
+  const handleExport = (id, format) => {
+    window.open(`/api/quotes/${id}/export?format=${format}`, '_blank');
   };
 
   const formatCurrency = (amount) => {
@@ -145,6 +175,21 @@ export default function QuotesPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="container">
+        <div className="page-header">
+          <h1>Quotes</h1>
+          <p>Manage client quotes and proposals</p>
+        </div>
+        <div className="error-message">
+          <p>{error}</p>
+          <button onClick={fetchQuotes} className="retry-btn">Retry</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="quotes-container">
       <div className="page-header">
@@ -154,13 +199,6 @@ export default function QuotesPage() {
         </div>
         <Link href="/quotes/new" className="btn-primary">+ New Quote</Link>
       </div>
-
-      {error && (
-        <div className="error-message">
-          <p>{error}</p>
-          <button onClick={fetchQuotes} className="retry-btn">Retry</button>
-        </div>
-      )}
 
       <div className="quotes-table-container">
         <table className="quotes-table">
@@ -192,12 +230,19 @@ export default function QuotesPage() {
                   <Link href={`/quotes/${quote.id}`} className="action-btn view">
                     View
                   </Link>
-                  <button className="action-btn pdf" onClick={() => alert('PDF Export - Coming Soon')}>
-                    PDF
+                  <button 
+                    className="action-btn csv" 
+                    onClick={() => handleExport(quote.id, 'csv')}
+                  >
+                    CSV
                   </button>
-                  <button className="action-btn excel" onClick={() => alert('Excel Export - Coming Soon')}>
+                  <button 
+                    className="action-btn excel" 
+                    onClick={() => handleExport(quote.id, 'excel')}
+                  >
                     Excel
                   </button>
+                  
                   {getAvailableActions(quote.status).map(action => (
                     <button
                       key={action.action}
@@ -214,14 +259,12 @@ export default function QuotesPage() {
                       {actionLoading === quote.id ? '...' : action.label}
                     </button>
                   ))}
+                  
                   {canDelete(quote.status) && (
                     <button
                       className="action-btn delete"
-                      onClick={() => {
-                        if (confirm('Delete this quote?')) {
-                          updateQuoteStatus(quote.id, 'delete');
-                        }
-                      }}
+                      onClick={() => deleteQuote(quote.id)}
+                      disabled={actionLoading === quote.id}
                     >
                       Delete
                     </button>
@@ -322,6 +365,15 @@ export default function QuotesPage() {
           margin-bottom: 1rem;
           text-align: center;
         }
+        .retry-btn {
+          background: var(--danger);
+          color: white;
+          padding: 0.25rem 0.75rem;
+          border: none;
+          border-radius: 0.25rem;
+          cursor: pointer;
+          margin-top: 0.5rem;
+        }
         .quotes-table-container {
           background: var(--card-bg);
           border-radius: 0.75rem;
@@ -335,7 +387,7 @@ export default function QuotesPage() {
         }
         th {
           text-align: left;
-          padding: 1rem;
+          padding: 0.75rem 1rem;
           background: var(--bg-tertiary);
           font-size: 0.75rem;
           font-weight: 600;
@@ -362,6 +414,9 @@ export default function QuotesPage() {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+        .quote-date {
+          white-space: nowrap;
         }
         .quote-amount {
           font-weight: 600;
@@ -397,15 +452,17 @@ export default function QuotesPage() {
           border: none;
           text-decoration: none;
           display: inline-block;
+          transition: opacity 0.2s;
         }
+        .action-btn:hover { opacity: 0.8; }
         .action-btn.view { background: var(--secondary); color: white; }
-        .action-btn.pdf { background: #dc2626; color: white; }
-        .action-btn.excel { background: #10b981; color: white; }
+        .action-btn.csv { background: #10b981; color: white; }
+        .action-btn.excel { background: #059669; color: white; }
         .action-btn.primary { background: var(--primary); color: white; }
         .action-btn.success { background: var(--success); color: white; }
         .action-btn.danger { background: var(--danger); color: white; }
         .action-btn.info { background: var(--info); color: white; }
-        .action-btn.delete { background: var(--danger); color: white; }
+        .action-btn.delete { background: #dc2626; color: white; }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .empty-state {
@@ -445,6 +502,7 @@ export default function QuotesPage() {
           border: none;
           font-size: 1.25rem;
           cursor: pointer;
+          color: var(--text-tertiary);
         }
         .modal-body { padding: 1rem; }
         .modal-footer {
@@ -460,17 +518,21 @@ export default function QuotesPage() {
           font-size: 0.75rem;
           font-weight: 500;
           margin-bottom: 0.25rem;
+          color: var(--text-secondary);
         }
         .form-group input {
           width: 100%;
           padding: 0.5rem;
           border: 1px solid var(--border-medium);
           border-radius: 0.375rem;
+          background: var(--bg-primary);
+          color: var(--text-primary);
         }
         .btn-cancel, .btn-save {
           padding: 0.5rem 1rem;
           border-radius: 0.375rem;
           cursor: pointer;
+          font-size: 0.875rem;
         }
         .btn-cancel { background: var(--secondary); color: white; border: none; }
         .btn-save { background: var(--primary); color: white; border: none; }
@@ -478,6 +540,8 @@ export default function QuotesPage() {
         
         @media (max-width: 768px) {
           .quotes-container { padding: 1rem; }
+          .quote-actions { flex-direction: column; }
+          .action-btn { text-align: center; }
         }
       `}</style>
     </div>
