@@ -25,15 +25,32 @@ export function useNotifications() {
         }
       });
 
+      // If 401 or other error, just return empty
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        setNotifications([]);
+        setUnreadCount(0);
+        setLoading(false);
+        return;
       }
 
       const data = await response.json();
       
-      // Ensure we're working with arrays
-      const notificationsData = Array.isArray(data) ? data : (data.notifications || []);
-      const unread = Array.isArray(data) ? 0 : (data.unreadCount || 0);
+      // SAFELY extract notifications - handle any response format
+      let notificationsData = [];
+      let unread = 0;
+      
+      if (data && typeof data === 'object') {
+        // Handle { notifications: [], unreadCount: 0 } format
+        if (Array.isArray(data.notifications)) {
+          notificationsData = data.notifications;
+          unread = typeof data.unreadCount === 'number' ? data.unreadCount : 0;
+        }
+        // Handle direct array format
+        else if (Array.isArray(data)) {
+          notificationsData = data;
+          unread = data.filter(n => n && !n.read).length;
+        }
+      }
       
       setNotifications(notificationsData);
       setUnreadCount(unread);
@@ -58,10 +75,10 @@ export function useNotifications() {
       });
 
       if (response.ok) {
-        setNotifications(prev =>
-          (prev || []).map(n => n.id === notificationId ? { ...n, read: true } : n)
+        setNotifications(prev => 
+          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
         );
-        setUnreadCount(prev => Math.max(0, (prev || 0) - 1));
+        setUnreadCount(prev => Math.max(0, prev - 1));
         return true;
       }
     } catch (err) {
@@ -83,8 +100,8 @@ export function useNotifications() {
       });
 
       if (response.ok) {
-        setNotifications(prev =>
-          (prev || []).map(n => ({ ...n, read: true }))
+        setNotifications(prev => 
+          prev.map(n => ({ ...n, read: true }))
         );
         setUnreadCount(0);
         return true;
@@ -102,14 +119,14 @@ export function useNotifications() {
   }, [isAuthenticated, token, fetchNotifications]);
 
   return {
-    notifications: notifications || [],
-    unreadCount: unreadCount || 0,
+    notifications,
+    unreadCount,
     loading,
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    hasUnread: (unreadCount || 0) > 0,
-    isEmpty: (notifications || []).length === 0
+    hasUnread: unreadCount > 0,
+    isEmpty: notifications.length === 0
   };
 }
 
