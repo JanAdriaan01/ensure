@@ -29,36 +29,17 @@ export default function CertificationsPage() {
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading certifications...</p>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 400px;
-          }
-          .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #e5e7eb;
-            border-top-color: #3b82f6;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="certifications-container">
+    <div className="container">
       <div className="page-header">
         <h1>Employee Certifications</h1>
         <p>Track employee certifications and renewals</p>
       </div>
+
       <div className="table-container">
         {certifications.length === 0 ? (
           <div className="empty-state">
@@ -66,7 +47,7 @@ export default function CertificationsPage() {
             <Link href="/employees/new" className="btn-primary">Add Employee</Link>
           </div>
         ) : (
-          <table className="certifications-table">
+          <table>
             <thead>
               <tr>
                 <th>Employee</th>
@@ -84,7 +65,7 @@ export default function CertificationsPage() {
                   <td>{cert.issued_date}</td>
                   <td>{cert.expiry_date}</td>
                   <td>
-                    <span className={cert.status === 'valid' ? 'status valid' : 'status expired'}>
+                    <span className={`status-badge ${cert.status === 'valid' ? 'status-approved' : 'status-rejected'}`}>
                       {cert.status === 'valid' ? 'Valid' : 'Expired'}
                     </span>
                   </td>
@@ -94,82 +75,6 @@ export default function CertificationsPage() {
           </table>
         )}
       </div>
-      <style jsx>{`
-        .certifications-container {
-          max-width: 1280px;
-          margin: 0 auto;
-          padding: 2rem;
-        }
-        .page-header {
-          margin-bottom: 2rem;
-        }
-        .page-header h1 {
-          font-size: 1.875rem;
-          font-weight: 600;
-          color: #111827;
-          margin-bottom: 0.25rem;
-        }
-        .page-header p {
-          color: #6b7280;
-        }
-        .table-container {
-          background: #ffffff;
-          border-radius: 0.75rem;
-          border: 1px solid #e5e7eb;
-          overflow-x: auto;
-        }
-        .certifications-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        th {
-          text-align: left;
-          padding: 0.75rem 1rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          color: #6b7280;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        td {
-          padding: 0.75rem 1rem;
-          font-size: 0.875rem;
-          color: #111827;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .status {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 9999px;
-          font-size: 0.7rem;
-          font-weight: 500;
-        }
-        .status.valid {
-          background: #d1fae5;
-          color: #065f46;
-        }
-        .status.expired {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-        .empty-state {
-          text-align: center;
-          padding: 3rem;
-          color: #6b7280;
-        }
-        .btn-primary {
-          display: inline-block;
-          margin-top: 1rem;
-          padding: 0.5rem 1rem;
-          background: #3b82f6;
-          color: white;
-          text-decoration: none;
-          border-radius: 0.5rem;
-        }
-        @media (max-width: 768px) {
-          .certifications-container { padding: 1rem; }
-        }
-      `}</style>
     </div>
   );
 }
