@@ -1,14 +1,12 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { generateToken, verifyPassword } from '@/lib/auth';
 
-export const dynamic = 'force-dynamic';
-
 export async function POST(request) {
   try {
     const { email, password, rememberMe } = await request.json();
-
-    console.log('Login attempt for email:', email);
 
     if (!email || !password) {
       return NextResponse.json(
@@ -24,8 +22,6 @@ export async function POST(request) {
        WHERE email = $1`,
       [email.toLowerCase()]
     );
-
-    console.log('User lookup result:', result.rows.length > 0 ? 'User found' : 'User not found');
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -45,13 +41,7 @@ export async function POST(request) {
     }
 
     // Verify password
-    let isValid = false;
-    try {
-      isValid = await verifyPassword(password, user.password_hash);
-      console.log('Password verification result:', isValid);
-    } catch (err) {
-      console.error('Password verification error:', err);
-    }
+    const isValid = await verifyPassword(password, user.password_hash);
 
     if (!isValid) {
       return NextResponse.json(
@@ -67,8 +57,6 @@ export async function POST(request) {
     // Remove password hash from response
     const { password_hash, ...userWithoutPassword } = user;
 
-    console.log('Login successful for:', email);
-
     return NextResponse.json({
       success: true,
       token,
@@ -77,9 +65,9 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Login error details:', error);
+    console.error('Login error:', error);
     return NextResponse.json(
-      { error: 'Login failed. Please try again.' + error.message },
+      { error: 'Login failed. Please try again.' },
       { status: 500 }
     );
   }

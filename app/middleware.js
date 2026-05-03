@@ -10,37 +10,55 @@ const publicRoutes = [
   '/api/auth/register',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
+  '/api/auth/debug',
+  '/api/auth/test-login',
+  '/api/ws',  // WebSocket endpoint
 ];
 
-// Routes that are API routes (protect all other APIs)
-const apiRoutes = '/api/';
+// Static file extensions that should be ignored
+const staticFileExtensions = /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|json|woff|woff2|ttf|eot)$/i;
 
 export function middleware(request) {
   const { pathname } = request.nextUrl;
+
+  // Allow static files
+  if (staticFileExtensions.test(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Allow Next.js internal paths
+  if (pathname.startsWith('/_next/') || pathname === '/favicon.ico') {
+    return NextResponse.next();
+  }
 
   // Allow public routes
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
-  // Check for auth token in cookies or headers
-  const token = request.cookies.get('auth_token')?.value || 
-                request.headers.get('authorization')?.replace('Bearer ', '');
-
-  // If no token and trying to access protected route, redirect to login
-  if (!token) {
-    // For API routes, return 401
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  // For API routes, check token in cookie or authorization header
+  if (pathname.startsWith('/api/')) {
+    const token = request.cookies.get('auth_token')?.value || 
+                  request.headers.get('authorization')?.replace('Bearer ', '');
     
-    // For page routes, redirect to login
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication token missing' },
+        { status: 401 }
+      );
+    }
+    return NextResponse.next();
+  }
+
+  // For all other page routes, check token in cookie
+  const token = request.cookies.get('auth_token')?.value;
+  
+  if (!token && pathname !== '/') {
     const url = new URL('/login', request.url);
     url.searchParams.set('redirect', pathname);
     return NextResponse.redirect(url);
   }
 
-  // For API routes with token, let it through (the API will verify the token)
   return NextResponse.next();
 }
 
@@ -52,7 +70,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - static assets with extensions
      */
-    '/((?!_next/static|_next/image|favicon.ico|public|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 };

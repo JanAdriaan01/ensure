@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
@@ -6,7 +8,7 @@ export async function GET(request) {
   try {
     const auth = await verifyAuth(request);
     if (!auth.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json([]);
     }
 
     const { searchParams } = new URL(request.url);
@@ -38,6 +40,6 @@ export async function GET(request) {
     return NextResponse.json(result.rows || []);
   } catch (error) {
     console.error('Activities error:', error);
-    return NextResponse.json([], { status: 200 }); // Return empty array on error
+    return NextResponse.json([]);
   }
 }
