@@ -10,7 +10,6 @@ export default function Footer() {
       <div className="footer-container">
         <div className="footer-section">
           <div className="footer-brand">
-            <span className="brand-icon">🔧</span>
             <span className="brand-name">ENSURE System</span>
           </div>
           <p className="footer-tagline">
@@ -20,22 +19,30 @@ export default function Footer() {
         
         <div className="footer-links">
           <div className="link-group">
-            <h4>Product</h4>
-            <Link href="/features">Features</Link>
-            <Link href="/pricing">Pricing</Link>
-            <Link href="/demo">Request Demo</Link>
+            <h4>Financial</h4>
+            <Link href="/financial">Dashboard</Link>
+            <Link href="/jobs">Jobs</Link>
+            <Link href="/quotes">Quotes</Link>
+            <Link href="/invoicing">Invoicing</Link>
           </div>
           <div className="link-group">
-            <h4>Support</h4>
-            <Link href="/help">Help Center</Link>
-            <Link href="/contact">Contact Us</Link>
-            <Link href="/docs">Documentation</Link>
+            <h4>HR</h4>
+            <Link href="/employees">Employees</Link>
+            <Link href="/payroll">Payroll</Link>
+            <Link href="/employees/skills">Skills</Link>
+            <Link href="/employees/certifications">Certifications</Link>
           </div>
           <div className="link-group">
-            <h4>Legal</h4>
-            <Link href="/privacy">Privacy Policy</Link>
-            <Link href="/terms">Terms of Service</Link>
-            <Link href="/security">Security</Link>
+            <h4>Operations</h4>
+            <Link href="/tools">Tools</Link>
+            <Link href="/inventory">Inventory</Link>
+            <Link href="/schedule">Schedule</Link>
+            <Link href="/ohs">OHS</Link>
+          </div>
+          <div className="link-group">
+            <h4>System</h4>
+            <Link href="/Settings">Settings</Link>
+            <Link href="/reports/monthly">Reports</Link>
           </div>
         </div>
       </div>
@@ -45,14 +52,9 @@ export default function Footer() {
           <div className="copyright">
             © {currentYear} ENSURE System. All rights reserved.
           </div>
-          <div className="social-links">
-            <a href="#" target="_blank" rel="noopener noreferrer" aria-label="Twitter">𝕏</a>
-            <a href="#" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
-            <a href="#" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GH</a>
-          </div>
         </div>
       </div>
-      
+
       <style jsx>{`
         .footer {
           background: #1f2937;
@@ -60,7 +62,7 @@ export default function Footer() {
           margin-top: 3rem;
         }
         .footer-container {
-          max-width: 1400px;
+          max-width: 1280px;
           margin: 0 auto;
           padding: 2rem 2rem 1.5rem;
           display: flex;
@@ -77,9 +79,6 @@ export default function Footer() {
           align-items: center;
           gap: 0.5rem;
           margin-bottom: 0.75rem;
-        }
-        .brand-icon {
-          font-size: 1.5rem;
         }
         .brand-name {
           font-size: 1.125rem;
@@ -120,11 +119,11 @@ export default function Footer() {
           border-top: 1px solid #374151;
         }
         .footer-bottom-container {
-          max-width: 1400px;
+          max-width: 1280px;
           margin: 0 auto;
           padding: 1rem 2rem;
           display: flex;
-          justify-content: space-between;
+          justify-content: center;
           align-items: center;
           flex-wrap: wrap;
           gap: 1rem;
@@ -132,19 +131,6 @@ export default function Footer() {
         .copyright {
           font-size: 0.7rem;
           color: #9ca3af;
-        }
-        .social-links {
-          display: flex;
-          gap: 1rem;
-        }
-        .social-links a {
-          color: #9ca3af;
-          text-decoration: none;
-          font-size: 0.875rem;
-          transition: color 0.2s;
-        }
-        .social-links a:hover {
-          color: white;
         }
         @media (max-width: 768px) {
           .footer-container {
