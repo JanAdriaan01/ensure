@@ -3,40 +3,55 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function NewClientPage() {
   const router = useRouter();
+  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
-    client_name: '',
+    name: '',
     contact_person: '',
-    client_address: '',
-    signup_date: new Date().toISOString().split('T')[0],
     email: '',
-    phone: ''
+    phone: '',
+    address: '',
+    vat_number: '',
+    status: 'active'
   });
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
-    const res = await fetch('/api/clients', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    
-    if (res.ok) {
-      router.push('/clients');
-    } else {
-      const error = await res.json();
-      alert(error.error || 'Failed to create client');
-    }
-    setLoading(false);
-  };
+    setError('');
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        router.push('/clients');
+      } else {
+        setError(data.error || 'Failed to create client');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -48,14 +63,20 @@ export default function NewClientPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="form-card">
         <div className="form-grid">
           <div className="form-group full-width">
             <label>Client Name *</label>
             <input
               type="text"
-              name="client_name"
-              value={formData.client_name}
+              name="name"
+              value={formData.name}
               onChange={handleChange}
               required
               placeholder="e.g., ABC Corporation"
@@ -95,26 +116,34 @@ export default function NewClientPage() {
             />
           </div>
 
-          <div className="form-group">
-            <label>Signup Date</label>
-            <input
-              type="date"
-              name="signup_date"
-              value={formData.signup_date}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
           <div className="form-group full-width">
-            <label>Client Address</label>
+            <label>Address</label>
             <textarea
-              name="client_address"
-              value={formData.client_address}
+              name="address"
+              value={formData.address}
               onChange={handleChange}
               rows="3"
               placeholder="Street address, city, postal code"
             />
+          </div>
+
+          <div className="form-group">
+            <label>VAT Number</label>
+            <input
+              type="text"
+              name="vat_number"
+              value={formData.vat_number}
+              onChange={handleChange}
+              placeholder="ZA1234567890"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Status</label>
+            <select name="status" value={formData.status} onChange={handleChange}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
         </div>
 
@@ -147,9 +176,17 @@ export default function NewClientPage() {
         }
         .page-header h1 {
           margin: 0;
-          font-size: 1.875rem;
+          font-size: 1.5rem;
           font-weight: 600;
           color: var(--text-primary);
+        }
+        .error-message {
+          background: var(--danger-bg);
+          color: var(--danger-dark);
+          padding: 0.75rem;
+          border-radius: 0.5rem;
+          margin-bottom: 1rem;
+          font-size: 0.875rem;
         }
         .form-card {
           background: var(--card-bg);
@@ -170,10 +207,13 @@ export default function NewClientPage() {
           display: block;
           margin-bottom: 0.375rem;
           font-weight: 500;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
           color: var(--text-secondary);
         }
         .form-group input,
+        .form-group select,
         .form-group textarea {
           width: 100%;
           padding: 0.625rem;
@@ -182,17 +222,13 @@ export default function NewClientPage() {
           font-size: 0.875rem;
           background: var(--bg-primary);
           color: var(--text-primary);
-          transition: all 0.2s;
         }
         .form-group input:focus,
+        .form-group select:focus,
         .form-group textarea:focus {
           outline: none;
           border-color: var(--primary);
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .form-group input::placeholder,
-        .form-group textarea::placeholder {
-          color: var(--text-muted);
         }
         .form-actions {
           display: flex;
@@ -202,13 +238,12 @@ export default function NewClientPage() {
         .btn-primary {
           background: var(--primary);
           color: white;
-          padding: 0.625rem 1.25rem;
-          border-radius: 0.375rem;
+          padding: 0.5rem 1rem;
           border: none;
+          border-radius: 0.375rem;
           cursor: pointer;
-          font-weight: 500;
           font-size: 0.875rem;
-          transition: background 0.2s;
+          font-weight: 500;
         }
         .btn-primary:hover {
           background: var(--primary-dark);
@@ -220,12 +255,11 @@ export default function NewClientPage() {
         .btn-secondary {
           background: var(--secondary);
           color: white;
-          padding: 0.625rem 1.25rem;
+          padding: 0.5rem 1rem;
           border-radius: 0.375rem;
           text-decoration: none;
           font-size: 0.875rem;
           font-weight: 500;
-          transition: background 0.2s;
           display: inline-block;
         }
         .btn-secondary:hover {
