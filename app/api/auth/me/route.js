@@ -7,13 +7,16 @@ import { verifyAuth } from '@/lib/auth';
 export async function GET(request) {
   try {
     const auth = await verifyAuth(request);
+    
+    console.log('Auth/me - authenticated:', auth.authenticated);
+    
     if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get user details
     const result = await query(
-      `SELECT id, email, name, role, is_active, created_at, phone, avatar_url, last_login 
+      `SELECT id, email, name, role, is_active, created_at 
        FROM users 
        WHERE id = $1 AND is_active = true`,
       [auth.userId]
@@ -25,23 +28,14 @@ export async function GET(request) {
 
     const user = result.rows[0];
 
-    // Update last login
-    await query(
-      `UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1`,
-      [auth.userId]
-    );
-
-    // Get user permissions based on role
-    const permissions = getPermissionsForRole(user.role);
-
     return NextResponse.json({
       success: true,
       user,
-      permissions
+      permissions: getPermissionsForRole(user.role)
     });
 
   } catch (error) {
-    console.error('GET /api/auth/me error:', error);
+    console.error('Auth/me error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch user data' },
       { status: 500 }
@@ -59,64 +53,12 @@ function getPermissionsForRole(role) {
       'invoice:view', 'invoice:create', 'invoice:edit', 'invoice:delete', 'invoice:pay',
       'stock:view', 'stock:create', 'stock:edit', 'stock:delete', 'stock:adjust',
       'tool:view', 'tool:create', 'tool:edit', 'tool:delete', 'tool:checkout',
-      'schedule:view', 'schedule:create', 'schedule:edit', 'schedule:delete',
-      'ohs:view', 'ohs:create', 'ohs:edit', 'ohs:delete',
-      'report:view', 'report:export',
-      'payroll:view', 'payroll:process', 'payroll:edit',
-      'reconciliation:view', 'reconciliation:match', 'reconciliation:edit',
-      'admin:access', 'user:manage', 'settings:edit'
-    ],
-    manager: [
-      'job:view', 'job:create', 'job:edit', 'job:finalize',
-      'quote:view', 'quote:create', 'quote:edit', 'quote:approve',
-      'employee:view', 'employee:create', 'employee:edit',
-      'client:view', 'client:create', 'client:edit',
-      'invoice:view', 'invoice:create', 'invoice:edit', 'invoice:pay',
-      'stock:view', 'stock:create', 'stock:adjust',
-      'tool:view', 'tool:create', 'tool:checkout',
-      'schedule:view', 'schedule:create', 'schedule:edit',
-      'ohs:view', 'ohs:create', 'ohs:edit',
-      'report:view', 'report:export',
-      'payroll:view', 'payroll:process',
-      'reconciliation:view', 'reconciliation:match',
-      'settings:edit'
-    ],
-    supervisor: [
-      'job:view', 'job:create', 'job:edit',
-      'quote:view',
-      'employee:view',
-      'client:view',
-      'invoice:view',
-      'stock:view',
-      'tool:view', 'tool:checkout',
-      'schedule:view', 'schedule:create',
-      'ohs:view', 'ohs:create',
-      'report:view',
-      'payroll:view'
+      'report:view', 'report:export', 'settings:edit'
     ],
     user: [
-      'job:view',
-      'quote:view',
-      'employee:view',
-      'client:view',
-      'invoice:view',
-      'stock:view',
-      'tool:view',
-      'schedule:view',
-      'ohs:view'
-    ],
-    viewer: [
-      'job:view',
-      'quote:view',
-      'employee:view',
-      'client:view',
-      'invoice:view',
-      'stock:view',
-      'tool:view',
-      'schedule:view',
-      'ohs:view',
-      'report:view'
+      'job:view', 'quote:view', 'employee:view', 'client:view', 'invoice:view',
+      'stock:view', 'tool:view'
     ]
   };
-  return permissions[role] || permissions.viewer;
+  return permissions[role] || permissions.user;
 }

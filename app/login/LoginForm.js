@@ -25,7 +25,8 @@ export default function LoginForm() {
   const setCookie = (name, value, days) => {
     const expires = new Date();
     expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+    // Add domain and path to ensure cookie works across all routes
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax;Secure`;
   };
 
   const handleSubmit = async (e) => {
@@ -47,7 +48,11 @@ export default function LoginForm() {
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
         setCookie('auth_token', data.token, rememberMe ? 30 : 7);
-        router.push(redirectTo);
+        
+        // Force a small delay before redirect to ensure cookie is set
+        setTimeout(() => {
+          router.push(redirectTo);
+        }, 100);
       } else {
         setError(data.error || 'Login failed');
       }
@@ -193,7 +198,7 @@ export default function LoginForm() {
           display: flex;
           justify-content: flex-end;
           align-items: center;
-          font-size: 0.75rem;
+          fontSize: 0.75rem;
         }
         .checkbox-label {
           display: flex;
