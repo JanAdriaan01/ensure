@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { generateToken, verifyPassword } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request) {
   try {
     const { email, password, rememberMe } = await request.json();
+
+    console.log('Login attempt for email:', email);
 
     if (!email || !password) {
       return NextResponse.json(
@@ -15,11 +19,13 @@ export async function POST(request) {
 
     // Find user by email
     const result = await query(
-      `SELECT id, email, name, role, password_hash, is_active 
+      `SELECT id, email, name, role, password_hash, is_active, phone 
        FROM users 
        WHERE email = $1`,
       [email.toLowerCase()]
     );
+
+    console.log('User lookup result:', result.rows.length > 0 ? 'User found' : 'User not found');
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -39,7 +45,14 @@ export async function POST(request) {
     }
 
     // Verify password
-    const isValid = await verifyPassword(password, user.password_hash);
+    let isValid = false;
+    try {
+      isValid = await verifyPassword(password, user.password_hash);
+      console.log('Password verification result:', isValid);
+    } catch (err) {
+      console.error('Password verification error:', err);
+    }
+
     if (!isValid) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
@@ -54,6 +67,8 @@ export async function POST(request) {
     // Remove password hash from response
     const { password_hash, ...userWithoutPassword } = user;
 
+    console.log('Login successful for:', email);
+
     return NextResponse.json({
       success: true,
       token,
@@ -62,9 +77,9 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login error details:', error);
     return NextResponse.json(
-      { error: 'Login failed. Please try again.' },
+      { error: 'Login failed. Please try again.' + error.message },
       { status: 500 }
     );
   }
@@ -73,24 +88,34 @@ export async function POST(request) {
 function getPermissionsForRole(role) {
   const permissions = {
     admin: [
-      'job:view', 'job:create', 'job:edit', 'job:delete',
+      'job:view', 'job:create', 'job:edit', 'job:delete', 'job:finalize',
       'quote:view', 'quote:create', 'quote:edit', 'quote:delete', 'quote:approve',
-      'employee:view', 'employee:create', 'employee:edit', 'employee:delete',
+      'employee:view', 'employee:create', 'employee:edit', 'employee:delete', 'employee:payroll',
       'client:view', 'client:create', 'client:edit', 'client:delete',
-      'invoice:view', 'invoice:create', 'invoice:edit', 'invoice:delete',
-      'stock:view', 'stock:create', 'stock:edit', 'stock:delete',
-      'tool:view', 'tool:create', 'tool:edit', 'tool:delete',
-      'report:view', 'report:export', 'settings:edit'
+      'invoice:view', 'invoice:create', 'invoice:edit', 'invoice:delete', 'invoice:pay',
+      'stock:view', 'stock:create', 'stock:edit', 'stock:delete', 'stock:adjust',
+      'tool:view', 'tool:create', 'tool:edit', 'tool:delete', 'tool:checkout',
+      'schedule:view', 'schedule:create', 'schedule:edit', 'schedule:delete',
+      'ohs:view', 'ohs:create', 'ohs:edit', 'ohs:delete',
+      'report:view', 'report:export',
+      'payroll:view', 'payroll:process', 'payroll:edit',
+      'reconciliation:view', 'reconciliation:match', 'reconciliation:edit',
+      'admin:access', 'user:manage', 'settings:edit'
     ],
     manager: [
-      'job:view', 'job:create', 'job:edit',
-      'quote:view', 'quote:create', 'quote:edit',
+      'job:view', 'job:create', 'job:edit', 'job:finalize',
+      'quote:view', 'quote:create', 'quote:edit', 'quote:approve',
       'employee:view', 'employee:create', 'employee:edit',
       'client:view', 'client:create', 'client:edit',
-      'invoice:view', 'invoice:create',
-      'stock:view', 'stock:create',
-      'tool:view', 'tool:create',
-      'report:view'
+      'invoice:view', 'invoice:create', 'invoice:edit', 'invoice:pay',
+      'stock:view', 'stock:create', 'stock:adjust',
+      'tool:view', 'tool:create', 'tool:checkout',
+      'schedule:view', 'schedule:create', 'schedule:edit',
+      'ohs:view', 'ohs:create', 'ohs:edit',
+      'report:view', 'report:export',
+      'payroll:view', 'payroll:process',
+      'reconciliation:view', 'reconciliation:match',
+      'settings:edit'
     ],
     user: [
       'job:view',
@@ -99,8 +124,22 @@ function getPermissionsForRole(role) {
       'client:view',
       'invoice:view',
       'stock:view',
-      'tool:view'
+      'tool:view',
+      'schedule:view',
+      'ohs:view'
+    ],
+    viewer: [
+      'job:view',
+      'quote:view',
+      'employee:view',
+      'client:view',
+      'invoice:view',
+      'stock:view',
+      'tool:view',
+      'schedule:view',
+      'ohs:view',
+      'report:view'
     ]
   };
-  return permissions[role] || permissions.user;
+  return permissions[role] || permissions.viewer;
 }
