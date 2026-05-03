@@ -1,17 +1,14 @@
-'use client'
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/app/context/ToastContext';
-import PageHeader from '@/app/components/layout/PageHeader/PageHeader';
-import Button from '@/app/components/ui/Button/Button';
-import Card from '@/app/components/ui/Card/Card';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function NewQuotePage() {
   const router = useRouter();
+  const { token, isAuthenticated } = useAuth();
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState([]);
@@ -24,7 +21,7 @@ export default function NewQuotePage() {
     quote_date: new Date().toISOString().split('T')[0],
     quote_prepared_by: '',
     scope_subject: '',
-    status: 'pending'
+    status: 'draft'
   });
   
   // Line items
@@ -41,16 +38,25 @@ export default function NewQuotePage() {
   });
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (isAuthenticated && token) {
+      fetchClients();
+    }
+  }, [isAuthenticated, token]);
 
   const fetchClients = async () => {
     try {
-      const res = await fetch('/api/clients');
+      const res = await fetch('/api/clients', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await res.json();
-      setClients(Array.isArray(data) ? data : []);
+      const clientsList = Array.isArray(data) ? data : (data.data || []);
+      setClients(clientsList);
+      console.log('Clients loaded:', clientsList.length);
     } catch (error) {
       console.error('Error fetching clients:', error);
+      toastError('Failed to load clients');
     }
   };
 
@@ -93,7 +99,6 @@ export default function NewQuotePage() {
 
   const removeItem = (index) => {
     const newItems = items.filter((_, i) => i !== index);
-    // Renumber items
     const renumbered = newItems.map((item, idx) => ({ ...item, item_number: idx + 1 }));
     setItems(renumbered);
   };
@@ -157,20 +162,21 @@ export default function NewQuotePage() {
       }))
     };
     
-    console.log('Submitting quote:', payload);
-    
     try {
       const res = await fetch('/api/quotes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(payload)
       });
       
       const data = await res.json();
       
-      if (res.ok) {
+      if (res.ok && data.success) {
         success('Quote created successfully');
-        router.push(`/quotes/${data.id}`);
+        router.push(`/quotes/${data.data.id}`);
       } else {
         toastError(data.error || 'Failed to create quote');
       }
@@ -183,25 +189,26 @@ export default function NewQuotePage() {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
-      <PageHeader 
-        title="➕ Create New Quote"
-        description="Fill in quote details and add line items"
-        action={<Link href="/quotes"><Button variant="secondary">← Back to Quotes</Button></Link>}
-      />
+    <div className="quote-container">
+      <div className="page-header">
+        <div>
+          <h1>Create New Quote</h1>
+          <p>Fill in quote details and add line items</p>
+        </div>
+        <Link href="/quotes" className="btn-secondary">Back to Quotes</Link>
+      </div>
       
       <form onSubmit={handleSubmit}>
         {/* Quote Details Section */}
-        <Card>
-          <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Quote Information</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+        <div className="card">
+          <h3>Quote Information</h3>
+          <div className="form-grid">
             <div className="form-group">
               <label>Client *</label>
               <select
                 value={formData.client_id}
                 onChange={(e) => setFormData({...formData, client_id: e.target.value})}
                 required
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               >
                 <option value="">-- Select Client --</option>
                 {clients.map(c => (
@@ -216,7 +223,6 @@ export default function NewQuotePage() {
                 value={formData.site_name}
                 onChange={(e) => setFormData({...formData, site_name: e.target.value})}
                 placeholder="e.g., Cape Town Main Site"
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               />
             </div>
             <div className="form-group">
@@ -225,7 +231,6 @@ export default function NewQuotePage() {
                 type="text"
                 value={formData.contact_person}
                 onChange={(e) => setFormData({...formData, contact_person: e.target.value})}
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               />
             </div>
             <div className="form-group">
@@ -235,7 +240,6 @@ export default function NewQuotePage() {
                 value={formData.quote_date}
                 onChange={(e) => setFormData({...formData, quote_date: e.target.value})}
                 required
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               />
             </div>
             <div className="form-group">
@@ -245,7 +249,6 @@ export default function NewQuotePage() {
                 value={formData.quote_prepared_by}
                 onChange={(e) => setFormData({...formData, quote_prepared_by: e.target.value})}
                 placeholder="Your name"
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               />
             </div>
             <div className="form-group">
@@ -253,79 +256,72 @@ export default function NewQuotePage() {
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({...formData, status: e.target.value})}
-                style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
               >
-                <option value="pending">Pending</option>
+                <option value="draft">Draft</option>
+                <option value="sent">Send to Client</option>
                 <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
               </select>
             </div>
           </div>
-          <div className="form-group" style={{ marginTop: '1rem' }}>
+          <div className="form-group full-width">
             <label>Scope / Subject</label>
             <textarea
               value={formData.scope_subject}
               onChange={(e) => setFormData({...formData, scope_subject: e.target.value})}
               rows="3"
               placeholder="Describe the scope of work..."
-              style={{ width: '100%', padding: '0.625rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
             />
           </div>
-        </Card>
+        </div>
 
         {/* Line Items Section */}
-        <Card style={{ marginTop: '1.5rem' }}>
-          <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Quote Items</h3>
+        <div className="card">
+          <h3>Quote Items</h3>
           
           {/* Add Item Form */}
-          <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: '0.75rem' }}>Description *</label>
+          <div className="add-item-section">
+            <div className="add-item-grid">
+              <div className="form-group">
+                <label>Description *</label>
                 <input
                   type="text"
                   value={currentItem.description}
                   onChange={(e) => setCurrentItem({...currentItem, description: e.target.value})}
                   placeholder="Item description"
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: '0.75rem' }}>Additional Description</label>
+              <div className="form-group">
+                <label>Additional Description</label>
                 <input
                   type="text"
                   value={currentItem.additional_description}
                   onChange={(e) => setCurrentItem({...currentItem, additional_description: e.target.value})}
                   placeholder="Optional details"
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: '0.75rem' }}>Unit</label>
+              <div className="form-group">
+                <label>Unit</label>
                 <input
                   type="text"
                   value={currentItem.unit}
                   onChange={(e) => setCurrentItem({...currentItem, unit: e.target.value})}
                   placeholder="e.g., Hour, Day, Meter"
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: '0.75rem' }}>Quantity *</label>
+              <div className="form-group">
+                <label>Quantity *</label>
                 <input
                   type="number"
                   step="0.01"
                   value={currentItem.quantity}
                   onChange={(e) => setCurrentItem({...currentItem, quantity: parseFloat(e.target.value) || 0})}
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: '0.75rem' }}>Unit of Measure</label>
+              <div className="form-group">
+                <label>Unit of Measure</label>
                 <select
                   value={currentItem.unit_of_measure}
                   onChange={(e) => setCurrentItem({...currentItem, unit_of_measure: e.target.value})}
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
                 >
                   <option value="each">Each</option>
                   <option value="hour">Hour</option>
@@ -335,66 +331,65 @@ export default function NewQuotePage() {
                   <option value="lot">Lot</option>
                 </select>
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: '0.75rem' }}>Price Ex VAT *</label>
+              <div className="form-group">
+                <label>Price Ex VAT *</label>
                 <input
                   type="number"
                   step="0.01"
                   value={currentItem.price_ex_vat}
                   onChange={(e) => setCurrentItem({...currentItem, price_ex_vat: parseFloat(e.target.value) || 0})}
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
                 />
               </div>
             </div>
-            <Button type="button" onClick={addItem} style={{ marginTop: '1rem' }}>+ Add Item</Button>
+            <button type="button" onClick={addItem} className="btn-add">Add Item</button>
           </div>
           
           {/* Items Table */}
           {items.length > 0 && (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="table-container">
+              <table className="items-table">
                 <thead>
-                  <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>#</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Description</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Qty</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Unit</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>UoM</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Unit Price</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'right' }}>Total Ex VAT</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'center' }}></th>
+                  <tr>
+                    <th>#</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Unit</th>
+                    <th>UoM</th>
+                    <th>Unit Price</th>
+                    <th>Total Ex VAT</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                      <td style={{ padding: '0.75rem' }}>{item.item_number}</td>
-                      <td style={{ padding: '0.75rem' }}>
+                    <tr key={idx}>
+                      <td>{item.item_number}</td>
+                      <td>
                         <strong>{item.description}</strong>
-                        {item.additional_description && <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{item.additional_description}</div>}
+                        {item.additional_description && <div className="item-sub">{item.additional_description}</div>}
                       </td>
-                      <td style={{ padding: '0.75rem' }}>
+                      <td>
                         <input
                           type="number"
                           step="0.01"
                           value={item.quantity}
                           onChange={(e) => updateItemField(idx, 'quantity', e.target.value)}
-                          style={{ width: '70px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
+                          className="item-input"
                         />
                       </td>
-                      <td style={{ padding: '0.75rem' }}>
+                      <td>
                         <input
                           type="text"
                           value={item.unit || ''}
                           onChange={(e) => updateItemField(idx, 'unit', e.target.value)}
-                          style={{ width: '80px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
+                          className="item-input"
                         />
                       </td>
-                      <td style={{ padding: '0.75rem' }}>
+                      <td>
                         <select
                           value={item.unit_of_measure}
                           onChange={(e) => updateItemField(idx, 'unit_of_measure', e.target.value)}
-                          style={{ width: '80px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
+                          className="item-select"
                         >
                           <option value="each">Each</option>
                           <option value="hour">Hour</option>
@@ -404,78 +399,275 @@ export default function NewQuotePage() {
                           <option value="lot">Lot</option>
                         </select>
                       </td>
-                      <td style={{ padding: '0.75rem' }}>
+                      <td>
                         <input
                           type="number"
                           step="0.01"
                           value={item.price_ex_vat}
                           onChange={(e) => updateItemField(idx, 'price_ex_vat', e.target.value)}
-                          style={{ width: '90px', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '0.25rem' }}
+                          className="item-input"
                         />
                       </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                        R {(item.quantity * item.price_ex_vat).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        <button type="button" onClick={() => removeItem(idx)} style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: '0.25rem', padding: '0.25rem 0.5rem', cursor: 'pointer' }}>×</button>
+                      <td className="amount">R {(item.quantity * item.price_ex_vat).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td>
+                        <button type="button" onClick={() => removeItem(idx)} className="btn-remove">×</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr style={{ background: '#f9fafb' }}>
-                    <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>Subtotal Ex VAT:</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>
-                      R {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
+                  <tr>
+                    <td colSpan="6" className="total-label">Subtotal Ex VAT:</td>
+                    <td className="amount">R {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                     <td></td>
                   </tr>
                   <tr>
-                    <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right' }}>VAT (15%):</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                      R {vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
+                    <td colSpan="6" className="total-label">VAT (15%):</td>
+                    <td className="amount">R {vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                     <td></td>
                   </tr>
-                  <tr style={{ background: '#f0fdf4' }}>
-                    <td colSpan="6" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>Total:</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                      R {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
+                  <tr className="total-row">
+                    <td colSpan="6" className="total-label">Total:</td>
+                    <td className="amount">R {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                     <td></td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           )}
-        </Card>
+        </div>
 
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-          <button type="submit" disabled={loading} style={{ background: '#2563eb', color: 'white', padding: '0.625rem 1.25rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '500' }}>
+        <div className="form-actions">
+          <button type="submit" disabled={loading} className="btn-primary">
             {loading ? 'Creating...' : 'Create Quote'}
           </button>
-          <Link href="/quotes">
-            <button type="button" style={{ background: '#6b7280', color: 'white', padding: '0.625rem 1.25rem', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}>Cancel</button>
-          </Link>
+          <Link href="/quotes" className="btn-secondary">Cancel</Link>
         </div>
       </form>
 
       <style jsx>{`
+        .quote-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
+        .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+        .page-header h1 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: 0.25rem;
+        }
+        .page-header p {
+          color: var(--text-tertiary);
+        }
+        .card {
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        .card h3 {
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: 1rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--border-light);
+        }
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+        }
+        .full-width {
+          grid-column: span 2;
+          margin-top: 1rem;
+        }
         .form-group {
           margin-bottom: 0;
         }
         .form-group label {
           display: block;
-          margin-bottom: 0.25rem;
+          margin-bottom: 0.375rem;
           font-weight: 500;
-          font-size: 0.75rem;
-          color: #374151;
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-secondary);
         }
-        table th {
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+          width: 100%;
+          padding: 0.625rem;
+          border: 1px solid var(--border-medium);
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .add-item-section {
+          background: var(--bg-tertiary);
+          padding: 1rem;
+          border-radius: 0.5rem;
+          margin-bottom: 1rem;
+        }
+        .add-item-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+        }
+        .btn-add {
+          background: var(--primary);
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+        }
+        .btn-add:hover {
+          background: var(--primary-dark);
+        }
+        .items-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .items-table th {
           text-align: left;
-          font-size: 0.75rem;
+          padding: 0.75rem;
+          font-size: 0.7rem;
           font-weight: 600;
-          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-secondary);
+          border-bottom: 1px solid var(--border-light);
+          background: var(--bg-tertiary);
+        }
+        .items-table td {
+          padding: 0.75rem;
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+          border-bottom: 1px solid var(--border-light);
+        }
+        .item-input {
+          width: 80px;
+          padding: 0.25rem;
+          border: 1px solid var(--border-medium);
+          border-radius: 0.25rem;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        }
+        .item-select {
+          width: 80px;
+          padding: 0.25rem;
+          border: 1px solid var(--border-medium);
+          border-radius: 0.25rem;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        }
+        .item-sub {
+          font-size: 0.7rem;
+          color: var(--text-tertiary);
+          margin-top: 0.25rem;
+        }
+        .amount {
+          text-align: right;
+          font-weight: 500;
+        }
+        .btn-remove {
+          background: var(--danger);
+          color: white;
+          border: none;
+          border-radius: 0.25rem;
+          padding: 0.25rem 0.5rem;
+          cursor: pointer;
+          font-size: 1rem;
+        }
+        .btn-remove:hover {
+          background: var(--danger-dark);
+        }
+        .total-label {
+          text-align: right;
+          font-weight: 500;
+        }
+        .total-row {
+          background: var(--success-bg);
+          font-weight: 700;
+        }
+        .total-row td {
+          color: var(--success-dark);
+        }
+        .form-actions {
+          display: flex;
+          gap: 1rem;
+          justify-content: flex-end;
+          margin-top: 1.5rem;
+        }
+        .btn-primary {
+          background: var(--primary);
+          color: white;
+          padding: 0.625rem 1.25rem;
+          border: none;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          font-weight: 500;
+        }
+        .btn-primary:hover {
+          background: var(--primary-dark);
+        }
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .btn-secondary {
+          background: var(--secondary);
+          color: white;
+          padding: 0.625rem 1.25rem;
+          border-radius: 0.5rem;
+          text-decoration: none;
+          font-weight: 500;
+          display: inline-block;
+        }
+        .btn-secondary:hover {
+          background: var(--secondary-dark);
+        }
+        @media (max-width: 768px) {
+          .quote-container {
+            padding: 1rem;
+          }
+          .form-grid {
+            grid-template-columns: 1fr;
+          }
+          .full-width {
+            grid-column: span 1;
+          }
+          .add-item-grid {
+            grid-template-columns: 1fr;
+          }
+          .items-table {
+            font-size: 0.75rem;
+          }
+          .item-input, .item-select {
+            width: 60px;
+          }
         }
       `}</style>
     </div>
