@@ -8,7 +8,6 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated || !token) {
@@ -18,7 +17,6 @@ export function useNotifications() {
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch('/api/notifications?limit=50', {
@@ -32,11 +30,15 @@ export function useNotifications() {
       }
 
       const data = await response.json();
-      setNotifications(data.notifications || []);
-      setUnreadCount(data.unreadCount || 0);
+      
+      // Ensure we're working with arrays
+      const notificationsData = Array.isArray(data) ? data : (data.notifications || []);
+      const unread = Array.isArray(data) ? 0 : (data.unreadCount || 0);
+      
+      setNotifications(notificationsData);
+      setUnreadCount(unread);
     } catch (err) {
       console.error('Error fetching notifications:', err);
-      setError(err.message);
       setNotifications([]);
       setUnreadCount(0);
     } finally {
@@ -57,9 +59,9 @@ export function useNotifications() {
 
       if (response.ok) {
         setNotifications(prev =>
-          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+          (prev || []).map(n => n.id === notificationId ? { ...n, read: true } : n)
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        setUnreadCount(prev => Math.max(0, (prev || 0) - 1));
         return true;
       }
     } catch (err) {
@@ -82,7 +84,7 @@ export function useNotifications() {
 
       if (response.ok) {
         setNotifications(prev =>
-          prev.map(n => ({ ...n, read: true }))
+          (prev || []).map(n => ({ ...n, read: true }))
         );
         setUnreadCount(0);
         return true;
@@ -99,27 +101,15 @@ export function useNotifications() {
     }
   }, [isAuthenticated, token, fetchNotifications]);
 
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    if (!isAuthenticated || !token) return;
-
-    const interval = setInterval(() => {
-      fetchNotifications();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [isAuthenticated, token, fetchNotifications]);
-
   return {
-    notifications,
-    unreadCount,
+    notifications: notifications || [],
+    unreadCount: unreadCount || 0,
     loading,
-    error,
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    hasUnread: unreadCount > 0,
-    isEmpty: notifications.length === 0
+    hasUnread: (unreadCount || 0) > 0,
+    isEmpty: (notifications || []).length === 0
   };
 }
 
