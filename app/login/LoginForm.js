@@ -20,15 +20,28 @@ export default function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError('');
-
-    const result = await login(email, password, rememberMe);
     
-    if (result.success) {
-      router.push(redirectTo);
-    } else {
-      setError(result.error || 'Login failed');
+    console.log('Attempting login for:', email);
+    
+    try {
+      const result = await login(email, password, rememberMe);
+      console.log('Login result:', result);
+      
+      if (result && result.success === true) {
+        console.log('Login successful, redirecting to:', redirectTo);
+        // Small delay to ensure state updates
+        setTimeout(() => {
+          router.push(redirectTo);
+        }, 100);
+      } else {
+        setError(result?.error || 'Login failed. Please check your credentials.');
+      }
+    } catch (err) {
+      console.error('Login exception:', err);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -39,7 +52,11 @@ export default function LoginForm() {
           <p>Sign in to your account</p>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -50,6 +67,7 @@ export default function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="jan@netcamsa.co.za"
+              autoComplete="email"
             />
           </div>
 
@@ -61,6 +79,7 @@ export default function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••••"
+              autoComplete="current-password"
             />
           </div>
 
@@ -181,8 +200,13 @@ export default function LoginForm() {
           transition: background 0.2s;
           margin-top: 0.5rem;
         }
-        .login-btn:hover { background: var(--primary-dark); }
-        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .login-btn:hover {
+          background: var(--primary-dark);
+        }
+        .login-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
         .login-footer {
           margin-top: 1.5rem;
           text-align: center;

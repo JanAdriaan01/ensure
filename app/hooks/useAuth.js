@@ -17,9 +17,7 @@ export function AuthProvider({ children }) {
   const verifyToken = useCallback(async (storedToken) => {
     try {
       const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${storedToken}`
-        }
+        headers: { 'Authorization': `Bearer ${storedToken}` }
       });
       
       if (response.ok) {
@@ -42,30 +40,19 @@ export function AuthProvider({ children }) {
       const storedToken = localStorage.getItem('auth_token');
       const storedUser = localStorage.getItem('user');
       
-      console.log('Initializing auth - storedToken exists:', !!storedToken);
-      
       if (storedToken && storedUser) {
         const verification = await verifyToken(storedToken);
         
         if (verification.valid) {
-          console.log('Token valid, setting user');
           setToken(storedToken);
           setUser(verification.user);
           setPermissions(verification.permissions);
         } else {
-          console.log('Token invalid, clearing storage');
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user');
           localStorage.removeItem('user_permissions');
-          setToken(null);
-          setUser(null);
-          setPermissions([]);
         }
-      } else {
-        console.log('No stored token found');
       }
-      
-      console.log('Setting loading to false');
       setLoading(false);
     };
     
@@ -88,7 +75,7 @@ export function AuthProvider({ children }) {
       
       const data = await response.json();
       
-      if (response.ok && data.success) {
+      if (response.ok && data.success === true) {
         localStorage.setItem('auth_token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
