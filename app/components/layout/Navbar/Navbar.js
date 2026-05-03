@@ -129,11 +129,11 @@ export default function Navbar() {
         {/* Right Side */}
         <div className="nav-actions">
           <button onClick={toggleTheme} className="theme-btn">
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? 'Light' : 'Dark'}
           </button>
           <CurrencySelector />
           <button className="mobile-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            ☰
+            Menu
           </button>
         </div>
       </div>
@@ -174,23 +174,26 @@ export default function Navbar() {
         .nav-container {
           max-width: 1280px;
           margin: 0 auto;
-          padding: 0 1.5rem;
+          padding: 0 2rem;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          height: 64px;
+          height: 70px;
         }
 
+        /* Brand */
         .nav-brand a {
           font-size: 1.25rem;
           font-weight: 700;
           color: var(--text-primary);
           text-decoration: none;
+          letter-spacing: -0.5px;
         }
 
+        /* Desktop Navigation */
         .nav-links {
           display: flex;
-          gap: 0.5rem;
+          gap: 0.25rem;
           align-items: center;
         }
 
@@ -201,15 +204,15 @@ export default function Navbar() {
         .nav-button {
           background: transparent;
           border: none;
-          padding: 0.5rem 1rem;
+          padding: 0.625rem 1.25rem;
           font-size: 0.875rem;
           font-weight: 500;
           color: var(--text-secondary);
           cursor: pointer;
           display: flex;
           align-items: center;
-          gap: 0.25rem;
-          border-radius: 0.375rem;
+          gap: 0.5rem;
+          border-radius: 0.5rem;
           transition: all 0.2s;
         }
 
@@ -220,32 +223,34 @@ export default function Navbar() {
 
         .dropdown-arrow {
           transition: transform 0.2s;
+          opacity: 0.6;
         }
 
         .dropdown-arrow.open {
           transform: rotate(180deg);
         }
 
+        /* Dropdown Menu - Vertical Stack */
         .dropdown {
           position: absolute;
-          top: 100%;
+          top: calc(100% + 0.5rem);
           left: 0;
-          margin-top: 0.5rem;
-          min-width: 200px;
+          min-width: 220px;
           background: var(--card-bg);
           border: 1px solid var(--border-light);
-          border-radius: 0.5rem;
-          box-shadow: var(--shadow-lg);
+          border-radius: 0.75rem;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
           z-index: 1000;
           display: flex;
           flex-direction: column;
+          padding: 0.5rem;
           animation: fadeIn 0.15s ease;
         }
 
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateY(-8px);
+            transform: translateY(-10px);
           }
           to {
             opacity: 1;
@@ -254,12 +259,15 @@ export default function Navbar() {
         }
 
         .dropdown-link {
+          display: block;
           padding: 0.625rem 1rem;
           color: var(--text-secondary);
           text-decoration: none;
           font-size: 0.875rem;
+          font-weight: 500;
+          border-radius: 0.5rem;
           transition: all 0.15s;
-          border-left: 2px solid transparent;
+          text-align: left;
         }
 
         .dropdown-link:hover {
@@ -270,70 +278,79 @@ export default function Navbar() {
         .dropdown-link.active {
           color: var(--primary);
           background: var(--primary-bg);
-          border-left-color: var(--primary);
         }
 
+        /* Right Side Actions */
         .nav-actions {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.75rem;
         }
 
         .theme-btn {
           background: var(--bg-tertiary);
           border: none;
-          width: 36px;
-          height: 36px;
+          padding: 0.5rem 1rem;
           border-radius: 0.5rem;
           cursor: pointer;
-          font-size: 1rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+          transition: all 0.2s;
+        }
+
+        .theme-btn:hover {
+          background: var(--bg-quaternary);
+          color: var(--text-primary);
         }
 
         .mobile-btn {
           display: none;
           background: var(--bg-tertiary);
           border: none;
-          width: 36px;
-          height: 36px;
+          padding: 0.5rem 1rem;
           border-radius: 0.5rem;
           cursor: pointer;
-          font-size: 1.25rem;
+          font-size: 0.75rem;
           font-weight: 500;
+          color: var(--text-secondary);
         }
 
+        /* Mobile Menu */
         .mobile-menu {
           display: none;
-          padding: 1rem 1.5rem;
-          background: var(--card-bg);
+          padding: 1.5rem;
+          background: var(--bg-primary);
           border-top: 1px solid var(--border-light);
-          max-height: calc(100vh - 64px);
+          max-height: calc(100vh - 70px);
           overflow-y: auto;
         }
 
         .mobile-group {
-          margin-bottom: 1rem;
-          padding-bottom: 1rem;
-          border-bottom: 1px solid var(--border-light);
+          margin-bottom: 1.5rem;
         }
 
         .mobile-group-title {
           font-size: 0.7rem;
           font-weight: 600;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 1px;
           color: var(--text-tertiary);
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.75rem;
         }
 
         .mobile-link {
           display: block;
-          padding: 0.5rem 0;
+          padding: 0.625rem 0;
           color: var(--text-secondary);
           text-decoration: none;
           font-size: 0.875rem;
+          font-weight: 500;
+          border-bottom: 1px solid var(--border-light);
+        }
+
+        .mobile-link:last-child {
+          border-bottom: none;
         }
 
         .mobile-link:hover {
@@ -342,23 +359,24 @@ export default function Navbar() {
 
         .mobile-theme-btn {
           width: 100%;
-          padding: 0.5rem;
+          padding: 0.625rem;
           background: var(--bg-tertiary);
           border: none;
           border-radius: 0.5rem;
           color: var(--text-primary);
+          font-size: 0.875rem;
+          font-weight: 500;
           cursor: pointer;
-          margin-top: 0.5rem;
+          margin-top: 1rem;
         }
 
+        /* Responsive */
         @media (max-width: 900px) {
           .nav-links {
             display: none;
           }
           .mobile-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: block;
           }
           .mobile-menu {
             display: block;
