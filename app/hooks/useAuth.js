@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 const AuthContext = createContext();
@@ -11,8 +11,12 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState([]);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('user');
     const storedPermissions = localStorage.getItem('user_permissions');
@@ -24,7 +28,11 @@ export function AuthProvider({ children }) {
         setPermissions(JSON.parse(storedPermissions));
       }
     }
-    setLoading(false);
+    
+    // Small delay to ensure state is stable before setting loading to false
+    setTimeout(() => {
+      setLoading(false);
+    }, 100);
   }, []);
 
   const setCookie = (name, value, days) => {

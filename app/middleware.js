@@ -8,8 +8,8 @@ const publicRoutes = [
   '/reset-password',
   '/api/auth/login',
   '/api/auth/register',
-  '/api/auth/forgot-password',
-  '/api/auth/reset-password',
+  '/api/auth/verify-hash',
+  '/api/auth/test',
 ];
 
 export function middleware(request) {
@@ -25,14 +25,20 @@ export function middleware(request) {
     return NextResponse.next();
   }
   
-  // Check for auth token in cookie or header
-  const token = request.cookies.get('auth_token')?.value || 
-                request.headers.get('authorization')?.replace('Bearer ', '');
+  // For API routes, return 401 instead of redirecting
+  if (pathname.startsWith('/api/')) {
+    const token = request.cookies.get('auth_token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
   
-  // If no token, redirect to login
+  // For page routes, check token and redirect to login
+  const token = request.cookies.get('auth_token')?.value;
+  
   if (!token) {
     const url = new URL('/login', request.url);
-    url.searchParams.set('redirect', pathname);
     return NextResponse.redirect(url);
   }
   
@@ -41,13 +47,6 @@ export function middleware(request) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     '/((?!_next/static|_next/image|favicon.ico|public|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
