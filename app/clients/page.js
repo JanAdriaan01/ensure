@@ -2,25 +2,57 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function ClientsPage() {
+  const { token, isAuthenticated } = useAuth();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    async function fetchClients() {
-      try {
-        const response = await fetch('/api/clients');
-        const data = await response.json();
-        setClients(Array.isArray(data) ? data : (data.data || []));
-      } catch (error) {
-        console.error('Error fetching clients:', error);
-      } finally {
-        setLoading(false);
-      }
+    if (isAuthenticated && token) {
+      fetchClients();
+    } else if (!isAuthenticated && !loading) {
+      setLoading(false);
     }
-    fetchClients();
-  }, []);
+  }, [isAuthenticated, token]);
+
+  const fetchClients = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch('/api/clients', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Handle both response formats
+      let clientsData = [];
+      if (Array.isArray(data)) {
+        clientsData = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        clientsData = data.data;
+      } else {
+        clientsData = [];
+      }
+      
+      setClients(clientsData);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      setError('Failed to load clients. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -38,28 +70,56 @@ export default function ClientsPage() {
           <h1>Clients</h1>
           <p>Manage your client database</p>
         </div>
-        <Link href="/clients/new" className="btn-primary">+ New Client</Link>
+        <Link href="/clients/new" className="btn-primary">New Client</Link>
       </div>
 
+      {error && (
+        <div className="error-message">
+          {error}
+          <button onClick={fetchClients} className="retry-btn">Retry</button>
+        </div>
+      )}
+
       <div className="cards-grid">
-        {clients.map((client) => (
-          <Link key={client.id} href={`/clients/${client.id}`} className="client-card">
-            <div className="client-name">{client.name}</div>
-            <div className="client-contact">{client.contact_person || 'No contact person'}</div>
-            <div className="client-email">{client.email || 'No email'}</div>
-            <div className="client-footer">
-              <span className="view-link">View Details →</span>
-            </div>
-          </Link>
-        ))}
-        {clients.length === 0 && (
+        {clients.length === 0 && !error ? (
           <div className="empty-state">
             <p>No clients found. Create your first client.</p>
           </div>
+        ) : (
+          clients.map((client) => (
+            <Link key={client.id} href={`/clients/${client.id}`} className="client-card">
+              <div className="client-name">{client.client_name || client.name}</div>
+              <div className="client-contact">{client.contact_person || 'No contact person'}</div>
+              <div className="client-email">{client.email || 'No email'}</div>
+              <div className="client-footer">
+                <span className="view-link">View Details</span>
+              </div>
+            </Link>
+          ))
         )}
       </div>
 
       <style jsx>{`
+        .error-message {
+          background: var(--danger-bg);
+          color: var(--danger-dark);
+          padding: 1rem;
+          border-radius: 0.5rem;
+          margin-bottom: 1rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+        .retry-btn {
+          background: var(--danger);
+          color: white;
+          padding: 0.25rem 0.75rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+        }
         .client-card {
           background: var(--card-bg);
           border: 1px solid var(--card-border);
