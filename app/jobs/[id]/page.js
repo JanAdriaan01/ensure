@@ -3,8 +3,8 @@
 
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import JobFlowVisualization from '@/app/components/JobFlowVisualization';
-import JobManagement from '@/app/components/JobManagement';
+import JobFlowVisualization from '@/app/components/jobs/JobFlowVisualization';
+import JobManagement from '@/app/components/jobs/JobManagement';
 import { useFetch } from '@/app/hooks/useFetch';
 import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 

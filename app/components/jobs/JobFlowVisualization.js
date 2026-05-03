@@ -1,6 +1,7 @@
+// app/components/jobs/JobFlowVisualization.jsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFetch } from '@/app/hooks/useFetch';
 import { useToast } from '@/app/hooks/useToast';
 import Button from '@/app/components/ui/Button/Button';
@@ -40,7 +41,7 @@ export default function JobFlowVisualization({ jobId, onStageChange }) {
   };
 
   const getBlockers = () => {
-    return flowData?.blockers?.find(b => b.stage === flowData?.current_stage)?.blockers || [];
+    return flowData?.blockers?.filter(b => b.stage === flowData?.current_stage)?.[0]?.blockers || [];
   };
 
   const handleAdvance = async () => {
@@ -213,7 +214,7 @@ export default function JobFlowVisualization({ jobId, onStageChange }) {
           display: flex;
           align-items: center;
           flex: 1;
-          min-width: 80px;
+          min-width: 100px;
         }
 
         .flow-stage {
@@ -238,8 +239,8 @@ export default function JobFlowVisualization({ jobId, onStageChange }) {
         }
 
         .stage-icon {
-          width: 36px;
-          height: 36px;
+          width: 40px;
+          height: 40px;
           margin: 0 auto 0.5rem;
           border-radius: 50%;
           display: flex;
@@ -247,11 +248,10 @@ export default function JobFlowVisualization({ jobId, onStageChange }) {
           justify-content: center;
           color: white;
           font-weight: bold;
-          font-size: 0.875rem;
         }
 
         .stage-label {
-          font-size: 0.65rem;
+          font-size: 0.7rem;
           font-weight: 500;
         }
 
