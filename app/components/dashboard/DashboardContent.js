@@ -1,35 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useFetch } from '@/app/hooks/useFetch';
-import { usePermissions } from '@/app/hooks/usePermissions';
-import { useNotifications } from '@/app/hooks/useNotifications';
-import LoadingSpinner from '@/app/components/ui/LoadingSpinner';
 import { QuickStats } from '@/app/components/dashboard/QuickStats';
 import ActivityFeed from '@/app/components/common/ActivityFeed/ActivityFeed';
 import { ModuleCards } from '@/app/components/dashboard/ModuleCards';
 import { FinancialWidget } from '@/app/components/dashboard/FinancialWidget';
 import { HRWidget } from '@/app/components/dashboard/HRWidget';
 import { OperationsWidget } from '@/app/components/dashboard/OperationsWidget';
-import NotificationBell from '@/app/components/common/NotificationBell';
-import { UserMenu } from '@/app/components/common/UserMenu';
 
-export default function HomePage() {
-  const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { hasPermission } = usePermissions();
-  const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications();
+export default function DashboardContent() {
+  const { user } = useAuth();
   
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [authLoading, isAuthenticated, router]);
-
   const { data: jobs, loading: jobsLoading } = useFetch('/api/jobs');
   const { data: quotes, loading: quotesLoading } = useFetch('/api/quotes');
   const { data: employees, loading: employeesLoading } = useFetch('/api/employees');
@@ -47,12 +31,6 @@ export default function HomePage() {
     const timer = setTimeout(() => calculateStats(), 500);
     return () => clearTimeout(timer);
   }, [jobs, quotes, employees]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchNotifications().catch(console.error);
-    }
-  }, [isAuthenticated, fetchNotifications]);
 
   const calculateStats = () => {
     const safeJobs = Array.isArray(jobs) ? jobs : [];
@@ -85,26 +63,16 @@ export default function HomePage() {
     return 'Good Evening';
   };
 
-  const handleNotificationClick = (notification) => {
-    if (notification?.link) router.push(notification.link);
-    if (notification?.id && markAsRead) markAsRead(notification.id);
-  };
-
-  // Show loading while checking authentication
-  if (authLoading || loading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading Dashboard..." />
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="loading-spinner"></div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null; // Will redirect in useEffect
-  }
-
   return (
-    <div className="dashboard-container">
+    <>
       <div className="dashboard-header">
         <div>
           <h1 className="dashboard-title">
@@ -113,16 +81,6 @@ export default function HomePage() {
           <p className="dashboard-subtitle">
             Welcome to ENSURE - Your Complete Business Management Platform
           </p>
-        </div>
-        <div className="dashboard-actions">
-          <NotificationBell 
-            notifications={notifications || []}
-            onMarkAsRead={markAsRead}
-            onMarkAllAsRead={markAllAsRead}
-            onViewAll={() => router.push('/notifications')}
-            onNotificationClick={handleNotificationClick}
-          />
-          <UserMenu user={user} />
         </div>
       </div>
 
@@ -144,49 +102,9 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="quick-actions-section">
-        <h3 className="section-title">Quick Actions</h3>
-        <div className="quick-actions-grid">
-          <Link href="/jobs/new" className="quick-action-card">
-            <span className="action-icon">📋</span>
-            <span className="action-label">New Job</span>
-          </Link>
-          <Link href="/quotes/new" className="quick-action-card">
-            <span className="action-icon">💰</span>
-            <span className="action-label">New Quote</span>
-          </Link>
-          <Link href="/employees/time" className="quick-action-card">
-            <span className="action-icon">⏰</span>
-            <span className="action-label">Log Time</span>
-          </Link>
-          <Link href="/employees/new" className="quick-action-card">
-            <span className="action-icon">👤</span>
-            <span className="action-label">Add Employee</span>
-          </Link>
-          <Link href="/stock/purchasing" className="quick-action-card">
-            <span className="action-icon">📦</span>
-            <span className="action-label">Purchase Stock</span>
-          </Link>
-          <Link href="/tools/checkout" className="quick-action-card">
-            <span className="action-icon">🔧</span>
-            <span className="action-label">Checkout Tool</span>
-          </Link>
-        </div>
-      </div>
-
       <style jsx>{`
-        .dashboard-container {
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 2rem;
-        }
         .dashboard-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
           margin-bottom: 2rem;
-          flex-wrap: wrap;
-          gap: 1rem;
         }
         .dashboard-title {
           font-size: 1.75rem;
@@ -198,11 +116,6 @@ export default function HomePage() {
           color: var(--text-tertiary);
           margin: 0;
           font-size: 0.875rem;
-        }
-        .dashboard-actions {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
         }
         .dashboard-grid {
           display: grid;
@@ -221,50 +134,15 @@ export default function HomePage() {
         .dashboard-widget.full-width {
           grid-column: span 3;
         }
-        .quick-actions-section {
-          margin-top: 1.5rem;
-        }
-        .section-title {
-          font-size: 1rem;
-          font-weight: 600;
-          margin-bottom: 1rem;
-          color: var(--text-primary);
-        }
-        .quick-actions-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-          gap: 1rem;
-        }
-        .quick-action-card {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 1rem;
-          background: var(--card-bg);
-          border-radius: 0.75rem;
-          text-decoration: none;
-          transition: all var(--transition-normal);
-          border: 1px solid var(--card-border);
-        }
-        .quick-action-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-md);
-          border-color: var(--primary);
-        }
-        .action-icon { font-size: 1.5rem; }
-        .action-label { font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); }
         @media (max-width: 1024px) {
           .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
           .dashboard-widget.full-width { grid-column: span 2; }
         }
         @media (max-width: 768px) {
-          .dashboard-container { padding: 1rem; }
           .dashboard-grid { grid-template-columns: 1fr; }
           .dashboard-widget.full-width { grid-column: span 1; }
-          .quick-actions-grid { grid-template-columns: repeat(2, 1fr); }
         }
       `}</style>
-    </div>
+    </>
   );
 }

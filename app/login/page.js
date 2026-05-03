@@ -1,16 +1,33 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/';
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Check if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      router.push(redirectTo);
+    }
+  }, [router, redirectTo]);
+
+  const setCookie = (name, value, days) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,8 +49,11 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
         
-        // Redirect to dashboard
-        router.push('/');
+        // Set cookie for middleware
+        setCookie('auth_token', data.token, rememberMe ? 30 : 7);
+        
+        // Redirect to intended page or dashboard
+        router.push(redirectTo);
       } else {
         setError(data.error || 'Login failed. Please check your credentials.');
       }
@@ -103,7 +123,12 @@ export default function LoginPage() {
         </form>
 
         <div className="login-footer">
-          <p>Demo credentials: admin@ensure.com / admin123</p>
+          <p>
+            Don't have an account? <Link href="/register">Sign up</Link>
+          </p>
+          <p className="demo-credentials">
+            Demo: admin@ensure.com / admin123
+          </p>
         </div>
       </div>
 
@@ -117,7 +142,7 @@ export default function LoginPage() {
           padding: 1rem;
         }
         .login-card {
-          max-width: 400px;
+          max-width: 420px;
           width: 100%;
           background: var(--card-bg);
           border: 1px solid var(--card-border);
@@ -166,7 +191,7 @@ export default function LoginPage() {
           color: var(--text-secondary);
         }
         .form-group input {
-          padding: 0.625rem;
+          padding: 0.75rem;
           border: 1px solid var(--border-medium);
           border-radius: 0.5rem;
           font-size: 0.875rem;
@@ -201,11 +226,11 @@ export default function LoginPage() {
         .login-btn {
           background: var(--primary);
           color: white;
-          padding: 0.625rem;
+          padding: 0.75rem;
           border: none;
           border-radius: 0.5rem;
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
           cursor: pointer;
           transition: background 0.2s;
           margin-top: 0.5rem;
@@ -220,10 +245,22 @@ export default function LoginPage() {
         .login-footer {
           margin-top: 1.5rem;
           text-align: center;
-          font-size: 0.7rem;
+          font-size: 0.75rem;
           color: var(--text-tertiary);
           border-top: 1px solid var(--border-light);
           padding-top: 1rem;
+        }
+        .login-footer a {
+          color: var(--primary);
+          text-decoration: none;
+        }
+        .login-footer a:hover {
+          text-decoration: underline;
+        }
+        .demo-credentials {
+          margin-top: 0.75rem;
+          font-size: 0.7rem;
+          color: var(--text-muted);
         }
       `}</style>
     </div>
