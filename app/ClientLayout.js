@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { ThemeProvider } from '@/app/context/ThemeContext';
 import { AuthProvider } from '@/app/context/AuthContext';
 import { CurrencyProvider } from '@/app/context/CurrencyContext';
@@ -12,8 +13,15 @@ import { WebSocketProvider } from '@/app/context/WebSocketContext';
 import Navbar from '@/app/components/layout/Navbar';
 import Footer from '@/app/components/layout/Footer';
 
+// Routes that should NOT show navbar and footer
+const authRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];
+
 export default function ClientLayout({ children }) {
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  
+  // Check if current route is an auth route
+  const isAuthRoute = authRoutes.some(route => pathname?.startsWith(route));
 
   useEffect(() => {
     setMounted(true);
@@ -31,15 +39,15 @@ export default function ClientLayout({ children }) {
                   <ToastProvider>
                     {mounted ? (
                       <WebSocketProvider>
-                        <Navbar />
+                        {!isAuthRoute && <Navbar />}
                         <main>{children}</main>
-                        <Footer />
+                        {!isAuthRoute && <Footer />}
                       </WebSocketProvider>
                     ) : (
                       <>
-                        <Navbar />
+                        {!isAuthRoute && <Navbar />}
                         <main>{children}</main>
-                        <Footer />
+                        {!isAuthRoute && <Footer />}
                       </>
                     )}
                   </ToastProvider>

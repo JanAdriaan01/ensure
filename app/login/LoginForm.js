@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth';
@@ -9,27 +9,13 @@ export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
-  const { login, isAuthenticated } = useAuth();
+  const { login } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Set cookie helper
-  const setCookie = (name, value, days) => {
-    const expires = new Date();
-    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
-  };
-
-  // If already logged in, redirect
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push(redirectTo);
-    }
-  }, [isAuthenticated, router, redirectTo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,14 +25,9 @@ export default function LoginForm() {
     const result = await login(email, password, rememberMe);
     
     if (result.success) {
-      // Get token from localStorage after login
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        setCookie('auth_token', token, rememberMe ? 30 : 7);
-      }
       router.push(redirectTo);
     } else {
-      setError(result.error || 'Login failed');
+      setError(result.error || 'Login failed. Please check your credentials.');
     }
     setLoading(false);
   };
@@ -73,7 +54,7 @@ export default function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="admin@ensure.com"
+              placeholder="jan@netcamsa.co.za"
               autoComplete="email"
             />
           </div>
@@ -186,7 +167,7 @@ export default function LoginForm() {
         }
         .form-options {
           display: flex;
-          justify-content: space-between;
+          justify-content: flex-end;
           align-items: center;
           font-size: 0.75rem;
         }

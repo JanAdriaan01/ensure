@@ -13,7 +13,6 @@ export function AuthProvider({ children }) {
   const [permissions, setPermissions] = useState([]);
 
   useEffect(() => {
-    // Check localStorage on mount
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('user');
     const storedPermissions = localStorage.getItem('user_permissions');
@@ -27,6 +26,12 @@ export function AuthProvider({ children }) {
     }
     setLoading(false);
   }, []);
+
+  const setCookie = (name, value, days) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+  };
 
   const login = async (email, password, rememberMe = false) => {
     try {
@@ -42,6 +47,8 @@ export function AuthProvider({ children }) {
         localStorage.setItem('auth_token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
+        
+        setCookie('auth_token', data.token, rememberMe ? 30 : 7);
         
         setToken(data.token);
         setUser(data.user);
@@ -61,6 +68,9 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     localStorage.removeItem('user_permissions');
+    
+    document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    
     setToken(null);
     setUser(null);
     setPermissions([]);
