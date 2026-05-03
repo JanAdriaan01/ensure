@@ -16,14 +16,17 @@ export function AuthProvider({ children }) {
   // Verify token with server
   const verifyToken = useCallback(async (storedToken) => {
     try {
+      console.log('Verifying token with server...');
       const response = await fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${storedToken}` }
       });
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Token valid, user:', data.user?.email);
         return { valid: true, user: data.user, permissions: data.permissions || [] };
       }
+      console.log('Token invalid, response not ok');
       return { valid: false, user: null, permissions: [] };
     } catch (error) {
       console.error('Token verification error:', error);
@@ -40,19 +43,28 @@ export function AuthProvider({ children }) {
       const storedToken = localStorage.getItem('auth_token');
       const storedUser = localStorage.getItem('user');
       
+      console.log('Initializing auth - storedToken exists:', !!storedToken);
+      console.log('Initializing auth - storedUser exists:', !!storedUser);
+      
       if (storedToken && storedUser) {
         const verification = await verifyToken(storedToken);
         
         if (verification.valid) {
+          console.log('Setting user from stored token');
           setToken(storedToken);
           setUser(verification.user);
           setPermissions(verification.permissions);
         } else {
+          console.log('Clearing invalid stored auth');
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user');
           localStorage.removeItem('user_permissions');
         }
+      } else {
+        console.log('No stored auth found');
       }
+      
+      console.log('Auth initialization complete, setting loading to false');
       setLoading(false);
     };
     
@@ -66,49 +78,50 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (email, password, rememberMe = false) => {
+    console.log('=== LOGIN FUNCTION STARTED ===');
+    console.log('Email:', email);
+    console.log('Remember me:', rememberMe);
+    
     try {
-      console.log('Login API call starting...');
-      
+      console.log('Sending fetch request to /api/auth/login');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, rememberMe }),
       });
       
+      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Login API response received:', data);
+      console.log('Response data:', data);
+      console.log('Response ok:', response.ok);
+      console.log('data.success:', data.success);
       
-      // Check for success in multiple ways
-      const isSuccess = response.ok && (data.success === true || data.token);
-      
-      if (isSuccess) {
-        console.log('Login successful, storing data');
+      if (response.ok && data.success === true) {
+        console.log('Login successful! Storing data...');
         
-        const userData = data.user || { email, name: email.split('@')[0], role: 'user' };
-        const tokenData = data.token;
-        const permissionsData = data.permissions || [];
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
+        setCookie('auth_token', data.token, rememberMe ? 30 : 7);
         
-        localStorage.setItem('auth_token', tokenData);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('user_permissions', JSON.stringify(permissionsData));
-        setCookie('auth_token', tokenData, rememberMe ? 30 : 7);
+        setToken(data.token);
+        setUser(data.user);
+        setPermissions(data.permissions || []);
         
-        setToken(tokenData);
-        setUser(userData);
-        setPermissions(permissionsData);
-        
+        console.log('State updated, returning success');
         return { success: true };
       }
       
       console.log('Login failed:', data.error);
       return { success: false, error: data.error || 'Login failed' };
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Login error caught:', error);
       return { success: false, error: 'Login failed: ' + error.message };
     }
   };
 
   const logout = useCallback(() => {
+    console.log('Logging out...');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     localStorage.removeItem('user_permissions');
