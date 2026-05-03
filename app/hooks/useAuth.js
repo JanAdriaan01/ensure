@@ -11,7 +11,6 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState([]);
-  const [initialized, setInitialized] = useState(false);
   const authChecked = useRef(false);
 
   // Verify token with server
@@ -26,9 +25,8 @@ export function AuthProvider({ children }) {
       if (response.ok) {
         const data = await response.json();
         return { valid: true, user: data.user, permissions: data.permissions || [] };
-      } else {
-        return { valid: false, user: null, permissions: [] };
       }
+      return { valid: false, user: null, permissions: [] };
     } catch (error) {
       console.error('Token verification error:', error);
       return { valid: false, user: null, permissions: [] };
@@ -44,16 +42,18 @@ export function AuthProvider({ children }) {
       const storedToken = localStorage.getItem('auth_token');
       const storedUser = localStorage.getItem('user');
       
+      console.log('Initializing auth - storedToken exists:', !!storedToken);
+      
       if (storedToken && storedUser) {
-        // Verify token with server
         const verification = await verifyToken(storedToken);
         
         if (verification.valid) {
+          console.log('Token valid, setting user');
           setToken(storedToken);
           setUser(verification.user);
           setPermissions(verification.permissions);
         } else {
-          // Token invalid, clear storage
+          console.log('Token invalid, clearing storage');
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user');
           localStorage.removeItem('user_permissions');
@@ -61,10 +61,12 @@ export function AuthProvider({ children }) {
           setUser(null);
           setPermissions([]);
         }
+      } else {
+        console.log('No stored token found');
       }
       
+      console.log('Setting loading to false');
       setLoading(false);
-      setInitialized(true);
     };
     
     initAuth();
@@ -97,9 +99,8 @@ export function AuthProvider({ children }) {
         setPermissions(data.permissions || []);
         
         return { success: true };
-      } else {
-        return { success: false, error: data.error || 'Login failed' };
       }
+      return { success: false, error: data.error || 'Login failed' };
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, error: 'Login failed' };
@@ -122,7 +123,6 @@ export function AuthProvider({ children }) {
     token,
     loading,
     permissions,
-    initialized,
     isAuthenticated: !!user && !!token,
     isAdmin: user?.role === 'admin',
     login,
@@ -142,9 +142,8 @@ export function useAuth() {
     return {
       user: null,
       token: null,
-      loading: true,
+      loading: false,
       permissions: [],
-      initialized: false,
       isAuthenticated: false,
       isAdmin: false,
       login: async () => ({ success: false }),
