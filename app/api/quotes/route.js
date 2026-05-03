@@ -31,7 +31,8 @@ export async function GET(request) {
     let sql = `
       SELECT 
         q.*,
-        c.client_name
+        c.client_name,
+        (SELECT COUNT(*) FROM quote_items WHERE quote_id = q.id) as item_count
       FROM quotes q
       LEFT JOIN clients c ON q.client_id = c.id
       WHERE 1=1
@@ -121,34 +122,68 @@ export async function POST(request) {
     
     const quoteId = result.rows[0].id;
     
-    // Insert line items with proper calculations
+    // Insert line items with item_number (required field)
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const quantity = parseFloat(item.quantity) || 1;
       const unit_price = parseFloat(item.unit_price) || 0;
       const total_price = quantity * unit_price;
+      const itemNumber = i + 1; // Generate sequential item number
       
       await query(
         `INSERT INTO quote_items (
-          quote_id, description, quantity, unit_price, total_price,
-          item_type, notes, sort_order, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+          quote_id, 
+          item_number, 
+          description, 
+          quantity, 
+          unit_price, 
+          total_price,
+          item_type, 
+          notes, 
+          sort_order, 
+          created_at, 
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
         [
           quoteId, 
+          itemNumber,                                    // Required item_number
           item.description, 
           quantity, 
           unit_price, 
           total_price, 
           item.item_type || 'service',
           item.notes || null, 
-          i + 1
+          i + 1                                          // sort_order
         ]
       );
     }
     
     await query('COMMIT');
     
-    return NextResponse.json({ success: true, data: result.rows[0] }, { status: 201 });
+    // Fetch the created quote with its items
+    const completeQuote = await query(`
+      SELECT q.*, 
+             json_agg(json_build_object(
+               'id', qi.id,
+               'item_number', qi.item_number,
+               'description', qi.description,
+               'quantity', qi.quantity,
+               'unit_price', qi.unit_price,
+               'total_price', qi.total_price,
+               'item_type', qi.item_type,
+               'notes', qi.notes
+             ) ORDER BY qi.sort_order) as items
+      FROM quotes q
+      LEFT JOIN quote_items qi ON q.id = qi.quote_id
+      WHERE q.id = $1
+      GROUP BY q.id
+    `, [quoteId]);
+    
+    return NextResponse.json({ 
+      success: true, 
+      data: completeQuote.rows[0] 
+    }, { status: 201 });
+    
   } catch (error) {
     await query('ROLLBACK');
     console.error('Error creating quote:', error);
@@ -199,6 +234,8 @@ export async function PUT(request) {
     }
     
     await query('BEGIN');
+    let jobCreated = false;
+    let jobId = null;
     
     switch (action) {
       case 'send':
@@ -240,9 +277,8 @@ export async function PUT(request) {
           [po_number, po_date || now.toISOString().split('T')[0], quote.total_amount, id]
         );
         
-        // Check if job already exists for this quote
+        // Create job ONLY when PO is received (if not already created)
         if (!quote.job_id) {
-          // Create job ONLY when PO is received
           const year = new Date().getFullYear();
           const jobCountResult = await query(
             `SELECT COUNT(*) as count FROM jobs WHERE EXTRACT(YEAR FROM created_at) = $1`,
@@ -254,34 +290,64 @@ export async function PUT(request) {
           // Create the job
           const jobResult = await query(
             `INSERT INTO jobs (
-              lc_number, client_id, description, po_status, completion_status,
-              po_number, po_amount, total_budget, quote_id, created_by, created_at, updated_at
+              lc_number, 
+              client_id, 
+              description, 
+              po_status, 
+              completion_status,
+              po_number, 
+              po_amount, 
+              total_budget, 
+              quote_id, 
+              created_by, 
+              created_at, 
+              updated_at
             ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $5, $6, $7, NOW(), NOW())
             RETURNING id, lc_number`,
             [lcNumber, quote.client_id, `Job from quote: ${quote.quote_number}`, po_number, quote.total_amount, id, auth.userId]
           );
           
-          const jobId = jobResult.rows[0].id;
+          jobId = jobResult.rows[0].id;
+          jobCreated = true;
           
           // Update quote with job reference
           await query(`UPDATE quotes SET job_id = $1, updated_at = NOW() WHERE id = $2`, [jobId, id]);
           
-          // Copy quote items to job items
+          // Get quote items with item_number
           const quoteItems = await query(
-            `SELECT description, quantity, unit_price, total_price, item_type 
+            `SELECT item_number, description, quantity, unit_price, total_price, item_type, notes
              FROM quote_items 
              WHERE quote_id = $1 
-             ORDER BY sort_order`, 
+             ORDER BY item_number`, 
             [id]
           );
           
+          // Copy quote items to job items
           for (const item of quoteItems.rows) {
             await query(
               `INSERT INTO job_items (
-                job_id, description, quantity, unit_price, total_price,
-                item_type, status, created_at, updated_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())`,
-              [jobId, item.description, item.quantity, item.unit_price, item.total_price, item.item_type || 'service']
+                job_id, 
+                item_number,
+                description, 
+                quantity, 
+                unit_price, 
+                total_price,
+                item_type, 
+                notes,
+                status, 
+                created_at, 
+                updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW(), NOW())`,
+              [
+                jobId, 
+                item.item_number,
+                item.description, 
+                item.quantity, 
+                item.unit_price, 
+                item.total_price, 
+                item.item_type || 'service',
+                item.notes
+              ]
             );
           }
         }
@@ -301,14 +367,22 @@ export async function PUT(request) {
     
     await query('COMMIT');
     
-    const message = action === 'receive_po' 
-      ? 'PO received and job created successfully' 
-      : `Quote ${action}ed successfully`;
+    let message = `Quote ${action}ed successfully`;
+    if (action === 'receive_po') {
+      message = jobCreated 
+        ? `PO received and job #${jobId} created successfully` 
+        : `PO received successfully (job already exists)`;
+    }
     
     return NextResponse.json({ 
       success: true, 
-      message 
+      message,
+      data: {
+        job_created: jobCreated,
+        job_id: jobId
+      }
     });
+    
   } catch (error) {
     await query('ROLLBACK');
     console.error('Error updating quote:', error);
@@ -336,16 +410,26 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
     
-    if (quoteResult.rows[0].status !== 'draft') {
+    const status = quoteResult.rows[0].status;
+    if (status !== 'draft') {
       return NextResponse.json({ error: 'Only draft quotes can be deleted' }, { status: 400 });
     }
     
     await query('BEGIN');
+    
+    // Delete quote items first (due to foreign key constraint)
     await query(`DELETE FROM quote_items WHERE quote_id = $1`, [id]);
+    
+    // Delete the quote
     await query(`DELETE FROM quotes WHERE id = $1`, [id]);
+    
     await query('COMMIT');
     
-    return NextResponse.json({ success: true, message: 'Quote deleted successfully' });
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Quote deleted successfully' 
+    });
+    
   } catch (error) {
     await query('ROLLBACK');
     console.error('Error deleting quote:', error);
