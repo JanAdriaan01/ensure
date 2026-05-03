@@ -13,7 +13,6 @@ export function WebSocketProvider({ children }) {
   const reconnectTimeoutRef = useRef(null);
   const [isClient, setIsClient] = useState(false);
 
-  // Track when we're on client side
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -23,9 +22,11 @@ export function WebSocketProvider({ children }) {
     if (eventSourceRef.current) return;
 
     try {
+      // Pass token in URL since EventSource doesn't support custom headers
       const eventSource = new EventSource(`/api/events?token=${token}`);
       
       eventSource.addEventListener('connected', () => {
+        console.log('SSE connected');
         setIsConnected(true);
       });
 
@@ -38,7 +39,12 @@ export function WebSocketProvider({ children }) {
         }
       });
 
-      eventSource.onerror = () => {
+      eventSource.addEventListener('heartbeat', () => {
+        // Keep connection alive - do nothing
+      });
+
+      eventSource.onerror = (error) => {
+        console.error('SSE error:', error);
         setIsConnected(false);
         
         if (eventSourceRef.current) {
@@ -46,9 +52,13 @@ export function WebSocketProvider({ children }) {
           eventSourceRef.current = null;
         }
         
+        // Attempt to reconnect after delay
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
         reconnectTimeoutRef.current = setTimeout(() => {
           connectSSE();
-        }, 5000);
+        }, 10000);
       };
 
       eventSourceRef.current = eventSource;
@@ -109,7 +119,6 @@ export function WebSocketProvider({ children }) {
 
 export function useWebSocket() {
   const context = useContext(WebSocketContext);
-  // Return safe default values instead of throwing error
   if (!context) {
     return {
       isConnected: false,

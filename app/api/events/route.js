@@ -4,7 +4,26 @@ import { query } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 
 export async function GET(request) {
-  const auth = await verifyAuth(request);
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get('token');
+  
+  // Verify auth either from header or query param token
+  let auth;
+  if (token) {
+    // Create a mock request with the token in header
+    const mockRequest = {
+      headers: {
+        get: (name) => {
+          if (name === 'authorization') return `Bearer ${token}`;
+          return null;
+        }
+      }
+    };
+    auth = await verifyAuth(mockRequest);
+  } else {
+    auth = await verifyAuth(request);
+  }
+  
   if (!auth.authenticated) {
     return new Response('Unauthorized', { status: 401 });
   }
