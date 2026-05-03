@@ -32,9 +32,24 @@ export async function PUT(request) {
 
     const body = await request.json();
     const {
-      company_name, display_name, registration_number, vat_number, tax_number,
-      email, phone, website, address_line1, address_line2, city, postal_code, country,
-      logo_url, logo_data, currency, date_format, timezone
+      company_name,
+      display_name,
+      registration_number,
+      vat_number,
+      tax_number,
+      email,
+      phone,
+      website,
+      address_line1,
+      address_line2,
+      city,
+      postal_code,
+      country,
+      logo_url,
+      logo_data,
+      currency,
+      date_format,
+      timezone
     } = body;
 
     // Check if settings exist
@@ -47,8 +62,8 @@ export async function PUT(request) {
         `INSERT INTO company_settings (
           company_name, display_name, registration_number, vat_number, tax_number,
           email, phone, website, address_line1, address_line2, city, postal_code, country,
-          logo_url, logo_data, currency, date_format, timezone, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP)
+          logo_url, logo_data, currency, date_format, timezone, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING *`,
         [
           company_name, display_name, registration_number, vat_number, tax_number,
