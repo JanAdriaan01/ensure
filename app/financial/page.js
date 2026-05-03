@@ -124,18 +124,18 @@ export default function FinancialPage() {
               </tr>
             </thead>
             <tbody>
-              {data.recentInvoices.map(invoice => (
+              {data.recentInvoices.map((invoice) => (
                 <tr key={invoice.id}>
-                <tr>{invoice.number}</td>
-                <td>{invoice.client}</td>
-                <td>{invoice.date}</td>
-                <td>{formatCurrency(invoice.amount)}</td>
-                <td>
-                  <span className="status-badge" style={{ backgroundColor: getStatusColor(invoice.status) }}>
-                    {invoice.status}
-                  </span>
-                </td>
-              </tr>
+                  <td>{invoice.number}</td>
+                  <td>{invoice.client}</td>
+                  <td>{invoice.date}</td>
+                  <td>{formatCurrency(invoice.amount)}</td>
+                  <td>
+                    <span className="status-badge" style={{ backgroundColor: getStatusColor(invoice.status) }}>
+                      {invoice.status}
+                    </span>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
