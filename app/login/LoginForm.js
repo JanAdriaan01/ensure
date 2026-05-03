@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
+  const { login } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,53 +16,19 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Check if already logged in
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      router.push(redirectTo);
-    }
-  }, [router, redirectTo]);
-
-  const setCookie = (name, value, days) => {
-    const expires = new Date();
-    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-    // Add domain and path to ensure cookie works across all routes
-    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax;Secure`;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, rememberMe }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
-        setCookie('auth_token', data.token, rememberMe ? 30 : 7);
-        
-        // Force a small delay before redirect to ensure cookie is set
-        setTimeout(() => {
-          router.push(redirectTo);
-        }, 100);
-      } else {
-        setError(data.error || 'Login failed');
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
-    } finally {
-      setLoading(false);
+    const result = await login(email, password, rememberMe);
+    
+    if (result.success) {
+      router.push(redirectTo);
+    } else {
+      setError(result.error || 'Login failed');
     }
+    setLoading(false);
   };
 
   return (
@@ -71,11 +39,7 @@ export default function LoginForm() {
           <p>Sign in to your account</p>
         </div>
 
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -86,7 +50,6 @@ export default function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="jan@netcamsa.co.za"
-              autoComplete="email"
             />
           </div>
 
@@ -98,7 +61,6 @@ export default function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••••"
-              autoComplete="current-password"
             />
           </div>
 
@@ -198,7 +160,7 @@ export default function LoginForm() {
           display: flex;
           justify-content: flex-end;
           align-items: center;
-          fontSize: 0.75rem;
+          font-size: 0.75rem;
         }
         .checkbox-label {
           display: flex;
@@ -219,13 +181,8 @@ export default function LoginForm() {
           transition: background 0.2s;
           margin-top: 0.5rem;
         }
-        .login-btn:hover {
-          background: var(--primary-dark);
-        }
-        .login-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
+        .login-btn:hover { background: var(--primary-dark); }
+        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .login-footer {
           margin-top: 1.5rem;
           text-align: center;
