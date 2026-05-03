@@ -31,7 +31,7 @@ export async function GET(request) {
     let sql = `
       SELECT 
         q.*,
-        c.name as client_name,
+        c.client_name as client_name,
         j.lc_number as job_lc_number,
         j.id as job_id,
         (SELECT COUNT(*) FROM quote_items WHERE quote_id = q.id) as item_count
@@ -136,8 +136,8 @@ export async function POST(request) {
     // Get client name if client_id provided
     let finalClientName = client_name;
     if (client_id && !client_name) {
-      const clientResult = await query('SELECT name FROM clients WHERE id = $1', [client_id]);
-      if (clientResult.rows[0]) finalClientName = clientResult.rows[0].name;
+      const clientResult = await query('SELECT client_name FROM clients WHERE id = $1', [client_id]);
+      if (clientResult.rows[0]) finalClientName = clientResult.rows[0].client_name;
     }
     
     // Get terms content if terms_id provided
