@@ -19,7 +19,7 @@ export default function LoginForm() {
   // If already authenticated, redirect immediately
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      console.log('Already authenticated in form, redirecting');
+      console.log('Already authenticated, redirecting to:', redirectTo);
       window.location.href = redirectTo;
     }
   }, [isAuthenticated, authLoading, redirectTo]);
@@ -36,11 +36,9 @@ export default function LoginForm() {
       console.log('Login result:', result);
       
       if (result && result.success === true) {
-        console.log('Login successful, redirecting to:', redirectTo);
-        // Use both methods to ensure redirect works
-        setTimeout(() => {
-          window.location.href = redirectTo;
-        }, 100);
+        console.log('Login successful! Redirecting to:', redirectTo);
+        // Force hard redirect using window.location
+        window.location.href = redirectTo;
       } else {
         setError(result?.error || 'Login failed. Please check your credentials.');
         setLoading(false);
@@ -90,6 +88,8 @@ export default function LoginForm() {
             <label>Email Address</label>
             <input
               type="email"
+              id="email"
+              name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -102,6 +102,8 @@ export default function LoginForm() {
             <label>Password</label>
             <input
               type="password"
+              id="password"
+              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
