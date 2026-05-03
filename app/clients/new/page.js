@@ -1,5 +1,3 @@
-'use client'
-
 'use client';
 
 import { useState } from 'react';
@@ -42,15 +40,15 @@ export default function NewClientPage() {
   };
 
   return (
-    <div className="container">
+    <div className="form-container">
       <div className="page-header">
         <div>
           <Link href="/clients" className="back-link">← Back to Clients</Link>
-          <h1>➕ Add New Client</h1>
+          <h1>Add New Client</h1>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="client-form">
+      <form onSubmit={handleSubmit} className="form-card">
         <div className="form-grid">
           <div className="form-group full-width">
             <label>Client Name *</label>
@@ -129,23 +127,132 @@ export default function NewClientPage() {
       </form>
 
       <style jsx>{`
-        .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
-        .page-header { margin-bottom: 2rem; }
-        .back-link { color: #6b7280; text-decoration: none; display: inline-block; margin-bottom: 0.5rem; }
-        .back-link:hover { color: #2563eb; }
-        .page-header h1 { margin: 0; }
-        .client-form { background: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
-        .full-width { grid-column: span 2; }
-        .form-group label { display: block; margin-bottom: 0.375rem; font-weight: 500; font-size: 0.875rem; color: #374151; }
-        .form-group input, .form-group textarea { width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
-        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #2563eb; ring: 2px solid #2563eb; }
-        .form-actions { display: flex; gap: 1rem; justify-content: flex-end; }
-        .btn-primary { background: #2563eb; color: white; padding: 0.625rem 1.25rem; border-radius: 0.375rem; border: none; cursor: pointer; font-weight: 500; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-secondary { background: #6b7280; color: white; padding: 0.625rem 1.25rem; border-radius: 0.375rem; text-decoration: none; }
-        .btn-secondary:hover { background: #4b5563; }
-        @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .full-width { grid-column: span 1; } .container { padding: 1rem; } }
+        .form-container {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
+        .page-header {
+          margin-bottom: 2rem;
+        }
+        .back-link {
+          color: var(--text-tertiary);
+          text-decoration: none;
+          display: inline-block;
+          margin-bottom: 0.5rem;
+          font-size: 0.875rem;
+        }
+        .back-link:hover {
+          color: var(--primary);
+        }
+        .page-header h1 {
+          margin: 0;
+          font-size: 1.875rem;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .form-card {
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
+          border-radius: 0.75rem;
+          padding: 2rem;
+        }
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+        .full-width {
+          grid-column: span 2;
+        }
+        .form-group label {
+          display: block;
+          margin-bottom: 0.375rem;
+          font-weight: 500;
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+        }
+        .form-group input,
+        .form-group textarea {
+          width: 100%;
+          padding: 0.625rem;
+          border: 1px solid var(--border-medium);
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+          transition: all 0.2s;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+          color: var(--text-muted);
+        }
+        .form-actions {
+          display: flex;
+          gap: 1rem;
+          justify-content: flex-end;
+        }
+        .btn-primary {
+          background: var(--primary);
+          color: white;
+          padding: 0.625rem 1.25rem;
+          border-radius: 0.375rem;
+          border: none;
+          cursor: pointer;
+          font-weight: 500;
+          font-size: 0.875rem;
+          transition: background 0.2s;
+        }
+        .btn-primary:hover {
+          background: var(--primary-dark);
+        }
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .btn-secondary {
+          background: var(--secondary);
+          color: white;
+          padding: 0.625rem 1.25rem;
+          border-radius: 0.375rem;
+          text-decoration: none;
+          font-size: 0.875rem;
+          font-weight: 500;
+          transition: background 0.2s;
+          display: inline-block;
+        }
+        .btn-secondary:hover {
+          background: var(--secondary-dark);
+        }
+        @media (max-width: 640px) {
+          .form-container {
+            padding: 1rem;
+          }
+          .form-card {
+            padding: 1.5rem;
+          }
+          .form-grid {
+            grid-template-columns: 1fr;
+          }
+          .full-width {
+            grid-column: span 1;
+          }
+          .form-actions {
+            flex-direction: column-reverse;
+          }
+          .form-actions button,
+          .form-actions a {
+            width: 100%;
+            text-align: center;
+          }
+        }
       `}</style>
     </div>
   );

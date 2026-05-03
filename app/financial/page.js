@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 
 export default function FinancialPage() {
-  const [data, setData] = useState({
+  const [data] = useState({
     totalRevenue: 245000,
     totalInvoiced: 189500,
     totalPaid: 142125,
@@ -46,10 +46,9 @@ export default function FinancialPage() {
   };
 
   return (
-    <div className="financial-container">
+    <div className="container">
       <div className="page-header">
         <h1>Financial Dashboard</h1>
-        <p>Overview of your financial performance</p>
       </div>
 
       {/* Stats Grid */}
@@ -89,8 +88,10 @@ export default function FinancialPage() {
       </div>
 
       {/* Monthly Revenue Chart */}
-      <div className="chart-section">
-        <h2>Monthly Revenue</h2>
+      <div className="card">
+        <div className="section-header">
+          <h2>Monthly Revenue</h2>
+        </div>
         <div className="chart-bars">
           {data.monthlyRevenue.map((item, index) => (
             <div key={index} className="chart-bar-container">
@@ -106,25 +107,35 @@ export default function FinancialPage() {
       </div>
 
       {/* Recent Invoices */}
-      <div className="invoices-section">
+      <div className="card">
         <div className="section-header">
           <h2>Recent Invoices</h2>
-          <Link href="/invoicing" className="view-all">View All →</Link>
+          <Link href="/invoicing" className="view-all">View All</Link>
         </div>
         <div className="table-container">
-          <table className="invoices-table">
+          <table className="data-table">
             <thead>
-              <tr><th>Invoice #</th><th>Client</th><th>Date</th><th>Amount</th><th>Status</th></tr>
+              <tr>
+                <th>Invoice Number</th>
+                <th>Client</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
             </thead>
             <tbody>
               {data.recentInvoices.map(invoice => (
                 <tr key={invoice.id}>
-                  <td>{invoice.number}</td>
-                  <td>{invoice.client}</td>
-                  <td>{invoice.date}</td>
-                  <td>{formatCurrency(invoice.amount)}</td>
-                  <td><span className="status-badge" style={{ backgroundColor: getStatusColor(invoice.status) }}>{invoice.status}</span></td>
-                </tr>
+                <tr>{invoice.number}</td>
+                <td>{invoice.client}</td>
+                <td>{invoice.date}</td>
+                <td>{formatCurrency(invoice.amount)}</td>
+                <td>
+                  <span className="status-badge" style={{ backgroundColor: getStatusColor(invoice.status) }}>
+                    {invoice.status}
+                  </span>
+                </td>
+              </tr>
               ))}
             </tbody>
           </table>
@@ -132,40 +143,93 @@ export default function FinancialPage() {
       </div>
 
       <style jsx>{`
-        .financial-container {
-          max-width: 1280px;
-          margin: 0 auto;
-          padding: 2rem;
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 1rem;
+          margin-bottom: 1.5rem;
         }
-        .page-header { margin-bottom: 2rem; }
-        .page-header h1 { font-size: 1.875rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
-        .page-header p { color: var(--text-tertiary); }
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
-        .stat-card { background: var(--card-bg); padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--card-border); }
-        .stat-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 0.5rem; }
-        .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
-        .stat-card.warning .stat-value { color: #ef4444; }
-        .chart-section { background: var(--card-bg); border-radius: 0.75rem; border: 1px solid var(--card-border); padding: 1.5rem; margin-bottom: 2rem; }
-        .chart-section h2 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1.5rem; color: var(--text-primary); }
-        .chart-bars { display: flex; align-items: flex-end; gap: 2rem; justify-content: center; min-height: 300px; }
-        .chart-bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
-        .chart-bar-label { font-size: 0.75rem; color: var(--text-tertiary); }
-        .chart-bar-wrapper { width: 100%; max-width: 60px; height: 200px; display: flex; flex-direction: column; justify-content: flex-end; }
-        .chart-bar { background: var(--primary); border-radius: 0.375rem; position: relative; transition: height 0.3s ease; min-height: 4px; }
-        .chart-bar-value { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); font-size: 0.7rem; white-space: nowrap; color: var(--primary); }
-        .invoices-section { background: var(--card-bg); border-radius: 0.75rem; border: 1px solid var(--card-border); padding: 1.5rem; }
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .section-header h2 { font-size: 1.125rem; font-weight: 600; color: var(--text-primary); }
-        .view-all { color: var(--primary); text-decoration: none; font-size: 0.875rem; }
-        .table-container { overflow-x: auto; }
-        .invoices-table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 0.75rem; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border-light); }
-        td { padding: 0.75rem; font-size: 0.875rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-light); }
-        .status-badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; color: white; }
+        .stat-card.warning .stat-value {
+          color: #ef4444;
+        }
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+        .section-header h2 {
+          margin: 0;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .view-all {
+          color: var(--primary);
+          text-decoration: none;
+          font-size: 0.875rem;
+        }
+        .view-all:hover {
+          text-decoration: underline;
+        }
+        .chart-bars {
+          display: flex;
+          align-items: flex-end;
+          gap: 2rem;
+          justify-content: center;
+          min-height: 300px;
+        }
+        .chart-bar-container {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .chart-bar-label {
+          font-size: 0.75rem;
+          color: var(--text-tertiary);
+        }
+        .chart-bar-wrapper {
+          width: 100%;
+          max-width: 60px;
+          height: 200px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+        }
+        .chart-bar {
+          background: var(--primary);
+          border-radius: 0.375rem;
+          position: relative;
+          transition: height 0.3s ease;
+          min-height: 4px;
+        }
+        .chart-bar-value {
+          position: absolute;
+          top: -24px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 0.7rem;
+          white-space: nowrap;
+          color: var(--primary);
+        }
         @media (max-width: 768px) {
-          .financial-container { padding: 1rem; }
-          .stats-grid { grid-template-columns: repeat(2, 1fr); }
-          .chart-bars { gap: 0.5rem; }
+          .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+          }
+          .chart-bars {
+            gap: 0.5rem;
+          }
+          .chart-bar-wrapper {
+            max-width: 40px;
+          }
+        }
+        @media (max-width: 480px) {
+          .stats-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>

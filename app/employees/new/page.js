@@ -1,5 +1,3 @@
-'use client'
-
 'use client';
 
 import { useState } from 'react';
@@ -11,8 +9,8 @@ export default function NewEmployeePage() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     employee_number: '',
-    name: '',
-    surname: '',
+    first_name: '',
+    last_name: '',
     date_of_birth: '',
     nationality: '',
     passport_number: '',
@@ -43,14 +41,16 @@ export default function NewEmployeePage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const today = new Date().toISOString().split('T')[0];
+
   return (
-    <div className="container">
+    <div className="form-container">
       <div className="page-header">
-        <h1>➕ Add New Employee</h1>
-        <Link href="/employees" className="btn-secondary">← Back</Link>
+        <h1>Add New Employee</h1>
+        <Link href="/employees" className="btn-secondary">Back</Link>
       </div>
 
-      <form onSubmit={handleSubmit} className="employee-form">
+      <form onSubmit={handleSubmit} className="form-card">
         <div className="form-grid">
           <div className="form-group">
             <label>Employee Number *</label>
@@ -65,24 +65,26 @@ export default function NewEmployeePage() {
           </div>
           
           <div className="form-group">
-            <label>Name *</label>
+            <label>First Name *</label>
             <input
               type="text"
-              name="name"
-              value={formData.name}
+              name="first_name"
+              value={formData.first_name}
               onChange={handleChange}
               required
+              placeholder="First name"
             />
           </div>
           
           <div className="form-group">
-            <label>Surname *</label>
+            <label>Last Name *</label>
             <input
               type="text"
-              name="surname"
-              value={formData.surname}
+              name="last_name"
+              value={formData.last_name}
               onChange={handleChange}
               required
+              placeholder="Last name"
             />
           </div>
           
@@ -94,6 +96,7 @@ export default function NewEmployeePage() {
               value={formData.date_of_birth}
               onChange={handleChange}
               required
+              max={today}
             />
           </div>
           
@@ -104,7 +107,7 @@ export default function NewEmployeePage() {
               name="nationality"
               value={formData.nationality}
               onChange={handleChange}
-              placeholder="e.g., South African"
+              placeholder="South African"
             />
           </div>
           
@@ -115,6 +118,7 @@ export default function NewEmployeePage() {
               name="passport_number"
               value={formData.passport_number}
               onChange={handleChange}
+              placeholder="Passport number"
             />
           </div>
           
@@ -125,7 +129,7 @@ export default function NewEmployeePage() {
               name="work_permit"
               value={formData.work_permit}
               onChange={handleChange}
-              placeholder="e.g., Critical Skills, General"
+              placeholder="Critical Skills, General, etc."
             />
           </div>
           
@@ -150,6 +154,11 @@ export default function NewEmployeePage() {
       </form>
 
       <style jsx>{`
+        .form-container {
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
         .page-header {
           display: flex;
           justify-content: space-between;
@@ -158,12 +167,15 @@ export default function NewEmployeePage() {
         }
         .page-header h1 {
           margin: 0;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--text-primary);
         }
-        .employee-form {
-          background: white;
-          padding: 2rem;
+        .form-card {
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
           border-radius: 0.75rem;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          padding: 2rem;
         }
         .form-grid {
           display: grid;
@@ -171,29 +183,93 @@ export default function NewEmployeePage() {
           gap: 1.5rem;
           margin-bottom: 2rem;
         }
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+        }
+        .form-group label {
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .form-group input {
+          width: 100%;
+          padding: 0.625rem;
+          border: 1px solid var(--border-medium);
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+          transition: all 0.2s;
+        }
+        .form-group input:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .form-group input::placeholder {
+          color: var(--text-muted);
+        }
         .form-actions {
           display: flex;
           gap: 1rem;
           justify-content: flex-end;
+          padding-top: 0.5rem;
+          border-top: 1px solid var(--border-light);
+        }
+        .btn-primary {
+          background: var(--primary);
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          font-weight: 500;
+          transition: background 0.2s;
+        }
+        .btn-primary:hover {
+          background: var(--primary-dark);
+        }
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
         .btn-secondary {
-          background: #6b7280;
+          background: var(--secondary);
           color: white;
           padding: 0.5rem 1rem;
           border-radius: 0.375rem;
           text-decoration: none;
-          display: inline-flex;
-          align-items: center;
+          font-size: 0.875rem;
+          font-weight: 500;
+          transition: background 0.2s;
+          display: inline-block;
         }
         .btn-secondary:hover {
-          background: #4b5563;
+          background: var(--secondary-dark);
         }
-        select, input {
-          width: 100%;
-          padding: 0.625rem;
-          border: 1px solid #d1d5db;
-          border-radius: 0.375rem;
-          font-size: 0.875rem;
+        @media (max-width: 768px) {
+          .form-container {
+            padding: 1rem;
+          }
+          .form-card {
+            padding: 1.5rem;
+          }
+          .form-grid {
+            grid-template-columns: 1fr;
+          }
+          .form-actions {
+            flex-direction: column-reverse;
+          }
+          .form-actions button,
+          .form-actions a {
+            width: 100%;
+            text-align: center;
+          }
         }
       `}</style>
     </div>

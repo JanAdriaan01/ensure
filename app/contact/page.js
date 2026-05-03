@@ -1,8 +1,16 @@
-﻿export default function Page() {
+﻿'use client';
+
+export default function Page() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold mb-4"></h1>
-      <p className="text-gray-600">This page is under construction.</p>
+    <div className="container">
+      <div className="page-header">
+        <h1>Page Under Construction</h1>
+        <p>This page is currently being developed. Please check back soon.</p>
+      </div>
+      <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚧</div>
+        <p style={{ color: 'var(--text-tertiary)' }}>We're working hard to bring you this feature.</p>
+      </div>
     </div>
   );
 }

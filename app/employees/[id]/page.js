@@ -73,8 +73,30 @@ export default function EmployeeDetailPage({ params }) {
     }
   };
 
-  if (loading) return <div className="loading">Loading employee details...</div>;
-  if (!employee) return <div className="loading">Employee not found</div>;
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading employee details...</p>
+      </div>
+    );
+  }
+
+  if (!employee) {
+    return (
+      <div className="container">
+        <div className="empty-state">Employee not found</div>
+        <Link href="/employees" className="btn-secondary" style={{ marginTop: '1rem', display: 'inline-block' }}>Back to Employees</Link>
+      </div>
+    );
+  }
+
+  const formatDate = (date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString();
+  };
+
+  const totalHours = timeEntries.reduce((sum, t) => sum + (t.hours_worked || 0), 0);
 
   return (
     <div className="container">
@@ -82,7 +104,7 @@ export default function EmployeeDetailPage({ params }) {
       <div className="page-header">
         <div>
           <Link href="/employees" className="back-link">← Back to Employees</Link>
-          <h1>{employee.name} {employee.surname}</h1>
+          <h1>{employee.first_name} {employee.last_name}</h1>
           <div className="employee-badge">{employee.employee_number}</div>
         </div>
         <div className="header-actions">
@@ -98,36 +120,99 @@ export default function EmployeeDetailPage({ params }) {
         <div className="info-card">
           <h3>Personal Information</h3>
           {editing ? (
-            <>
-              <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Name" />
-              <input value={formData.surname} onChange={e => setFormData({...formData, surname: e.target.value})} placeholder="Surname" />
-              <input value={formData.nationality || ''} onChange={e => setFormData({...formData, nationality: e.target.value})} placeholder="Nationality" />
-              <input value={formData.passport_number || ''} onChange={e => setFormData({...formData, passport_number: e.target.value})} placeholder="Passport Number" />
-              <input value={formData.work_permit || ''} onChange={e => setFormData({...formData, work_permit: e.target.value})} placeholder="Work Permit" />
-              <button onClick={updateEmployee} className="btn-primary" style={{marginTop: '10px'}}>Save Changes</button>
-            </>
+            <div className="edit-form">
+              <div className="form-group">
+                <label>First Name</label>
+                <input 
+                  type="text"
+                  value={formData.first_name || ''} 
+                  onChange={e => setFormData({...formData, first_name: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Last Name</label>
+                <input 
+                  type="text"
+                  value={formData.last_name || ''} 
+                  onChange={e => setFormData({...formData, last_name: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Nationality</label>
+                <input 
+                  type="text"
+                  value={formData.nationality || ''} 
+                  onChange={e => setFormData({...formData, nationality: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Passport Number</label>
+                <input 
+                  type="text"
+                  value={formData.passport_number || ''} 
+                  onChange={e => setFormData({...formData, passport_number: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Work Permit</label>
+                <input 
+                  type="text"
+                  value={formData.work_permit || ''} 
+                  onChange={e => setFormData({...formData, work_permit: e.target.value})} 
+                />
+              </div>
+              <button onClick={updateEmployee} className="btn-primary">Save Changes</button>
+            </div>
           ) : (
-            <>
-              <p><strong>📅 DOB:</strong> {new Date(employee.date_of_birth).toLocaleDateString()} (Age: {employee.age} yrs)</p>
-              <p><strong>🌍 Nationality:</strong> {employee.nationality || '-'}</p>
-              <p><strong>📄 Passport:</strong> {employee.passport_number || '-'}</p>
-              <p><strong>🪪 Work Permit:</strong> {employee.work_permit || '-'}</p>
-            </>
+            <div className="info-list">
+              <div className="info-row">
+                <span className="info-label">Date of Birth</span>
+                <span className="info-value">{formatDate(employee.date_of_birth)} (Age: {employee.age} yrs)</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Nationality</span>
+                <span className="info-value">{employee.nationality || '-'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Passport Number</span>
+                <span className="info-value">{employee.passport_number || '-'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Work Permit</span>
+                <span className="info-value">{employee.work_permit || '-'}</span>
+              </div>
+            </div>
           )}
         </div>
 
         <div className="info-card">
           <h3>Employment Information</h3>
-          <p><strong>📅 Start Date:</strong> {new Date(employee.company_start_date).toLocaleDateString()}</p>
-          <p><strong>⭐ Years Worked:</strong> {Math.round(employee.years_worked || 0)} years</p>
-          <p><strong>🕐 Total Hours:</strong> {timeEntries.reduce((sum, t) => sum + t.hours_worked, 0)} hrs</p>
-          <p><strong>📆 Days Worked:</strong> {timeEntries.length} days</p>
+          <div className="info-list">
+            <div className="info-row">
+              <span className="info-label">Start Date</span>
+              <span className="info-value">{formatDate(employee.company_start_date)}</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Years Worked</span>
+              <span className="info-value">{Math.round(employee.years_worked || 0)} years</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Total Hours</span>
+              <span className="info-value">{totalHours} hrs</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Days Worked</span>
+              <span className="info-value">{timeEntries.length} days</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Certifications Section */}
       <div className="section">
-        <h2>📜 Certifications & Training</h2>
+        <div className="section-header">
+          <h2>Certifications & Training</h2>
+        </div>
         <div className="cert-grid">
           {availableCertifications.map(cert => {
             const hasCert = certifications.some(c => c.certification_name === cert.certification_name);
@@ -152,11 +237,14 @@ export default function EmployeeDetailPage({ params }) {
 
       {/* Skills Section */}
       <div className="section">
-        <h2>⚡ Skills</h2>
+        <div className="section-header">
+          <h2>Skills</h2>
+        </div>
         <div className="skills-list">
           {skills.map(skill => (
             <span key={skill.skill_name} className="skill-tag">
-              {skill.skill_name} <small>({skill.years_experience || 0} yrs)</small>
+              {skill.skill_name}
+              {skill.years_experience ? ` (${skill.years_experience} yrs)` : ''}
             </span>
           ))}
           {skills.length === 0 && <p className="no-data">No skills added yet.</p>}
@@ -165,60 +253,70 @@ export default function EmployeeDetailPage({ params }) {
 
       {/* Time Entries History */}
       <div className="section">
-        <h2>📆 Time Entry History</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Hours</th>
-              <th>Site</th>
-              <th>Job #</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {timeEntries.map(entry => (
-              <tr key={entry.id}>
-                <td>{new Date(entry.work_date).toLocaleDateString()}</td>
-                <td>{entry.hours_worked}</td>
-                <td>{entry.site_name || '-'}</td>
-                <td>{entry.job_number || '-'}</td>
-                <td>{entry.description || '-'}</td>
+        <div className="section-header">
+          <h2>Time Entry History</h2>
+        </div>
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Hours</th>
+                <th>Site</th>
+                <th>Job Number</th>
+                <th>Description</th>
               </tr>
-            ))}
-            {timeEntries.length === 0 && (
-              <tr><td colSpan="5" className="no-data">No time entries yet.</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {timeEntries.map(entry => (
+                <tr key={entry.id}>
+                  <td>{formatDate(entry.work_date)}</td>
+                  <td>{entry.hours_worked}</td>
+                  <td>{entry.site_name || '-'}</td>
+                  <td>{entry.job_number || '-'}</td>
+                  <td>{entry.description || '-'}</td>
+                </tr>
+              ))}
+              {timeEntries.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="no-data">No time entries yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <style jsx>{`
+        .back-link {
+          color: var(--text-tertiary);
+          text-decoration: none;
+          display: inline-block;
+          margin-bottom: 0.5rem;
+          font-size: 0.875rem;
+        }
+        .back-link:hover {
+          color: var(--primary);
+        }
+        h1 {
+          margin: 0.5rem 0 0.25rem 0;
+          color: var(--text-primary);
+        }
+        .employee-badge {
+          background: var(--bg-tertiary);
+          padding: 0.25rem 0.75rem;
+          border-radius: 1rem;
+          font-size: 0.75rem;
+          display: inline-block;
+          color: var(--text-secondary);
+        }
         .page-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
           margin-bottom: 2rem;
           flex-wrap: wrap;
-        }
-        .back-link {
-          color: #6b7280;
-          text-decoration: none;
-          display: inline-block;
-          margin-bottom: 0.5rem;
-        }
-        .back-link:hover {
-          color: #2563eb;
-        }
-        h1 {
-          margin: 0.5rem 0 0.25rem 0;
-        }
-        .employee-badge {
-          background: #e5e7eb;
-          padding: 0.25rem 0.75rem;
-          border-radius: 1rem;
-          font-size: 0.75rem;
-          display: inline-block;
+          gap: 1rem;
         }
         .header-actions {
           display: flex;
@@ -226,39 +324,87 @@ export default function EmployeeDetailPage({ params }) {
         }
         .info-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
           gap: 1.5rem;
-          margin-bottom: 2rem;
+          margin-bottom: 1.5rem;
         }
         .info-card {
-          background: white;
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
           padding: 1.5rem;
           border-radius: 0.75rem;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .info-card h3 {
           margin: 0 0 1rem 0;
-          font-size: 1rem;
-          color: #6b7280;
+          font-size: 0.875rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-tertiary);
         }
-        .info-card p {
-          margin: 0.5rem 0;
+        .info-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .info-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--border-light);
+        }
+        .info-label {
+          font-size: 0.8rem;
+          color: var(--text-tertiary);
+        }
+        .info-value {
+          font-size: 0.8rem;
+          font-weight: 500;
+          color: var(--text-primary);
+        }
+        .edit-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .form-group label {
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+        }
+        .form-group input {
+          padding: 0.5rem;
+          border: 1px solid var(--border-medium);
+          border-radius: 0.375rem;
+          background: var(--bg-primary);
+          color: var(--text-primary);
         }
         .section {
-          background: white;
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
           padding: 1.5rem;
           border-radius: 0.75rem;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
           margin-bottom: 1.5rem;
         }
-        .section h2 {
-          margin: 0 0 1rem 0;
-          font-size: 1.25rem;
+        .section-header {
+          margin-bottom: 1rem;
+        }
+        .section-header h2 {
+          margin: 0;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--text-primary);
         }
         .cert-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 0.75rem;
+          gap: 0.5rem;
         }
         .cert-checkbox {
           display: flex;
@@ -267,41 +413,95 @@ export default function EmployeeDetailPage({ params }) {
           cursor: pointer;
           padding: 0.5rem;
           border-radius: 0.375rem;
-          background: #f9fafb;
+          background: var(--bg-tertiary);
+          font-size: 0.875rem;
+          color: var(--text-secondary);
         }
         .cert-checkbox:hover {
-          background: #f3f4f6;
+          background: var(--bg-quaternary);
         }
         .skills-list {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.75rem;
+          gap: 0.5rem;
         }
         .skill-tag {
-          background: #dbeafe;
-          color: #1e40af;
+          background: var(--primary-bg);
+          color: var(--primary-dark);
           padding: 0.375rem 0.75rem;
           border-radius: 2rem;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
+          font-weight: 500;
         }
-        table {
+        .data-table {
           width: 100%;
           border-collapse: collapse;
         }
-        th, td {
+        .data-table th,
+        .data-table td {
           padding: 0.75rem;
           text-align: left;
-          border-bottom: 1px solid #e5e7eb;
+          border-bottom: 1px solid var(--border-light);
         }
-        th {
-          background: #f9fafb;
+        .data-table th {
+          background: var(--bg-tertiary);
           font-weight: 600;
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          color: var(--text-secondary);
+        }
+        .data-table td {
+          color: var(--text-secondary);
+          font-size: 0.875rem;
+        }
+        .no-data {
+          text-align: center;
+          padding: 2rem;
+          color: var(--text-tertiary);
+        }
+        .btn-primary {
+          background: var(--primary);
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+        }
+        .btn-primary:hover {
+          background: var(--primary-dark);
+        }
+        .btn-secondary {
+          background: var(--secondary);
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+        }
+        .btn-secondary:hover {
+          background: var(--secondary-dark);
         }
         .btn-danger {
-          background: #dc2626;
+          background: var(--danger);
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-size: 0.875rem;
         }
         .btn-danger:hover {
-          background: #b91c1c;
+          background: var(--danger-dark);
+        }
+        @media (max-width: 768px) {
+          .info-grid {
+            grid-template-columns: 1fr;
+          }
+          .cert-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>
