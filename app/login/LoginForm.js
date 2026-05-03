@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
+  const { login, isAuthenticated } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,48 +17,38 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Check if already logged in
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      router.push(redirectTo);
-    }
-  }, [router, redirectTo]);
-
+  // Set cookie helper
   const setCookie = (name, value, days) => {
     const expires = new Date();
     expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
   };
+
+  // If already logged in, redirect
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push(redirectTo);
+    }
+  }, [isAuthenticated, router, redirectTo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, rememberMe })
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
-        setCookie('auth_token', data.token, rememberMe ? 30 : 7);
-        router.push(redirectTo);
-      } else {
-        setError(data.error || 'Login failed. Please check your credentials.');
+    const result = await login(email, password, rememberMe);
+    
+    if (result.success) {
+      // Get token from localStorage after login
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        setCookie('auth_token', token, rememberMe ? 30 : 7);
       }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
-    } finally {
-      setLoading(false);
+      router.push(redirectTo);
+    } else {
+      setError(result.error || 'Login failed');
     }
+    setLoading(false);
   };
 
   return (
@@ -107,9 +99,6 @@ export default function LoginForm() {
               />
               Remember me
             </label>
-            <Link href="/forgot-password" className="forgot-link">
-              Forgot password?
-            </Link>
           </div>
 
           <button type="submit" disabled={loading} className="login-btn">
@@ -119,7 +108,7 @@ export default function LoginForm() {
 
         <div className="login-footer">
           <p>
-            Don't have an account? <Link href="/register">Sign up</Link>
+            Demo: jan@netcamsa.co.za / 0615458693
           </p>
         </div>
       </div>
@@ -208,13 +197,6 @@ export default function LoginForm() {
           cursor: pointer;
           color: var(--text-secondary);
         }
-        .forgot-link {
-          color: var(--primary);
-          text-decoration: none;
-        }
-        .forgot-link:hover {
-          text-decoration: underline;
-        }
         .login-btn {
           background: var(--primary);
           color: white;
@@ -241,13 +223,6 @@ export default function LoginForm() {
           color: var(--text-tertiary);
           border-top: 1px solid var(--border-light);
           padding-top: 1rem;
-        }
-        .login-footer a {
-          color: var(--primary);
-          text-decoration: none;
-        }
-        .login-footer a:hover {
-          text-decoration: underline;
         }
       `}</style>
     </div>

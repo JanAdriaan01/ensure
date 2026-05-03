@@ -1,37 +1,34 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/app/hooks/useAuth';
 import LoginForm from './LoginForm';
 
 export default function LoginPage() {
-  return (
-    <Suspense fallback={
-      <div className="login-loading">
+  const router = useRouter();
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.replace('/');
+    }
+  }, [isAuthenticated, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
         <div className="loading-spinner"></div>
-        <p>Loading...</p>
-        <style jsx>{`
-          .login-loading {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-secondary);
-          }
-          .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border-light);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
-    }>
+    );
+  }
+
+  if (isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <Suspense fallback={<div className="login-loading">Loading...</div>}>
       <LoginForm />
     </Suspense>
   );
