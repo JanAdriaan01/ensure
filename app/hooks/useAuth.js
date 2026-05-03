@@ -67,6 +67,8 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password, rememberMe = false) => {
     try {
+      console.log('Login API call starting...');
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,23 +76,35 @@ export function AuthProvider({ children }) {
       });
       
       const data = await response.json();
+      console.log('Login API response received:', data);
       
-      if (response.ok && data.success === true) {
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('user_permissions', JSON.stringify(data.permissions));
-        setCookie('auth_token', data.token, rememberMe ? 30 : 7);
+      // Check for success in multiple ways
+      const isSuccess = response.ok && (data.success === true || data.token);
+      
+      if (isSuccess) {
+        console.log('Login successful, storing data');
         
-        setToken(data.token);
-        setUser(data.user);
-        setPermissions(data.permissions || []);
+        const userData = data.user || { email, name: email.split('@')[0], role: 'user' };
+        const tokenData = data.token;
+        const permissionsData = data.permissions || [];
+        
+        localStorage.setItem('auth_token', tokenData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('user_permissions', JSON.stringify(permissionsData));
+        setCookie('auth_token', tokenData, rememberMe ? 30 : 7);
+        
+        setToken(tokenData);
+        setUser(userData);
+        setPermissions(permissionsData);
         
         return { success: true };
       }
+      
+      console.log('Login failed:', data.error);
       return { success: false, error: data.error || 'Login failed' };
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'Login failed' };
+      return { success: false, error: 'Login failed: ' + error.message };
     }
   };
 

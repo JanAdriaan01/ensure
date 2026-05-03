@@ -1,11 +1,12 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/hooks/useAuth';
 import LoginForm from './LoginForm';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
 
@@ -29,4 +30,16 @@ export default function LoginPage() {
   }
 
   return <LoginForm />;
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="loading-spinner"></div>
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
+  );
 }

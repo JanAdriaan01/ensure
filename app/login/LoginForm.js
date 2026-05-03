@@ -36,15 +36,18 @@ export default function LoginForm() {
       console.log('Login result:', result);
       
       if (result && result.success === true) {
-        console.log('Login successful, redirecting');
-        window.location.href = redirectTo;
+        console.log('Login successful, redirecting to:', redirectTo);
+        // Use both methods to ensure redirect works
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 100);
       } else {
         setError(result?.error || 'Login failed. Please check your credentials.');
+        setLoading(false);
       }
     } catch (err) {
       console.error('Login exception:', err);
       setError('An error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
