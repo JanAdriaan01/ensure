@@ -11,13 +11,12 @@ export default function NewClientPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
-    name: '',
+    client_name: '',
     contact_person: '',
+    client_address: '',
     email: '',
     phone: '',
-    address: '',
-    vat_number: '',
-    status: 'active'
+    signup_date: new Date().toISOString().split('T')[0]
   });
 
   const handleChange = (e) => {
@@ -75,8 +74,8 @@ export default function NewClientPage() {
             <label>Client Name *</label>
             <input
               type="text"
-              name="name"
-              value={formData.name}
+              name="client_name"
+              value={formData.client_name}
               onChange={handleChange}
               required
               placeholder="e.g., ABC Corporation"
@@ -119,8 +118,8 @@ export default function NewClientPage() {
           <div className="form-group full-width">
             <label>Address</label>
             <textarea
-              name="address"
-              value={formData.address}
+              name="client_address"
+              value={formData.client_address}
               onChange={handleChange}
               rows="3"
               placeholder="Street address, city, postal code"
@@ -128,22 +127,13 @@ export default function NewClientPage() {
           </div>
 
           <div className="form-group">
-            <label>VAT Number</label>
+            <label>Signup Date</label>
             <input
-              type="text"
-              name="vat_number"
-              value={formData.vat_number}
+              type="date"
+              name="signup_date"
+              value={formData.signup_date}
               onChange={handleChange}
-              placeholder="ZA1234567890"
             />
-          </div>
-
-          <div className="form-group">
-            <label>Status</label>
-            <select name="status" value={formData.status} onChange={handleChange}>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
           </div>
         </div>
 
@@ -213,7 +203,6 @@ export default function NewClientPage() {
           color: var(--text-secondary);
         }
         .form-group input,
-        .form-group select,
         .form-group textarea {
           width: 100%;
           padding: 0.625rem;
@@ -224,7 +213,6 @@ export default function NewClientPage() {
           color: var(--text-primary);
         }
         .form-group input:focus,
-        .form-group select:focus,
         .form-group textarea:focus {
           outline: none;
           border-color: var(--primary);
