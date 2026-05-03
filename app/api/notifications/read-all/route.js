@@ -12,7 +12,7 @@ export async function POST(request) {
     }
 
     await query(
-      `UPDATE notifications SET read = TRUE WHERE user_id = $1 AND read = FALSE`,
+      `UPDATE notifications SET read = true WHERE user_id = $1 AND read = false`,
       [auth.userId]
     );
 

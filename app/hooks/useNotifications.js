@@ -10,6 +10,7 @@ export function useNotifications() {
   const [loading, setLoading] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
+    // If not authenticated, just set empty
     if (!isAuthenticated || !token) {
       setNotifications([]);
       setUnreadCount(0);
@@ -19,13 +20,13 @@ export function useNotifications() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/notifications?limit=50', {
+      const response = await fetch('/api/notifications?limit=10', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      // If 401 or other error, just return empty
+      // If response is not ok, just return empty
       if (!response.ok) {
         setNotifications([]);
         setUnreadCount(0);
@@ -35,24 +36,29 @@ export function useNotifications() {
 
       const data = await response.json();
       
-      // SAFELY extract notifications - handle any response format
-      let notificationsData = [];
+      // SAFE extraction - always ensure we have arrays
+      let notificationsArray = [];
       let unread = 0;
       
-      if (data && typeof data === 'object') {
-        // Handle { notifications: [], unreadCount: 0 } format
+      // Case 1: data is an array directly
+      if (Array.isArray(data)) {
+        notificationsArray = data;
+        unread = data.filter(n => n && n.read === false).length;
+      }
+      // Case 2: data has notifications property
+      else if (data && typeof data === 'object') {
         if (Array.isArray(data.notifications)) {
-          notificationsData = data.notifications;
+          notificationsArray = data.notifications;
           unread = typeof data.unreadCount === 'number' ? data.unreadCount : 0;
         }
-        // Handle direct array format
-        else if (Array.isArray(data)) {
-          notificationsData = data;
-          unread = data.filter(n => n && !n.read).length;
+        // Case 3: data has data property
+        else if (Array.isArray(data.data)) {
+          notificationsArray = data.data;
+          unread = data.data.filter(n => n && n.read === false).length;
         }
       }
       
-      setNotifications(notificationsData);
+      setNotifications(notificationsArray);
       setUnreadCount(unread);
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -75,9 +81,11 @@ export function useNotifications() {
       });
 
       if (response.ok) {
-        setNotifications(prev => 
-          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-        );
+        // Update local state
+        setNotifications(prev => {
+          if (!Array.isArray(prev)) return [];
+          return prev.map(n => n.id === notificationId ? { ...n, read: true } : n);
+        });
         setUnreadCount(prev => Math.max(0, prev - 1));
         return true;
       }
@@ -100,9 +108,10 @@ export function useNotifications() {
       });
 
       if (response.ok) {
-        setNotifications(prev => 
-          prev.map(n => ({ ...n, read: true }))
-        );
+        setNotifications(prev => {
+          if (!Array.isArray(prev)) return [];
+          return prev.map(n => ({ ...n, read: true }));
+        });
         setUnreadCount(0);
         return true;
       }
@@ -113,14 +122,12 @@ export function useNotifications() {
   }, [isAuthenticated, token]);
 
   useEffect(() => {
-    if (isAuthenticated && token) {
-      fetchNotifications();
-    }
-  }, [isAuthenticated, token, fetchNotifications]);
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   return {
-    notifications,
-    unreadCount,
+    notifications: Array.isArray(notifications) ? notifications : [],
+    unreadCount: typeof unreadCount === 'number' ? unreadCount : 0,
     loading,
     fetchNotifications,
     markAsRead,

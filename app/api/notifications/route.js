@@ -7,21 +7,25 @@ import { verifyAuth } from '@/lib/auth';
 export async function GET(request) {
   try {
     const auth = await verifyAuth(request);
+    
+    // If not authenticated, return empty array
     if (!auth.authenticated) {
-      return NextResponse.json({ notifications: [], unreadCount: 0 });
+      return NextResponse.json([]);
     }
 
+    // Try to get real notifications
     try {
-      const { searchParams } = new URL(request.url);
-      const limit = parseInt(searchParams.get('limit') || '50');
-      
       const result = await query(
-        `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
-        [auth.userId, limit]
+        `SELECT id, title, message, type, link, read, created_at 
+         FROM notifications 
+         WHERE user_id = $1 
+         ORDER BY created_at DESC 
+         LIMIT 20`,
+        [auth.userId]
       );
       
       const unreadResult = await query(
-        `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = FALSE`,
+        `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = false`,
         [auth.userId]
       );
       
@@ -29,13 +33,14 @@ export async function GET(request) {
         notifications: result.rows || [],
         unreadCount: parseInt(unreadResult.rows[0]?.count || 0)
       });
-    } catch (tableError) {
-      // Table doesn't exist - return empty data
-      return NextResponse.json({ notifications: [], unreadCount: 0 });
+    } catch (dbError) {
+      // If table doesn't exist, return empty array
+      console.log('Notifications table not found, returning empty');
+      return NextResponse.json([]);
     }
   } catch (error) {
     console.error('Notifications error:', error);
-    return NextResponse.json({ notifications: [], unreadCount: 0 });
+    return NextResponse.json([]);
   }
 }
 
@@ -54,7 +59,7 @@ export async function PATCH(request) {
     }
 
     await query(
-      `UPDATE notifications SET read = TRUE WHERE id = $1 AND user_id = $2`,
+      `UPDATE notifications SET read = true WHERE id = $1 AND user_id = $2`,
       [id, auth.userId]
     );
 
