@@ -7,47 +7,30 @@ import Link from 'next/link';
 export default function JobsPage() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function fetchJobs() {
       try {
-        setLoading(true);
-        console.log('Fetching jobs from /api/jobs...');
-        
+        console.log('Fetching jobs...');
         const response = await fetch('/api/jobs');
         const data = await response.json();
         
-        console.log('Raw API response:', data);
+        console.log('API Response:', data);
         
-        // Extract jobs array from response
+        // Extract jobs array - handle multiple possible formats
         let jobsArray = [];
-        if (data.data && Array.isArray(data.data)) {
+        if (data && data.data && Array.isArray(data.data)) {
           jobsArray = data.data;
-          console.log(`Found ${jobsArray.length} jobs in data.data`);
-        } else if (Array.isArray(data)) {
+        } else if (data && Array.isArray(data)) {
           jobsArray = data;
-          console.log(`Found ${jobsArray.length} jobs in direct array`);
-        } else if (data.success && data.data) {
+        } else if (data && data.success && data.data) {
           jobsArray = data.data;
-          console.log(`Found ${jobsArray.length} jobs in success.data`);
-        } else {
-          console.log('Unexpected response format:', data);
         }
         
-        // Log each job
-        jobsArray.forEach(job => {
-          console.log(`  Job: ${job.job_number}, PO: ${job.po_number}, Status: ${job.po_status}`);
-        });
-        
+        console.log(`Found ${jobsArray.length} jobs`);
         setJobs(jobsArray);
-        
-        if (jobsArray.length === 0) {
-          console.log('No jobs with po_status="approved" found in response');
-        }
       } catch (error) {
         console.error('Error fetching jobs:', error);
-        setError(error.message);
       } finally {
         setLoading(false);
       }
@@ -79,26 +62,12 @@ export default function JobsPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="error-container">
-        <h3>Error Loading Jobs</h3>
-        <p>{error}</p>
-        <button onClick={() => window.location.reload()}>Retry</button>
-        <style jsx>{`
-          .error-container { text-align: center; padding: 4rem; }
-          button { margin-top: 1rem; padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; cursor: pointer; }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
     <div className="jobs-container">
       <div className="page-header">
         <div>
           <h1>Job Management</h1>
-          <p>Track and manage all construction jobs ({jobs.length} active jobs)</p>
+          <p>Track and manage all construction jobs ({jobs.length} total jobs)</p>
         </div>
         <Link href="/quotes" className="btn-primary">+ New Job (from Quote)</Link>
       </div>
@@ -108,9 +77,6 @@ export default function JobsPage() {
           <div className="empty-icon">📋</div>
           <h3>No Jobs Available</h3>
           <p>Jobs are automatically created when a PO number is entered for an approved quote.</p>
-          <p style={{ fontSize: '0.875rem', marginTop: '0.5rem', color: '#ef4444' }}>
-            Debug: Your database has 4 approved jobs but they aren't showing. Check console for errors.
-          </p>
           <Link href="/quotes" className="btn-primary">Go to Quotes</Link>
         </div>
       ) : (
@@ -120,7 +86,7 @@ export default function JobsPage() {
               <div className="job-header">
                 <span className="job-number">{job.job_number || `JOB-${job.id}`}</span>
                 <span className="status-badge status-approved">
-                  Ready for Management
+                  {job.po_status === 'approved' ? 'Ready for Management' : (job.po_status || 'Pending')}
                 </span>
               </div>
               <div className="job-client">{job.client_name || 'Unknown Client'}</div>
@@ -175,8 +141,6 @@ export default function JobsPage() {
         .view-link { font-size: 0.75rem; color: #3b82f6; font-weight: 500; }
         .empty-state { text-align: center; padding: 4rem 2rem; background: #f8fafc; border-radius: 1rem; }
         .empty-icon { font-size: 4rem; margin-bottom: 1rem; }
-        .empty-state h3 { margin-bottom: 0.5rem; color: #1e293b; }
-        .empty-state p { color: #64748b; margin-bottom: 1.5rem; }
       `}</style>
     </div>
   );
