@@ -191,8 +191,54 @@ export async function PATCH(request) {
     const now = new Date();
     
     console.log('Current status:', currentStatus);
+    console.log('Current job_id:', quote.job_id);
     
-    // Define allowed transitions
+    // SPECIAL CASE: If quote is po_received but has no job_id, create the job
+    if (currentStatus === 'po_received' && !quote.job_id) {
+      console.log('Quote is po_received but missing job_id - creating job now');
+      
+      await query('BEGIN');
+      try {
+        // Get next job number
+        const jobCountResult = await query(`SELECT COUNT(*) as count FROM jobs`);
+        const jobCount = parseInt(jobCountResult.rows[0].count) + 1;
+        const jobNumber = `JOB-${new Date().getFullYear()}-${String(jobCount).padStart(4, '0')}`;
+        
+        // Create the job
+        const jobResult = await query(
+          `INSERT INTO jobs (
+            job_number, client_id, description, po_status, completion_status,
+            po_number, po_amount, total_budget, quote_id, created_at, updated_at
+          ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $6, $7, NOW(), NOW())
+          RETURNING id`,
+          [jobNumber, quote.client_id, `Job from quote: ${quote.quote_number}`, 
+           quote.po_number || po_number, quote.total_amount, quote.total_amount, id]
+        );
+        
+        const newJobId = jobResult.rows[0].id;
+        console.log('✅ Job created with ID:', newJobId);
+        
+        // Update quote with job_id
+        await query(
+          `UPDATE quotes SET job_id = $1, updated_at = NOW() WHERE id = $2`,
+          [newJobId, id]
+        );
+        
+        await query('COMMIT');
+        
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Job created successfully for existing PO',
+          job_id: newJobId
+        });
+      } catch (error) {
+        await query('ROLLBACK');
+        console.error('Job creation error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    }
+    
+    // Define allowed transitions for non-final states
     const allowedTransitions = {
       'draft': ['send'],
       'sent': ['mark_viewed', 'reject'],
@@ -202,6 +248,20 @@ export async function PATCH(request) {
       'rejected': []
     };
     
+    // If quote is in final state and we're not creating a job, reject
+    if (currentStatus === 'po_received' || currentStatus === 'rejected') {
+      if (currentStatus === 'po_received' && !quote.job_id) {
+        // This case should have been handled above, but just in case
+        return NextResponse.json({ 
+          error: 'Quote has PO but job creation failed. Please try again.' 
+        }, { status: 400 });
+      }
+      return NextResponse.json({ 
+        error: `Quote is ${currentStatus}. No further changes allowed.` 
+      }, { status: 400 });
+    }
+    
+    // Validate allowed transition
     if (!allowedTransitions[currentStatus]?.includes(action)) {
       return NextResponse.json({ 
         error: `Cannot ${action} a ${currentStatus} quote. Allowed actions: ${allowedTransitions[currentStatus]?.join(', ') || 'none'}` 
@@ -213,6 +273,7 @@ export async function PATCH(request) {
     try {
       switch (action) {
         case 'send':
+          console.log('Sending quote...');
           await query(
             `UPDATE quotes SET status = 'sent', sent_date = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
@@ -220,6 +281,7 @@ export async function PATCH(request) {
           break;
           
         case 'mark_viewed':
+          console.log('Marking as viewed...');
           await query(
             `UPDATE quotes SET status = 'pending', viewed_at = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
@@ -227,6 +289,7 @@ export async function PATCH(request) {
           break;
           
         case 'approve':
+          console.log('Approving quote...');
           await query(
             `UPDATE quotes SET status = 'approved', accepted_date = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
@@ -238,7 +301,7 @@ export async function PATCH(request) {
             throw new Error('PO number is required');
           }
           
-          console.log('=== CREATING JOB FOR PO ===');
+          console.log('=== CREATING JOB FOR NEW PO ===');
           console.log('PO Number:', po_number);
           console.log('Quote ID:', id);
           console.log('Client ID:', quote.client_id);
@@ -250,20 +313,21 @@ export async function PATCH(request) {
           const jobNumber = `JOB-${new Date().getFullYear()}-${String(jobCount).padStart(4, '0')}`;
           console.log('Generated job number:', jobNumber);
           
-          // Create the job
+          // Create the job FIRST
           const jobResult = await query(
             `INSERT INTO jobs (
               job_number, client_id, description, po_status, completion_status,
               po_number, po_amount, total_budget, quote_id, created_at, updated_at
             ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $6, $7, NOW(), NOW())
             RETURNING id`,
-            [jobNumber, quote.client_id, `Job from quote: ${quote.quote_number}`, po_number, quote.total_amount, quote.total_amount, id]
+            [jobNumber, quote.client_id, `Job from quote: ${quote.quote_number}`, 
+             po_number, quote.total_amount, quote.total_amount, id]
           );
           
           const newJobId = jobResult.rows[0].id;
-          console.log('✅ Job CREATED with ID:', newJobId);
+          console.log('✅ Job created with ID:', newJobId);
           
-          // Update quote
+          // Then update quote with PO info AND job_id
           await query(
             `UPDATE quotes SET 
               status = 'po_received', 
@@ -276,9 +340,11 @@ export async function PATCH(request) {
             [po_number, po_date || now.toISOString().split('T')[0], quote.total_amount, newJobId, id]
           );
           console.log('✅ Quote updated with job_id:', newJobId);
+          
           break;
           
         case 'reject':
+          console.log('Rejecting quote...');
           await query(
             `UPDATE quotes SET status = 'rejected', rejected_date = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
             [now, rejection_reason, id]
@@ -287,8 +353,7 @@ export async function PATCH(request) {
       }
       
       await query('COMMIT');
-      
-      console.log('=== UPDATE SUCCESSFUL ===');
+      console.log('=== TRANSACTION COMPLETE ===');
       
       return NextResponse.json({ 
         success: true, 
@@ -307,9 +372,8 @@ export async function PATCH(request) {
   }
 }
 
-// PUT - Update quote (alternative method)
+// PUT - Update quote (alternative method for compatibility)
 export async function PUT(request) {
-  // Redirect to PATCH for compatibility
   return PATCH(request);
 }
 
