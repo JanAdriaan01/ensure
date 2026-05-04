@@ -19,7 +19,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Invalid job ID' }, { status: 400 });
     }
     
-    // Get job details - flattened for frontend
+    // Get job details - using correct column names from your schema
     const jobResult = await query(`
       SELECT 
         j.id,
@@ -38,7 +38,7 @@ export async function GET(request, { params }) {
         j.end_date,
         j.site_address,
         j.actual_cost,
-        c.name as client_name,
+        c.client_name,
         q.quote_number
       FROM jobs j
       LEFT JOIN clients c ON j.client_id = c.id
@@ -52,22 +52,15 @@ export async function GET(request, { params }) {
     
     const job = jobResult.rows[0];
     
-    // Get additional data (optional - for dashboard)
+    // Get job items if needed
     const itemsResult = await query(`
       SELECT * FROM job_items WHERE job_id = $1 ORDER BY id
     `, [jobId]);
     
-    const attendanceResult = await query(`
-      SELECT * FROM attendance_logs WHERE job_id = $1 ORDER BY log_date DESC LIMIT 10
-    `, [jobId]);
-    
-    // Return flattened job object with additional data as separate properties
     return NextResponse.json({
       ...job,
       items: itemsResult.rows,
-      attendance: attendanceResult.rows,
-      tools_count: itemsResult.rows.filter(i => i.item_type === 'tool').length,
-      stock_items_count: itemsResult.rows.filter(i => i.item_type === 'stock').length
+      item_count: itemsResult.rows.length
     });
     
   } catch (error) {

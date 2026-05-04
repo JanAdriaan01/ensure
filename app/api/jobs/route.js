@@ -9,11 +9,11 @@ export async function GET(request) {
   try {
     const auth = await verifyAuth(request);
     
-    // Don't block on authentication - return jobs even if not authenticated for testing
-    // But log the auth status
-    console.log('Auth status:', auth.authenticated);
+    if (!auth.authenticated) {
+      return NextResponse.json({ success: true, data: [] });
+    }
     
-    // Get ALL jobs - no filtering since database already has correct po_status
+    // Get ALL jobs - using correct column name 'client_name'
     const result = await query(`
       SELECT 
         j.id,
@@ -35,7 +35,6 @@ export async function GET(request) {
     
     console.log(`Jobs API: Returning ${result.rows.length} jobs`);
     
-    // Return in the format the frontend expects
     return NextResponse.json({ 
       success: true, 
       data: result.rows 
@@ -43,7 +42,6 @@ export async function GET(request) {
     
   } catch (error) {
     console.error('Jobs API error:', error);
-    // Return empty array on error, not null
     return NextResponse.json({ success: true, data: [] });
   }
 }
