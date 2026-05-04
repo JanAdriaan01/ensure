@@ -1,3 +1,4 @@
+// app/api/jobs/[id]/route.js
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
@@ -18,10 +19,25 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Invalid job ID' }, { status: 400 });
     }
     
-    // Get job details
+    // Get job details - flattened for frontend
     const jobResult = await query(`
       SELECT 
-        j.*,
+        j.id,
+        j.job_number,
+        j.description,
+        j.po_number,
+        j.po_status,
+        j.completion_status,
+        j.po_amount,
+        j.total_budget,
+        j.client_id,
+        j.quote_id,
+        j.created_at,
+        j.updated_at,
+        j.start_date,
+        j.end_date,
+        j.site_address,
+        j.actual_cost,
         c.name as client_name,
         q.quote_number
       FROM jobs j
@@ -34,21 +50,26 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
     
-    // Get job items
+    const job = jobResult.rows[0];
+    
+    // Get additional data (optional - for dashboard)
     const itemsResult = await query(`
       SELECT * FROM job_items WHERE job_id = $1 ORDER BY id
     `, [jobId]);
     
-    // Get attendance logs
     const attendanceResult = await query(`
-      SELECT * FROM attendance_logs WHERE job_id = $1 ORDER BY log_date DESC
+      SELECT * FROM attendance_logs WHERE job_id = $1 ORDER BY log_date DESC LIMIT 10
     `, [jobId]);
     
+    // Return flattened job object with additional data as separate properties
     return NextResponse.json({
-      job: jobResult.rows[0],
+      ...job,
       items: itemsResult.rows,
-      attendance: attendanceResult.rows
+      attendance: attendanceResult.rows,
+      tools_count: itemsResult.rows.filter(i => i.item_type === 'tool').length,
+      stock_items_count: itemsResult.rows.filter(i => i.item_type === 'stock').length
     });
+    
   } catch (error) {
     console.error('Error fetching job:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -66,7 +87,7 @@ export async function PUT(request, { params }) {
     const jobId = parseInt(id);
     const updates = await request.json();
     
-    const { po_status, completion_status, po_amount, total_invoiced, notes } = updates;
+    const { po_status, completion_status, po_amount, total_invoiced, notes, start_date, end_date, site_address } = updates;
     
     const result = await query(
       `UPDATE jobs SET 
@@ -75,9 +96,12 @@ export async function PUT(request, { params }) {
         po_amount = COALESCE($3, po_amount),
         total_invoiced = COALESCE($4, total_invoiced),
         notes = COALESCE($5, notes),
+        start_date = COALESCE($6, start_date),
+        end_date = COALESCE($7, end_date),
+        site_address = COALESCE($8, site_address),
         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6 RETURNING *`,
-      [po_status, completion_status, po_amount, total_invoiced, notes, jobId]
+       WHERE id = $9 RETURNING *`,
+      [po_status, completion_status, po_amount, total_invoiced, notes, start_date, end_date, site_address, jobId]
     );
     
     return NextResponse.json(result.rows[0]);
@@ -96,6 +120,26 @@ export async function DELETE(request, { params }) {
 
     const { id } = await params;
     const jobId = parseInt(id);
+    
+    // Check if job can be deleted (only if no related data)
+    const checks = await query(`
+      SELECT 
+        (SELECT COUNT(*) FROM job_items WHERE job_id = $1) as items,
+        (SELECT COUNT(*) FROM job_tools WHERE job_id = $1) as tools,
+        (SELECT COUNT(*) FROM job_team WHERE job_id = $1) as team,
+        (SELECT COUNT(*) FROM job_payroll WHERE job_id = $1) as payroll
+    `, [jobId]);
+    
+    const hasRelatedData = checks.rows[0].items > 0 || 
+                          checks.rows[0].tools > 0 || 
+                          checks.rows[0].team > 0 || 
+                          checks.rows[0].payroll > 0;
+    
+    if (hasRelatedData) {
+      return NextResponse.json({ 
+        error: 'Cannot delete job with existing items, tools, team members, or payroll entries' 
+      }, { status: 400 });
+    }
     
     await query('DELETE FROM jobs WHERE id = $1', [jobId]);
     return NextResponse.json({ message: 'Job deleted successfully' });
