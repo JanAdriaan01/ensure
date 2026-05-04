@@ -155,26 +155,29 @@ export async function POST(request) {
   }
 }
 
-// PUT - Update quote status
-export async function PUT(request) {
+// PATCH - Update quote status (used by the frontend)
+export async function PATCH(request) {
   try {
     const auth = await verifyAuth(request);
     if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    // Extract ID from URL - /api/quotes/123
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const id = pathParts[pathParts.length - 1];
+    
     const body = await request.json();
     const { action, po_number, po_date, rejection_reason } = body;
     
-    console.log('=== QUOTE UPDATE ===');
+    console.log('=== PATCH REQUEST ===');
     console.log('Quote ID:', id);
     console.log('Action:', action);
     console.log('PO Number:', po_number);
     
-    if (!id) {
-      return NextResponse.json({ error: 'Quote ID is required' }, { status: 400 });
+    if (!id || isNaN(parseInt(id))) {
+      return NextResponse.json({ error: 'Valid Quote ID is required' }, { status: 400 });
     }
     
     // Get current quote
@@ -188,7 +191,6 @@ export async function PUT(request) {
     const now = new Date();
     
     console.log('Current status:', currentStatus);
-    console.log('Current job_id:', quote.job_id);
     
     // Define allowed transitions
     const allowedTransitions = {
@@ -211,7 +213,6 @@ export async function PUT(request) {
     try {
       switch (action) {
         case 'send':
-          console.log('Sending quote...');
           await query(
             `UPDATE quotes SET status = 'sent', sent_date = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
@@ -219,7 +220,6 @@ export async function PUT(request) {
           break;
           
         case 'mark_viewed':
-          console.log('Marking as viewed...');
           await query(
             `UPDATE quotes SET status = 'pending', viewed_at = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
@@ -227,7 +227,6 @@ export async function PUT(request) {
           break;
           
         case 'approve':
-          console.log('Approving quote...');
           await query(
             `UPDATE quotes SET status = 'approved', accepted_date = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
@@ -239,56 +238,33 @@ export async function PUT(request) {
             throw new Error('PO number is required');
           }
           
-          console.log('=== STARTING JOB CREATION ===');
+          console.log('=== CREATING JOB FOR PO ===');
+          console.log('PO Number:', po_number);
+          console.log('Quote ID:', id);
+          console.log('Client ID:', quote.client_id);
+          console.log('Quote Total:', quote.total_amount);
           
-          // Step 1: Get the next job number using a simple method
+          // Get next job number
           const jobCountResult = await query(`SELECT COUNT(*) as count FROM jobs`);
           const jobCount = parseInt(jobCountResult.rows[0].count) + 1;
-          const jobNumber = `JOB-2026-${String(jobCount).padStart(4, '0')}`;
-          console.log('Step 1 - Generated job number:', jobNumber);
+          const jobNumber = `JOB-${new Date().getFullYear()}-${String(jobCount).padStart(4, '0')}`;
+          console.log('Generated job number:', jobNumber);
           
-          // Step 2: Insert the job
-          console.log('Step 2 - Inserting job with data:', {
-            job_number: jobNumber,
-            client_id: quote.client_id,
-            po_number: po_number,
-            po_amount: quote.total_amount,
-            quote_id: id
-          });
-          
+          // Create the job
           const jobResult = await query(
             `INSERT INTO jobs (
-              job_number, 
-              client_id, 
-              description, 
-              po_status, 
-              completion_status,
-              po_number, 
-              po_amount, 
-              total_budget, 
-              quote_id, 
-              created_at,
-              updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+              job_number, client_id, description, po_status, completion_status,
+              po_number, po_amount, total_budget, quote_id, created_at, updated_at
+            ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $6, $7, NOW(), NOW())
             RETURNING id`,
-            [
-              jobNumber, 
-              quote.client_id, 
-              `Job from quote: ${quote.quote_number}`,
-              'approved',
-              'not_started',
-              po_number, 
-              quote.total_amount,
-              quote.total_amount,
-              id
-            ]
+            [jobNumber, quote.client_id, `Job from quote: ${quote.quote_number}`, po_number, quote.total_amount, quote.total_amount, id]
           );
           
           const newJobId = jobResult.rows[0].id;
-          console.log('Step 3 - Job created successfully with ID:', newJobId);
+          console.log('✅ Job CREATED with ID:', newJobId);
           
-          // Step 3: Update the quote with job_id
-          const updateResult = await query(
+          // Update quote
+          await query(
             `UPDATE quotes SET 
               status = 'po_received', 
               po_number = $1, 
@@ -296,44 +272,13 @@ export async function PUT(request) {
               po_amount = $3,
               job_id = $4,
               updated_at = NOW()
-            WHERE id = $5
-            RETURNING id, job_id, status`,
+            WHERE id = $5`,
             [po_number, po_date || now.toISOString().split('T')[0], quote.total_amount, newJobId, id]
           );
-          
-          console.log('Step 4 - Quote updated:', updateResult.rows[0]);
-          
-          // Step 4: Copy items (optional - continue even if this fails)
-          try {
-            const quoteItems = await query(
-              `SELECT description, quantity, unit_price, total_price, item_type 
-               FROM quote_items 
-               WHERE quote_id = $1`, 
-              [id]
-            );
-            
-            if (quoteItems.rows.length > 0) {
-              console.log(`Copying ${quoteItems.rows.length} items to job...`);
-              for (const item of quoteItems.rows) {
-                await query(
-                  `INSERT INTO job_items (
-                    job_id, description, quantity, unit_price, total_price,
-                    item_type, status, created_at, updated_at
-                  ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())`,
-                  [newJobId, item.description, item.quantity, item.unit_price, 
-                   item.total_price, item.item_type || 'service']
-                );
-              }
-              console.log('Items copied successfully');
-            }
-          } catch (itemError) {
-            console.error('Error copying items (non-fatal):', itemError);
-          }
-          
+          console.log('✅ Quote updated with job_id:', newJobId);
           break;
           
         case 'reject':
-          console.log('Rejecting quote...');
           await query(
             `UPDATE quotes SET status = 'rejected', rejected_date = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
             [now, rejection_reason, id]
@@ -343,35 +288,29 @@ export async function PUT(request) {
       
       await query('COMMIT');
       
-      console.log('=== TRANSACTION COMMITTED SUCCESSFULLY ===');
-      
-      let message = `Quote ${action}ed successfully`;
-      if (action === 'receive_po') {
-        message = `✅ PO #${po_number} received! Job created successfully.`;
-      }
+      console.log('=== UPDATE SUCCESSFUL ===');
       
       return NextResponse.json({ 
         success: true, 
-        message
+        message: `Quote ${action}ed successfully` 
       });
       
     } catch (error) {
       await query('ROLLBACK');
-      console.error('!!! TRANSACTION FAILED !!!');
-      console.error('Error details:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      return NextResponse.json({ 
-        error: error.message, 
-        details: error.toString(),
-        stack: error.stack 
-      }, { status: 500 });
+      console.error('Transaction error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
   } catch (error) {
-    console.error('PUT outer error:', error);
+    console.error('PATCH error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// PUT - Update quote (alternative method)
+export async function PUT(request) {
+  // Redirect to PATCH for compatibility
+  return PATCH(request);
 }
 
 // DELETE - Delete draft quote only
@@ -382,11 +321,13 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    // Extract ID from URL - /api/quotes/123
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const id = pathParts[pathParts.length - 1];
     
-    if (!id) {
-      return NextResponse.json({ error: 'Quote ID is required' }, { status: 400 });
+    if (!id || isNaN(parseInt(id))) {
+      return NextResponse.json({ error: 'Valid Quote ID is required' }, { status: 400 });
     }
     
     const quoteResult = await query(`SELECT status FROM quotes WHERE id = $1`, [id]);
