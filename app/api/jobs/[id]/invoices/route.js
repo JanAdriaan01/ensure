@@ -20,7 +20,17 @@ export async function GET(request, { params }) {
     }
     
     // Check if job exists
-    const jobCheck = await query(`SELECT id, po_amount FROM jobs WHERE id = $1`, [jobId]);
+    const jobCheck = await query(`
+      SELECT 
+        id, 
+        po_amount, 
+        COALESCE(total_invoiced, 0) as total_invoiced,
+        COALESCE(total_paid, 0) as total_paid,
+        COALESCE(invoicing_progress, 0) as invoicing_progress
+      FROM jobs 
+      WHERE id = $1
+    `, [jobId]);
+    
     if (jobCheck.rows.length === 0) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
@@ -31,36 +41,30 @@ export async function GET(request, { params }) {
     const result = await query(`
       SELECT 
         i.*,
-        c.client_name,
-        (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id) as item_count
+        c.client_name
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id
       WHERE i.job_id = $1
-      ORDER BY i.invoice_date DESC, i.created_at DESC
+      ORDER BY i.issue_date DESC, i.created_at DESC
     `, [jobId]);
     
     // Calculate invoice summaries
     const summaries = {
-      total_invoiced: result.rows.reduce((sum, inv) => sum + (parseFloat(inv.total_amount) || 0), 0),
-      total_paid: result.rows.reduce((sum, inv) => sum + (parseFloat(inv.amount_paid) || 0), 0),
-      total_outstanding: result.rows.reduce((sum, inv) => sum + ((parseFloat(inv.total_amount) || 0) - (parseFloat(inv.amount_paid) || 0)), 0),
-      po_remaining: (parseFloat(job.po_amount) || 0) - result.rows.reduce((sum, inv) => sum + (parseFloat(inv.total_amount) || 0), 0),
+      total_invoiced: parseFloat(job.total_invoiced) || 0,
+      total_paid: parseFloat(job.total_paid) || 0,
+      total_outstanding: (parseFloat(job.total_invoiced) || 0) - (parseFloat(job.total_paid) || 0),
+      po_amount: parseFloat(job.po_amount) || 0,
+      po_remaining: (parseFloat(job.po_amount) || 0) - (parseFloat(job.total_invoiced) || 0),
       invoice_count: result.rows.length,
       paid_invoices: result.rows.filter(inv => inv.status === 'paid').length,
-      unpaid_invoices: result.rows.filter(inv => inv.status === 'unpaid').length,
-      partial_invoices: result.rows.filter(inv => inv.status === 'partial').length
+      pending_invoices: result.rows.filter(inv => inv.status === 'pending').length,
+      progress_percentage: parseFloat(job.invoicing_progress) || 0
     };
-    
-    // Calculate invoicing progress percentage
-    summaries.progress_percentage = job.po_amount > 0 
-      ? Math.min(100, Math.round((summaries.total_invoiced / parseFloat(job.po_amount)) * 100))
-      : 0;
     
     return NextResponse.json({ 
       success: true, 
       data: result.rows,
-      summaries: summaries,
-      job_po_amount: job.po_amount
+      summaries: summaries
     });
   } catch (error) {
     console.error('Error fetching job invoices:', error);
