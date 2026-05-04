@@ -1,8 +1,17 @@
+// app/api/quotes/[id]/route.js
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
+
+// Helper function to generate job number
+async function generateJobNumber() {
+  const year = new Date().getFullYear();
+  const result = await query(`SELECT COUNT(*) as count FROM jobs`);
+  const count = parseInt(result.rows[0].count) + 1;
+  return `JOB-${year}-${String(count).padStart(4, '0')}`;
+}
 
 // GET - Fetch single quote
 export async function GET(request, { params }) {
@@ -37,7 +46,7 @@ export async function GET(request, { params }) {
   }
 }
 
-// PATCH - Update quote status with workflow rules
+// PATCH - Update quote status with workflow rules AND create job for PO
 export async function PATCH(request, { params }) {
   try {
     const auth = await verifyAuth(request);
@@ -48,7 +57,7 @@ export async function PATCH(request, { params }) {
     const { id } = await params;
     const quoteId = parseInt(id);
     const body = await request.json();
-    const { action, po_number, po_date } = body;
+    const { action, po_number, po_date, rejection_reason } = body;
     
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
@@ -63,68 +72,181 @@ export async function PATCH(request, { params }) {
     const quote = quoteResult.rows[0];
     const currentStatus = quote.status;
     const now = new Date();
-    let newStatus = currentStatus;
-    let updateFields = {};
     
-    // State machine logic - define allowed transitions
+    console.log('=== QUOTE UPDATE ===');
+    console.log('Quote ID:', quoteId);
+    console.log('Action:', action);
+    console.log('Current Status:', currentStatus);
+    
+    // State machine logic
     switch (currentStatus) {
       case 'draft':
         if (action === 'send') {
-          newStatus = 'sent';
-          updateFields = { status: newStatus, sent_date: now };
-        } else if (action === 'delete') {
+          await query(
+            `UPDATE quotes SET status = 'sent', sent_date = $1, updated_at = NOW() WHERE id = $2`,
+            [now, quoteId]
+          );
+          return NextResponse.json({ success: true, message: 'Quote sent' });
+        }
+        if (action === 'delete') {
           await query(`DELETE FROM quotes WHERE id = $1`, [quoteId]);
           return NextResponse.json({ success: true, message: 'Quote deleted' });
-        } else {
-          return NextResponse.json({ error: `Cannot ${action} a draft quote. Only 'send' is allowed.` }, { status: 400 });
         }
-        break;
+        return NextResponse.json({ error: `Cannot ${action} a draft quote. Only 'send' is allowed.` }, { status: 400 });
         
       case 'sent':
         if (action === 'mark_viewed') {
-          newStatus = 'pending';
-          updateFields = { status: newStatus, viewed_at: now };
-        } else if (action === 'approve') {
-          newStatus = 'approved';
-          updateFields = { status: newStatus, accepted_date: now };
-        } else if (action === 'reject') {
-          newStatus = 'rejected';
-          updateFields = { status: newStatus, rejected_date: now, rejection_reason: body.rejection_reason || null };
-        } else {
-          return NextResponse.json({ error: `Invalid action '${action}' for quote status '${currentStatus}'` }, { status: 400 });
+          await query(
+            `UPDATE quotes SET status = 'pending', viewed_at = $1, updated_at = NOW() WHERE id = $2`,
+            [now, quoteId]
+          );
+          return NextResponse.json({ success: true, message: 'Quote marked as viewed' });
         }
-        break;
+        if (action === 'approve') {
+          await query(
+            `UPDATE quotes SET status = 'approved', accepted_date = $1, updated_at = NOW() WHERE id = $2`,
+            [now, quoteId]
+          );
+          return NextResponse.json({ success: true, message: 'Quote approved' });
+        }
+        if (action === 'reject') {
+          await query(
+            `UPDATE quotes SET status = 'rejected', rejected_date = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
+            [now, rejection_reason, quoteId]
+          );
+          return NextResponse.json({ success: true, message: 'Quote rejected' });
+        }
+        return NextResponse.json({ error: `Invalid action '${action}' for quote status '${currentStatus}'` }, { status: 400 });
         
       case 'pending':
         if (action === 'approve') {
-          newStatus = 'approved';
-          updateFields = { status: newStatus, accepted_date: now };
-        } else if (action === 'reject') {
-          newStatus = 'rejected';
-          updateFields = { status: newStatus, rejected_date: now, rejection_reason: body.rejection_reason || null };
-        } else {
-          return NextResponse.json({ error: `Invalid action '${action}' for quote status '${currentStatus}'` }, { status: 400 });
+          await query(
+            `UPDATE quotes SET status = 'approved', accepted_date = $1, updated_at = NOW() WHERE id = $2`,
+            [now, quoteId]
+          );
+          return NextResponse.json({ success: true, message: 'Quote approved' });
         }
-        break;
+        if (action === 'reject') {
+          await query(
+            `UPDATE quotes SET status = 'rejected', rejected_date = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
+            [now, rejection_reason, quoteId]
+          );
+          return NextResponse.json({ success: true, message: 'Quote rejected' });
+        }
+        return NextResponse.json({ error: `Invalid action '${action}' for quote status '${currentStatus}'` }, { status: 400 });
         
       case 'approved':
         if (action === 'receive_po') {
           if (!po_number) {
             return NextResponse.json({ error: 'PO number is required' }, { status: 400 });
           }
-          newStatus = 'po_received';
-          updateFields = { 
-            status: newStatus, 
-            po_number: po_number, 
-            po_date: po_date || now.toISOString().split('T')[0],
-            accepted_date: now
-          };
-        } else {
-          return NextResponse.json({ error: `Cannot ${action} an approved quote. Only 'receive_po' is allowed.` }, { status: 400 });
+          
+          console.log('=== CREATING JOB FOR PO ===');
+          console.log('PO Number:', po_number);
+          
+          // Start transaction
+          await query('BEGIN');
+          
+          try {
+            // Step 1: Create the job
+            const jobNumber = await generateJobNumber();
+            console.log('Generated job number:', jobNumber);
+            
+            const jobResult = await query(
+              `INSERT INTO jobs (
+                job_number, 
+                client_id, 
+                description, 
+                po_status, 
+                completion_status,
+                po_number, 
+                po_amount, 
+                total_budget, 
+                quote_id, 
+                created_at, 
+                updated_at
+              ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $6, $7, NOW(), NOW())
+              RETURNING id`,
+              [
+                jobNumber, 
+                quote.client_id, 
+                `Job from quote: ${quote.quote_number}`,
+                po_number, 
+                quote.total_amount, 
+                quote.total_amount, 
+                quoteId
+              ]
+            );
+            
+            const newJobId = jobResult.rows[0].id;
+            console.log('✅ Job created with ID:', newJobId);
+            
+            // Step 2: Update quote with PO info and job_id
+            await query(
+              `UPDATE quotes SET 
+                status = 'po_received', 
+                po_number = $1, 
+                po_date = $2,
+                po_amount = $3,
+                job_id = $4,
+                accepted_date = $5,
+                updated_at = NOW()
+              WHERE id = $6`,
+              [po_number, po_date || now.toISOString().split('T')[0], quote.total_amount, newJobId, now, quoteId]
+            );
+            
+            console.log('✅ Quote updated with job_id:', newJobId);
+            
+            // Commit transaction
+            await query('COMMIT');
+            
+            return NextResponse.json({ 
+              success: true, 
+              message: `PO #${po_number} received! Job created successfully.`,
+              job_id: newJobId,
+              job_number: jobNumber
+            });
+            
+          } catch (error) {
+            await query('ROLLBACK');
+            console.error('Job creation error:', error);
+            return NextResponse.json({ error: error.message }, { status: 500 });
+          }
         }
-        break;
+        return NextResponse.json({ error: `Cannot ${action} an approved quote. Only 'receive_po' is allowed.` }, { status: 400 });
         
       case 'po_received':
+        // If quote has PO but no job_id, try to create job
+        if (!quote.job_id) {
+          console.log('Quote has PO but missing job_id - attempting to create job');
+          
+          await query('BEGIN');
+          try {
+            const jobNumber = await generateJobNumber();
+            const jobResult = await query(
+              `INSERT INTO jobs (
+                job_number, client_id, description, po_status, completion_status,
+                po_number, po_amount, total_budget, quote_id, created_at, updated_at
+              ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $6, $7, NOW(), NOW())
+              RETURNING id`,
+              [jobNumber, quote.client_id, `Job from quote: ${quote.quote_number}`, 
+               quote.po_number, quote.total_amount, quote.total_amount, quoteId]
+            );
+            
+            const newJobId = jobResult.rows[0].id;
+            await query(`UPDATE quotes SET job_id = $1, updated_at = NOW() WHERE id = $2`, [newJobId, quoteId]);
+            await query('COMMIT');
+            
+            return NextResponse.json({ 
+              success: true, 
+              message: 'Job created successfully for existing PO',
+              job_id: newJobId
+            });
+          } catch (error) {
+            await query('ROLLBACK');
+            return NextResponse.json({ error: error.message }, { status: 500 });
+          }
+        }
         return NextResponse.json({ error: 'Quote is finalized. No further changes allowed.' }, { status: 400 });
         
       case 'rejected':
@@ -133,23 +255,6 @@ export async function PATCH(request, { params }) {
       default:
         return NextResponse.json({ error: `Unknown status: ${currentStatus}` }, { status: 400 });
     }
-    
-    // Build update query
-    const setClause = Object.keys(updateFields).map((key, idx) => `${key} = $${idx + 1}`).join(', ');
-    const values = Object.values(updateFields);
-    values.push(quoteId);
-    
-    await query(
-      `UPDATE quotes SET ${setClause}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
-      values
-    );
-    
-    return NextResponse.json({
-      success: true,
-      old_status: currentStatus,
-      new_status: newStatus,
-      message: `Quote ${action === 'receive_po' ? 'PO received and ' + newStatus : newStatus}`
-    });
     
   } catch (error) {
     console.error('Error updating quote:', error);
@@ -178,6 +283,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Only draft or pending quotes can be deleted' }, { status: 400 });
     }
     
+    await query(`DELETE FROM quote_items WHERE quote_id = $1`, [quoteId]);
     await query(`DELETE FROM quotes WHERE id = $1`, [quoteId]);
     
     return NextResponse.json({ success: true, message: 'Quote deleted' });
