@@ -17,28 +17,43 @@ export default function JobDetailPage() {
   useEffect(() => {
     if (isAuthenticated && token && params.id) {
       fetchJob();
+    } else if (!isAuthenticated && !loading) {
+      console.log('Not authenticated, token:', token);
+      setError('Please log in to view job details');
+      setLoading(false);
     }
   }, [isAuthenticated, token, params.id]);
 
   const fetchJob = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log('Fetching job:', params.id);
+      console.log('Token:', token ? `${token.substring(0, 20)}...` : 'No token');
+      
       const response = await fetch(`/api/jobs/${params.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       
-      if (!response.ok) throw new Error('Failed to fetch job');
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
       
       const data = await response.json();
+      console.log('Job data received:', data);
       
-      // Handle both response formats:
-      // Format 1: { job: {...}, items: [...], attendance: [...] }
-      // Format 2: flat object with job properties
+      // Handle both response formats
       if (data.job) {
-        // Old format with nested job object
         setJob(data.job);
       } else {
-        // New flat format
         setJob(data);
       }
     } catch (error) {
@@ -82,12 +97,19 @@ export default function JobDetailPage() {
       <div className="error-container">
         <h2>Error Loading Job</h2>
         <p>{error || 'Job not found'}</p>
-        <button onClick={() => router.push('/jobs')} className="btn-primary">
-          Back to Jobs
-        </button>
+        <div className="error-actions">
+          <button onClick={() => router.push('/jobs')} className="btn-primary">
+            Back to Jobs
+          </button>
+          <button onClick={fetchJob} className="btn-secondary">
+            Retry
+          </button>
+        </div>
         <style jsx>{`
           .error-container { text-align: center; padding: 4rem; }
+          .error-actions { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
           .btn-primary { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer; }
+          .btn-secondary { background: #64748b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer; }
         `}</style>
       </div>
     );
