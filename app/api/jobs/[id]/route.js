@@ -38,7 +38,7 @@ export async function GET(request, { params }) {
         j.end_date,
         j.site_address,
         j.actual_cost,
-        c.name as client_name,
+        c.client_name as client_name,
         q.quote_number
       FROM jobs j
       LEFT JOIN clients c ON j.client_id = c.id
