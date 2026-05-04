@@ -20,8 +20,7 @@ async function generateQuoteNumber() {
 async function generateJobNumber() {
   const year = new Date().getFullYear();
   const result = await query(
-    `SELECT COUNT(*) as count FROM jobs WHERE EXTRACT(YEAR FROM created_at) = $1`,
-    [year]
+    `SELECT COUNT(*) as count FROM jobs`
   );
   const count = parseInt(result.rows[0].count) + 1;
   return `JOB-${year}-${String(count).padStart(4, '0')}`;
@@ -120,8 +119,8 @@ export async function POST(request) {
         quote_number, client_id, client_name, site_name, contact_person,
         quote_prepared_by, scope_subject, quote_date, status, notes,
         subtotal, vat_rate, vat_amount, total_amount, currency,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12, $13, $14, NOW())
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12, $13, $14, NOW(), NOW())
       RETURNING *`,
       [
         quote_number, client_id || null, finalClientName, site_name || null,
@@ -143,8 +142,8 @@ export async function POST(request) {
       await query(
         `INSERT INTO quote_items (
           quote_id, item_number, description, quantity, unit_price, total_price,
-          item_type, notes, sort_order, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+          item_type, notes, sort_order, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
         [
           quoteId, itemNumber, item.description, quantity, unit_price, total_price,
           item.item_type || 'service', item.notes || null, i + 1
@@ -226,7 +225,7 @@ export async function PUT(request) {
         case 'send':
           console.log('Sending quote...');
           await query(
-            `UPDATE quotes SET status = 'sent', sent_date = $1 WHERE id = $2`,
+            `UPDATE quotes SET status = 'sent', sent_date = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
           );
           break;
@@ -234,7 +233,7 @@ export async function PUT(request) {
         case 'mark_viewed':
           console.log('Marking as viewed...');
           await query(
-            `UPDATE quotes SET status = 'pending', viewed_at = $1 WHERE id = $2`,
+            `UPDATE quotes SET status = 'pending', viewed_at = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
           );
           break;
@@ -242,7 +241,7 @@ export async function PUT(request) {
         case 'approve':
           console.log('Approving quote...');
           await query(
-            `UPDATE quotes SET status = 'approved', accepted_date = $1 WHERE id = $2`,
+            `UPDATE quotes SET status = 'approved', accepted_date = $1, updated_at = NOW() WHERE id = $2`,
             [now, id]
           );
           break;
@@ -252,7 +251,7 @@ export async function PUT(request) {
             throw new Error('PO number is required');
           }
           
-          console.log('=== RECEIVING PO ===');
+          console.log('=== RECEIVING PO - CREATING JOB ===');
           console.log('PO Number:', po_number);
           console.log('Quote ID:', id);
           console.log('Client ID:', quote.client_id);
@@ -273,11 +272,11 @@ export async function PUT(request) {
               po_amount, 
               total_budget, 
               quote_id, 
-              created_by, 
               created_at,
+              updated_at,
               po_received_date,
               po_date
-            ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $6, $7, $8, NOW(), $9, $10)
+            ) VALUES ($1, $2, $3, 'approved', 'not_started', $4, $5, $6, $7, NOW(), NOW(), $8, $9)
             RETURNING id, job_number`,
             [
               jobNumber, 
@@ -287,7 +286,6 @@ export async function PUT(request) {
               quote.total_amount,
               quote.total_amount,
               id,
-              auth.userId,
               po_date || now.toISOString().split('T')[0],
               po_date || now.toISOString().split('T')[0]
             ]
@@ -304,7 +302,8 @@ export async function PUT(request) {
               po_number = $1, 
               po_date = $2,
               po_amount = $3,
-              job_id = $4
+              job_id = $4,
+              updated_at = NOW()
             WHERE id = $5`,
             [po_number, po_date || now.toISOString().split('T')[0], quote.total_amount, newJobId, id]
           );
@@ -312,9 +311,10 @@ export async function PUT(request) {
           
           // Step 3: Copy quote items to job items
           const quoteItems = await query(
-            `SELECT description, quantity, unit_price, total_price, item_type 
+            `SELECT item_number, description, quantity, unit_price, total_price, item_type, notes
              FROM quote_items 
-             WHERE quote_id = $1`, 
+             WHERE quote_id = $1 
+             ORDER BY item_number`, 
             [id]
           );
           
@@ -323,20 +323,37 @@ export async function PUT(request) {
           for (const item of quoteItems.rows) {
             await query(
               `INSERT INTO job_items (
-                job_id, description, quantity, unit_price, total_price,
-                item_type, status, created_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())`,
-              [newJobId, item.description, item.quantity, item.unit_price, 
-               item.total_price, item.item_type || 'service']
+                job_id, 
+                item_number,
+                description, 
+                quantity, 
+                unit_price, 
+                total_price,
+                item_type, 
+                notes,
+                status, 
+                created_at, 
+                updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW(), NOW())`,
+              [
+                newJobId, 
+                item.item_number,
+                item.description, 
+                item.quantity, 
+                item.unit_price, 
+                item.total_price, 
+                item.item_type || 'service',
+                item.notes
+              ]
             );
           }
-          console.log('✓ Items copied to job');
+          console.log('✓ Items copied to job successfully');
           break;
           
         case 'reject':
           console.log('Rejecting quote...');
           await query(
-            `UPDATE quotes SET status = 'rejected', rejected_date = $1, rejection_reason = $2 WHERE id = $3`,
+            `UPDATE quotes SET status = 'rejected', rejected_date = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3`,
             [now, rejection_reason, id]
           );
           break;
@@ -350,7 +367,7 @@ export async function PUT(request) {
       
       let message = `Quote ${action}ed successfully`;
       if (action === 'receive_po' && jobCreated) {
-        message = `✅ PO #${po_number} received! Job created successfully.`;
+        message = `✅ PO #${po_number} received! Job #${newJobId} created successfully.`;
       } else if (action === 'receive_po') {
         message = `✅ PO #${po_number} received.`;
       }
