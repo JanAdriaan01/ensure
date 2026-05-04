@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
+import { useAuth } from '@/apps/hooks/useAuth';
 
 // Helper function to generate quote number
 async function generateQuoteNumber() {
