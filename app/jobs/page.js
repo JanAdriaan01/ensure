@@ -13,26 +13,37 @@ export default function JobsPage() {
     async function fetchJobs() {
       try {
         setLoading(true);
+        console.log('Fetching jobs from /api/jobs...');
+        
         const response = await fetch('/api/jobs');
         const data = await response.json();
         
-        console.log('Jobs API Response:', data);
+        console.log('Raw API response:', data);
         
-        // Handle different response formats
+        // Extract jobs array from response
         let jobsArray = [];
         if (data.data && Array.isArray(data.data)) {
           jobsArray = data.data;
+          console.log(`Found ${jobsArray.length} jobs in data.data`);
         } else if (Array.isArray(data)) {
           jobsArray = data;
+          console.log(`Found ${jobsArray.length} jobs in direct array`);
         } else if (data.success && data.data) {
           jobsArray = data.data;
+          console.log(`Found ${jobsArray.length} jobs in success.data`);
+        } else {
+          console.log('Unexpected response format:', data);
         }
         
-        console.log(`Found ${jobsArray.length} jobs to display`);
+        // Log each job
+        jobsArray.forEach(job => {
+          console.log(`  Job: ${job.job_number}, PO: ${job.po_number}, Status: ${job.po_status}`);
+        });
+        
         setJobs(jobsArray);
         
         if (jobsArray.length === 0) {
-          console.log('No jobs with po_status="approved" found');
+          console.log('No jobs with po_status="approved" found in response');
         }
       } catch (error) {
         console.error('Error fetching jobs:', error);
@@ -97,8 +108,8 @@ export default function JobsPage() {
           <div className="empty-icon">📋</div>
           <h3>No Jobs Available</h3>
           <p>Jobs are automatically created when a PO number is entered for an approved quote.</p>
-          <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
-            Check that quotes have status="po_received" and job_id is set
+          <p style={{ fontSize: '0.875rem', marginTop: '0.5rem', color: '#ef4444' }}>
+            Debug: Your database has 4 approved jobs but they aren't showing. Check console for errors.
           </p>
           <Link href="/quotes" className="btn-primary">Go to Quotes</Link>
         </div>
@@ -108,8 +119,8 @@ export default function JobsPage() {
             <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
               <div className="job-header">
                 <span className="job-number">{job.job_number || `JOB-${job.id}`}</span>
-                <span className={`status-badge ${job.po_status === 'approved' ? 'status-approved' : 'status-pending'}`}>
-                  {job.po_status === 'approved' ? 'Ready for Management' : (job.po_status || 'Pending')}
+                <span className="status-badge status-approved">
+                  Ready for Management
                 </span>
               </div>
               <div className="job-client">{job.client_name || 'Unknown Client'}</div>
@@ -155,7 +166,6 @@ export default function JobsPage() {
         .job-number { font-weight: 600; font-size: 1rem; color: #1e293b; }
         .status-badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
         .status-approved { background: #d1fae5; color: #065f46; }
-        .status-pending { background: #fed7aa; color: #92400e; }
         .job-client { color: #64748b; font-size: 0.875rem; margin-bottom: 1rem; font-weight: 500; }
         .job-details { display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0; }
         .job-detail { display: flex; flex-direction: column; gap: 0.25rem; }
