@@ -188,6 +188,7 @@ export async function PUT(request) {
     const now = new Date();
     
     console.log('Current status:', currentStatus);
+    console.log('Current job_id:', quote.job_id);
     
     // Define allowed transitions
     const allowedTransitions = {
@@ -238,18 +239,23 @@ export async function PUT(request) {
             throw new Error('PO number is required');
           }
           
-          console.log('=== RECEIVING PO - CREATING JOB ===');
-          console.log('PO Number:', po_number);
-          console.log('Quote ID:', id);
-          console.log('Client ID:', quote.client_id);
-          console.log('Quote Total:', quote.total_amount);
+          console.log('=== STARTING JOB CREATION ===');
           
-          // Step 1: Generate a simple job number
-          const timestamp = Date.now();
-          const jobNumber = `JOB-${new Date().getFullYear()}-${timestamp.toString().slice(-6)}`;
-          console.log('Generated job number:', jobNumber);
+          // Step 1: Get the next job number using a simple method
+          const jobCountResult = await query(`SELECT COUNT(*) as count FROM jobs`);
+          const jobCount = parseInt(jobCountResult.rows[0].count) + 1;
+          const jobNumber = `JOB-2026-${String(jobCount).padStart(4, '0')}`;
+          console.log('Step 1 - Generated job number:', jobNumber);
           
-          // Step 2: Create the job with minimal required fields
+          // Step 2: Insert the job
+          console.log('Step 2 - Inserting job with data:', {
+            job_number: jobNumber,
+            client_id: quote.client_id,
+            po_number: po_number,
+            po_amount: quote.total_amount,
+            quote_id: id
+          });
+          
           const jobResult = await query(
             `INSERT INTO jobs (
               job_number, 
@@ -279,10 +285,10 @@ export async function PUT(request) {
           );
           
           const newJobId = jobResult.rows[0].id;
-          console.log('✅ Job CREATED with ID:', newJobId);
+          console.log('Step 3 - Job created successfully with ID:', newJobId);
           
-          // Step 3: Update quote with PO info AND job_id
-          await query(
+          // Step 3: Update the quote with job_id
+          const updateResult = await query(
             `UPDATE quotes SET 
               status = 'po_received', 
               po_number = $1, 
@@ -290,32 +296,38 @@ export async function PUT(request) {
               po_amount = $3,
               job_id = $4,
               updated_at = NOW()
-            WHERE id = $5`,
+            WHERE id = $5
+            RETURNING id, job_id, status`,
             [po_number, po_date || now.toISOString().split('T')[0], quote.total_amount, newJobId, id]
           );
-          console.log('✅ Quote updated with job_id:', newJobId);
           
-          // Step 4: Copy quote items to job items (optional)
-          const quoteItems = await query(
-            `SELECT description, quantity, unit_price, total_price, item_type 
-             FROM quote_items 
-             WHERE quote_id = $1`, 
-            [id]
-          );
+          console.log('Step 4 - Quote updated:', updateResult.rows[0]);
           
-          if (quoteItems.rows.length > 0) {
-            console.log(`Copying ${quoteItems.rows.length} items to job...`);
-            for (const item of quoteItems.rows) {
-              await query(
-                `INSERT INTO job_items (
-                  job_id, description, quantity, unit_price, total_price,
-                  item_type, status, created_at, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())`,
-                [newJobId, item.description, item.quantity, item.unit_price, 
-                 item.total_price, item.item_type || 'service']
-              );
+          // Step 4: Copy items (optional - continue even if this fails)
+          try {
+            const quoteItems = await query(
+              `SELECT description, quantity, unit_price, total_price, item_type 
+               FROM quote_items 
+               WHERE quote_id = $1`, 
+              [id]
+            );
+            
+            if (quoteItems.rows.length > 0) {
+              console.log(`Copying ${quoteItems.rows.length} items to job...`);
+              for (const item of quoteItems.rows) {
+                await query(
+                  `INSERT INTO job_items (
+                    job_id, description, quantity, unit_price, total_price,
+                    item_type, status, created_at, updated_at
+                  ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())`,
+                  [newJobId, item.description, item.quantity, item.unit_price, 
+                   item.total_price, item.item_type || 'service']
+                );
+              }
+              console.log('Items copied successfully');
             }
-            console.log('✅ Items copied to job');
+          } catch (itemError) {
+            console.error('Error copying items (non-fatal):', itemError);
           }
           
           break;
@@ -331,7 +343,7 @@ export async function PUT(request) {
       
       await query('COMMIT');
       
-      console.log('=== TRANSACTION COMPLETE ===');
+      console.log('=== TRANSACTION COMMITTED SUCCESSFULLY ===');
       
       let message = `Quote ${action}ed successfully`;
       if (action === 'receive_po') {
@@ -345,12 +357,19 @@ export async function PUT(request) {
       
     } catch (error) {
       await query('ROLLBACK');
-      console.error('Transaction error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('!!! TRANSACTION FAILED !!!');
+      console.error('Error details:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      return NextResponse.json({ 
+        error: error.message, 
+        details: error.toString(),
+        stack: error.stack 
+      }, { status: 500 });
     }
     
   } catch (error) {
-    console.error('PUT error:', error);
+    console.error('PUT outer error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
