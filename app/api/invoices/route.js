@@ -18,11 +18,28 @@ export async function GET(request) {
     const job_id = searchParams.get('job_id');
     const client_id = searchParams.get('client_id');
     
+    // Fixed query to properly retrieve client_name from clients table
     let sql = `
       SELECT 
-        i.*,
-        c.client_name,
-        j.job_number
+        i.id,
+        i.invoice_number,
+        i.client_id,
+        COALESCE(i.client_name, c.client_name) as client_name,
+        i.job_id,
+        i.job_number,
+        i.amount,
+        i.vat_rate,
+        i.vat_amount,
+        i.total_amount,
+        i.status,
+        i.issue_date,
+        i.due_date,
+        i.paid_date,
+        i.notes,
+        i.created_by,
+        i.created_at,
+        i.updated_at,
+        j.job_number as job_number_ref
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id
       LEFT JOIN jobs j ON i.job_id = j.id
@@ -116,7 +133,6 @@ export async function POST(request) {
 
     const body = await request.json();
     const { 
-      client_id, 
       job_id, 
       amount, 
       vat_rate = 15,
@@ -125,15 +141,18 @@ export async function POST(request) {
       notes 
     } = body;
     
-    // Validate job has available funds
+    // Get job details AND client information in ONE query
     const jobCheck = await query(`
       SELECT 
-        id, 
-        po_amount, 
-        COALESCE(total_invoiced, 0) as total_invoiced,
-        client_id
-      FROM jobs 
-      WHERE id = $1 AND po_status = 'approved'
+        j.id, 
+        j.po_amount, 
+        COALESCE(j.total_invoiced, 0) as total_invoiced,
+        j.client_id,
+        j.job_number,
+        c.client_name
+      FROM jobs j
+      LEFT JOIN clients c ON j.client_id = c.id
+      WHERE j.id = $1 AND j.po_status = 'approved'
     `, [job_id]);
     
     if (jobCheck.rows.length === 0) {
@@ -157,26 +176,16 @@ export async function POST(request) {
     
     // Generate invoice number
     const year = new Date().getFullYear();
-    const countResult = await query(
-      `SELECT COUNT(*) as count FROM invoices WHERE EXTRACT(YEAR FROM created_at) = $1`,
-      [year]
-    );
+    const countResult = await query(`SELECT COUNT(*) as count FROM invoices`);
     const count = parseInt(countResult.rows[0].count) + 1;
     const invoice_number = `INV-${year}-${String(count).padStart(4, '0')}`;
     
-    // Get client name and job number
-    let client_name = null;
-    let job_number = null;
+    // Get client information from the job query
+    const client_id = job.client_id;
+    const client_name = job.client_name;
+    const job_number = job.job_number;
     
-    if (client_id) {
-      const clientResult = await query(`SELECT client_name FROM clients WHERE id = $1`, [client_id]);
-      if (clientResult.rows[0]) client_name = clientResult.rows[0].client_name;
-    }
-    
-    if (job_id) {
-      const jobResult = await query(`SELECT job_number FROM jobs WHERE id = $1`, [job_id]);
-      if (jobResult.rows[0]) job_number = jobResult.rows[0].job_number;
-    }
+    console.log('Creating invoice with client:', { client_id, client_name, job_id, job_number });
     
     await query('BEGIN');
     
@@ -275,11 +284,10 @@ export async function PUT(request) {
     
     // If marking as paid, update job payment tracking
     if (status === 'paid' && currentInvoice.status !== 'paid') {
-      // Get job and update total_paid/remaining_balance
       const jobResult = await query(`
         SELECT 
           id, 
-          total_paid, 
+          COALESCE(total_paid, 0) as total_paid, 
           remaining_balance,
           po_amount
         FROM jobs 
@@ -329,7 +337,6 @@ export async function DELETE(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
-    // Check if invoice exists and is draft
     const checkResult = await query(`SELECT status, job_id, total_amount FROM invoices WHERE id = $1`, [id]);
     if (checkResult.rows.length === 0) {
       return NextResponse.json({
@@ -340,28 +347,14 @@ export async function DELETE(request) {
     
     const invoice = checkResult.rows[0];
     
-    if (invoice.status !== 'draft' && invoice.status !== 'pending') {
+    if (invoice.status !== 'draft') {
       return NextResponse.json({
         success: false,
-        error: 'Only draft or pending invoices can be deleted'
+        error: 'Only draft invoices can be deleted'
       }, { status: 400 });
     }
     
     await query('BEGIN');
-    
-    // If invoice was linked to job, reduce total_invoiced
-    if (invoice.job_id && invoice.status !== 'draft') {
-      const jobResult = await query(`SELECT total_invoiced FROM jobs WHERE id = $1`, [invoice.job_id]);
-      if (jobResult.rows.length > 0) {
-        const newTotalInvoiced = parseFloat(jobResult.rows[0].total_invoiced || 0) - parseFloat(invoice.total_amount);
-        await query(`
-          UPDATE jobs 
-          SET total_invoiced = $1 
-          WHERE id = $2
-        `, [Math.max(0, newTotalInvoiced), invoice.job_id]);
-      }
-    }
-    
     await query(`DELETE FROM invoices WHERE id = $1`, [id]);
     await query('COMMIT');
     
