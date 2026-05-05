@@ -11,12 +11,15 @@ export default function JobDetailPage() {
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
   const [job, setJob] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [invoicingSummary, setInvoicingSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated && token && params.id) {
       fetchJob();
+      fetchInvoices();
     } else if (!isAuthenticated && !loading) {
       console.log('Not authenticated, token:', token);
       setError('Please log in to view job details');
@@ -30,7 +33,6 @@ export default function JobDetailPage() {
       setError(null);
       
       console.log('Fetching job:', params.id);
-      console.log('Token:', token ? `${token.substring(0, 20)}...` : 'No token');
       
       const response = await fetch(`/api/jobs/${params.id}`, {
         headers: { 
@@ -38,8 +40,6 @@ export default function JobDetailPage() {
           'Content-Type': 'application/json'
         }
       });
-      
-      console.log('Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -50,7 +50,6 @@ export default function JobDetailPage() {
       const data = await response.json();
       console.log('Job data received:', data);
       
-      // Handle both response formats
       if (data.job) {
         setJob(data.job);
       } else {
@@ -61,6 +60,21 @@ export default function JobDetailPage() {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInvoices = async () => {
+    try {
+      const response = await fetch(`/api/jobs/${params.id}/invoices`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setInvoices(data.data || []);
+        setInvoicingSummary(data.summaries);
+      }
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
     }
   };
 
@@ -204,6 +218,86 @@ export default function JobDetailPage() {
         </div>
       </div>
 
+      {/* Invoicing Section */}
+      {invoicingSummary && (
+        <div className="details-section">
+          <div className="section-header">
+            <h3>Invoicing Progress</h3>
+            <Link href={`/jobs/${job.id}/invoicing`} className="view-all-link">
+              View All Invoices →
+            </Link>
+          </div>
+          
+          <div className="progress-section">
+            <div className="progress-label">
+              <span>Invoiced: {formatCurrency(invoicingSummary.total_invoiced)} of {formatCurrency(invoicingSummary.po_amount)}</span>
+              <span>{Math.round(invoicingSummary.progress_percentage)}%</span>
+            </div>
+            <div className="progress-bar">
+              <div 
+                className="progress-fill" 
+                style={{ width: `${Math.min(100, invoicingSummary.progress_percentage)}%` }}
+              ></div>
+            </div>
+          </div>
+          
+          <div className="invoicing-stats">
+            <div className="stat">
+              <span className="stat-label">Total Invoiced</span>
+              <span className="stat-value">{formatCurrency(invoicingSummary.total_invoiced)}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Total Paid</span>
+              <span className="stat-value">{formatCurrency(invoicingSummary.total_paid)}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Outstanding</span>
+              <span className="stat-value" style={{ color: invoicingSummary.total_outstanding > 0 ? '#dc2626' : '#10b981' }}>
+                {formatCurrency(invoicingSummary.total_outstanding)}
+              </span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Remaining to Invoice</span>
+              <span className="stat-value">{formatCurrency(invoicingSummary.po_remaining)}</span>
+            </div>
+          </div>
+          
+          {invoices.length > 0 && (
+            <div className="recent-invoices">
+              <h4>Recent Invoices</h4>
+              <table className="mini-table">
+                <thead>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.slice(0, 5).map(inv => (
+                    <tr key={inv.id}>
+                      <td>
+                        <Link href={`/invoicing/${inv.id}`} className="invoice-link">
+                          {inv.invoice_number}
+                        </Link>
+                      </td>
+                      <td>{formatDate(inv.issue_date)}</td>
+                      <td>{formatCurrency(inv.total_amount)}</td>
+                      <td>
+                        <span className={`status-badge-small ${inv.status}`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Management Sections - Read Only Links */}
       <div className="sections-grid">
         <Link href={`/jobs/${job.id}/tools`} className="section-card">
@@ -246,7 +340,7 @@ export default function JobDetailPage() {
           <div className="section-icon">📄</div>
           <div className="section-info">
             <h3>Invoicing</h3>
-            <p>View invoices for this job</p>
+            <p>View all invoices for this job</p>
           </div>
           <div className="section-arrow">→</div>
         </Link>
@@ -392,6 +486,128 @@ export default function JobDetailPage() {
           margin-top: 0.25rem;
         }
 
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+        
+        .view-all-link {
+          color: #3b82f6;
+          text-decoration: none;
+          font-size: 0.75rem;
+        }
+        
+        .view-all-link:hover {
+          text-decoration: underline;
+        }
+        
+        .progress-section {
+          margin-bottom: 1.5rem;
+        }
+        
+        .progress-label {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+          font-size: 0.75rem;
+          color: #1e293b;
+        }
+        
+        .progress-bar {
+          height: 8px;
+          background: #e2e8f0;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        
+        .progress-fill {
+          height: 100%;
+          background: #3b82f6;
+          border-radius: 4px;
+          transition: width 0.3s ease;
+        }
+        
+        .invoicing-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .stat {
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .stat-label {
+          font-size: 0.65rem;
+          color: #94a3b8;
+          text-transform: uppercase;
+        }
+        
+        .stat-value {
+          font-size: 1rem;
+          font-weight: 600;
+          color: #1e293b;
+        }
+        
+        .recent-invoices h4 {
+          font-size: 0.875rem;
+          font-weight: 600;
+          margin-bottom: 0.75rem;
+          color: #1e293b;
+        }
+        
+        .mini-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        
+        .mini-table th {
+          text-align: left;
+          padding: 0.5rem;
+          font-size: 0.7rem;
+          color: #64748b;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .mini-table td {
+          padding: 0.5rem;
+          font-size: 0.8rem;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .invoice-link {
+          color: #3b82f6;
+          text-decoration: none;
+        }
+        
+        .invoice-link:hover {
+          text-decoration: underline;
+        }
+        
+        .status-badge-small {
+          display: inline-block;
+          padding: 0.15rem 0.4rem;
+          border-radius: 9999px;
+          font-size: 0.65rem;
+          font-weight: 500;
+        }
+        
+        .status-badge-small.paid {
+          background: #d1fae5;
+          color: #065f46;
+        }
+        
+        .status-badge-small.pending {
+          background: #fef3c7;
+          color: #92400e;
+        }
+
         .sections-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -445,6 +661,9 @@ export default function JobDetailPage() {
         @media (max-width: 768px) {
           .job-detail-container {
             padding: 1rem;
+          }
+          .invoicing-stats {
+            grid-template-columns: repeat(2, 1fr);
           }
           .sections-grid {
             grid-template-columns: 1fr;

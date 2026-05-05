@@ -1,9 +1,12 @@
+// app/invoicing/page.js
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function InvoicingPage() {
+  const { token, isAuthenticated } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [stats, setStats] = useState({
     total_invoiced: 0,
@@ -15,12 +18,15 @@ export default function InvoicingPage() {
   const [filter, setFilter] = useState('all');
   const [actionLoading, setActionLoading] = useState(null);
 
-  // Fetch invoices from API
   const fetchInvoices = useCallback(async () => {
+    if (!isAuthenticated || !token) return;
+    
     try {
       setLoading(true);
       const url = filter === 'all' ? '/api/invoices' : `/api/invoices?status=${filter}`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const result = await response.json();
       
       if (result.success) {
@@ -39,19 +45,21 @@ export default function InvoicingPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, isAuthenticated, token]);
 
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
 
-  // Mark invoice as paid
   const markAsPaid = async (id) => {
     setActionLoading(id);
     try {
       const response = await fetch('/api/invoices', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ 
           id, 
           status: 'paid', 
@@ -62,39 +70,29 @@ export default function InvoicingPage() {
       
       if (result.success) {
         fetchInvoices();
+      } else {
+        alert(result.error || 'Failed to mark as paid');
       }
     } catch (error) {
       console.error('Error marking invoice as paid:', error);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Delete invoice
-  const deleteInvoice = async (id) => {
-    if (!confirm('Are you sure you want to delete this invoice?')) return;
-    
-    setActionLoading(id);
-    try {
-      const response = await fetch(`/api/invoices?id=${id}`, { method: 'DELETE' });
-      const result = await response.json();
-      
-      if (result.success) {
-        fetchInvoices();
-      }
-    } catch (error) {
-      console.error('Error deleting invoice:', error);
+      alert('Failed to update invoice');
     } finally {
       setActionLoading(null);
     }
   };
 
   const formatCurrency = (amount) => {
+    if (!amount) return 'R 0';
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency',
       currency: 'ZAR',
       minimumFractionDigits: 0
-    }).format(amount || 0);
+    }).format(amount);
+  };
+
+  const formatDate = (date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString('en-ZA');
   };
 
   const getStatusBadgeClass = (status) => {
@@ -102,42 +100,19 @@ export default function InvoicingPage() {
       case 'paid': return 'status-paid';
       case 'pending': return 'status-pending';
       case 'overdue': return 'status-overdue';
-      case 'draft': return 'status-draft';
       default: return 'status-draft';
     }
   };
 
-  const getStatusCount = (status) => {
-    if (status === 'all') return invoices.length;
-    return invoices.filter(i => i.status === status).length;
-  };
-
   if (loading) {
     return (
-      <div className="invoicing-container">
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading invoices...</p>
-        </div>
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading invoices...</p>
         <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 400px;
-          }
-          .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #e5e7eb;
-            border-top-color: #3b82f6;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
+          .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; }
+          .loading-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+          @keyframes spin { to { transform: rotate(360deg); } }
         `}</style>
       </div>
     );
@@ -181,31 +156,19 @@ export default function InvoicingPage() {
           className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
           onClick={() => setFilter('all')}
         >
-          All ({getStatusCount('all')})
-        </button>
-        <button 
-          className={`filter-tab ${filter === 'draft' ? 'active' : ''}`}
-          onClick={() => setFilter('draft')}
-        >
-          Draft ({getStatusCount('draft')})
+          All ({invoices.length})
         </button>
         <button 
           className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}
           onClick={() => setFilter('pending')}
         >
-          Pending ({getStatusCount('pending')})
+          Pending ({invoices.filter(i => i.status === 'pending').length})
         </button>
         <button 
           className={`filter-tab ${filter === 'paid' ? 'active' : ''}`}
           onClick={() => setFilter('paid')}
         >
-          Paid ({getStatusCount('paid')})
-        </button>
-        <button 
-          className={`filter-tab ${filter === 'overdue' ? 'active' : ''}`}
-          onClick={() => setFilter('overdue')}
-        >
-          Overdue ({getStatusCount('overdue')})
+          Paid ({invoices.filter(i => i.status === 'paid').length})
         </button>
       </div>
 
@@ -238,13 +201,17 @@ export default function InvoicingPage() {
                       {invoice.invoice_number}
                     </Link>
                   </td>
-                  <td>{invoice.client_name}</td>
-                  <td>{invoice.job_number || '-'}</td>
-                  <td>{invoice.issue_date || '-'}</td>
-                  <td className={invoice.status === 'overdue' ? 'overdue-date' : ''}>
-                    {invoice.due_date || '-'}
+                  <td>{invoice.client_name || '-'}</td>
+                  <td>
+                    <Link href={`/jobs/${invoice.job_id}`} className="job-link">
+                      {invoice.job_number || '-'}
+                    </Link>
                   </td>
-                  <td className="amount">{formatCurrency(invoice.total_amount || invoice.amount)}</td>
+                  <td>{formatDate(invoice.issue_date)}</td>
+                  <td className={invoice.status === 'overdue' ? 'overdue-date' : ''}>
+                    {formatDate(invoice.due_date)}
+                  </td>
+                  <td className="amount">{formatCurrency(invoice.total_amount)}</td>
                   <td>
                     <span className={`status-badge ${getStatusBadgeClass(invoice.status)}`}>
                       {invoice.status}
@@ -263,20 +230,11 @@ export default function InvoicingPage() {
                     <Link href={`/invoicing/${invoice.id}`} className="action-btn view">
                       View
                     </Link>
-                    {invoice.status === 'draft' && (
-                      <button 
-                        className="action-btn delete"
-                        onClick={() => deleteInvoice(invoice.id)}
-                        disabled={actionLoading === invoice.id}
-                      >
-                        Delete
-                      </button>
-                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+           </table>
         )}
       </div>
 
@@ -299,20 +257,13 @@ export default function InvoicingPage() {
         .page-header h1 {
           font-size: 1.875rem;
           font-weight: 600;
-          color: #111827;
-          margin-bottom: 0.25rem;
-        }
-
-        .dark .page-header h1 {
-          color: #f9fafb;
+          color: #1e293b;
+          margin: 0 0 0.25rem 0;
         }
 
         .page-header p {
-          color: #6b7280;
-        }
-
-        .dark .page-header p {
-          color: #9ca3af;
+          color: #64748b;
+          margin: 0;
         }
 
         .btn-primary {
@@ -339,50 +290,33 @@ export default function InvoicingPage() {
         }
 
         .stat-card {
-          background: #ffffff;
-          padding: 1rem;
+          background: white;
+          border: 1px solid #e2e8f0;
           border-radius: 0.75rem;
-          border: 1px solid #e5e7eb;
-        }
-
-        .dark .stat-card {
-          background: #1f2937;
-          border-color: #374151;
+          padding: 1rem;
         }
 
         .stat-label {
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          color: #6b7280;
+          color: #64748b;
           margin-bottom: 0.5rem;
-        }
-
-        .dark .stat-label {
-          color: #9ca3af;
         }
 
         .stat-value {
           font-size: 1.5rem;
           font-weight: 700;
-          color: #111827;
-        }
-
-        .dark .stat-value {
-          color: #f9fafb;
+          color: #1e293b;
         }
 
         .filter-tabs {
           display: flex;
           gap: 0.5rem;
           margin-bottom: 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
+          border-bottom: 1px solid #e2e8f0;
           padding-bottom: 0.5rem;
           flex-wrap: wrap;
-        }
-
-        .dark .filter-tabs {
-          border-bottom-color: #374151;
         }
 
         .filter-tab {
@@ -391,19 +325,14 @@ export default function InvoicingPage() {
           padding: 0.5rem 1rem;
           cursor: pointer;
           font-size: 0.875rem;
-          color: #6b7280;
+          color: #64748b;
           border-radius: 0.5rem;
           transition: all 0.2s;
         }
 
         .filter-tab:hover {
-          background: #f3f4f6;
-          color: #111827;
-        }
-
-        .dark .filter-tab:hover {
-          background: #374151;
-          color: #f9fafb;
+          background: #f1f5f9;
+          color: #1e293b;
         }
 
         .filter-tab.active {
@@ -412,15 +341,10 @@ export default function InvoicingPage() {
         }
 
         .table-container {
-          background: #ffffff;
+          background: white;
           border-radius: 0.75rem;
-          border: 1px solid #e5e7eb;
+          border: 1px solid #e2e8f0;
           overflow-x: auto;
-        }
-
-        .dark .table-container {
-          background: #1f2937;
-          border-color: #374151;
         }
 
         .invoices-table {
@@ -436,34 +360,24 @@ export default function InvoicingPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          color: #6b7280;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .dark th {
-          color: #9ca3af;
-          border-bottom-color: #374151;
+          color: #64748b;
+          border-bottom: 1px solid #e2e8f0;
         }
 
         td {
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
-          color: #111827;
-          border-bottom: 1px solid #e5e7eb;
+          color: #1e293b;
+          border-bottom: 1px solid #e2e8f0;
         }
 
-        .dark td {
-          color: #f9fafb;
-          border-bottom-color: #374151;
-        }
-
-        .invoice-link a {
+        .invoice-link a, .job-link {
           color: #3b82f6;
           text-decoration: none;
           font-weight: 500;
         }
 
-        .invoice-link a:hover {
+        .invoice-link a:hover, .job-link:hover {
           text-decoration: underline;
         }
 
@@ -485,45 +399,9 @@ export default function InvoicingPage() {
           text-transform: capitalize;
         }
 
-        .status-paid {
-          background: #d1fae5;
-          color: #065f46;
-        }
-
-        .dark .status-paid {
-          background: #064e3b;
-          color: #6ee7b7;
-        }
-
-        .status-pending {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        .dark .status-pending {
-          background: #451a03;
-          color: #fbbf24;
-        }
-
-        .status-overdue {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-
-        .dark .status-overdue {
-          background: #450a0a;
-          color: #fca5a5;
-        }
-
-        .status-draft {
-          background: #f3f4f6;
-          color: #4b5563;
-        }
-
-        .dark .status-draft {
-          background: #374151;
-          color: #9ca3af;
-        }
+        .status-paid { background: #d1fae5; color: #065f46; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-overdue { background: #fee2e2; color: #991b1b; }
 
         .actions {
           display: flex;
@@ -552,26 +430,12 @@ export default function InvoicingPage() {
         }
 
         .action-btn.view {
-          background: #f3f4f6;
-          color: #4b5563;
-        }
-
-        .dark .action-btn.view {
-          background: #374151;
-          color: #9ca3af;
+          background: #f1f5f9;
+          color: #475569;
         }
 
         .action-btn.view:hover {
-          background: #e5e7eb;
-        }
-
-        .action-btn.delete {
-          background: #ef4444;
-          color: white;
-        }
-
-        .action-btn.delete:hover {
-          background: #dc2626;
+          background: #e2e8f0;
         }
 
         .action-btn:disabled {
@@ -582,12 +446,33 @@ export default function InvoicingPage() {
         .empty-state {
           text-align: center;
           padding: 3rem;
-          color: #6b7280;
+          color: #64748b;
         }
 
         .empty-state .btn-primary {
           display: inline-block;
           margin-top: 1rem;
+        }
+
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 400px;
+        }
+
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid #e2e8f0;
+          border-top-color: #3b82f6;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
