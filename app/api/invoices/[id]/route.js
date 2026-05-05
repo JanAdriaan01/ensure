@@ -19,7 +19,8 @@ export async function GET(request, { params }) {
       SELECT 
         i.*,
         c.client_name,
-        j.job_number
+        j.job_number,
+        j.client_id as job_client_id
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id
       LEFT JOIN jobs j ON i.job_id = j.id
