@@ -25,6 +25,16 @@ export default function NewInvoicePage() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [errors, setErrors] = useState({});
 
+  // Move formatCurrency BEFORE validateForm
+  const formatCurrency = (amount) => {
+    if (!amount) return 'R 0';
+    return new Intl.NumberFormat('en-ZA', { 
+      style: 'currency', 
+      currency: 'ZAR', 
+      minimumFractionDigits: 0 
+    }).format(amount);
+  };
+
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchAvailableJobs();
@@ -56,7 +66,6 @@ export default function NewInvoicePage() {
     setSelectedJob(job);
     setFormData(prev => ({ ...prev, job_id: jobId }));
     
-    // Clear amount error when job changes
     if (errors.amount) {
       setErrors(prev => ({ ...prev, amount: null }));
     }
@@ -66,7 +75,6 @@ export default function NewInvoicePage() {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
@@ -98,6 +106,11 @@ export default function NewInvoicePage() {
     
     if (!validateForm()) return;
     
+    console.log('=== SUBMITTING INVOICE ===');
+    console.log('Token:', token ? `${token.substring(0, 50)}...` : 'No token');
+    console.log('Selected job:', selectedJob);
+    console.log('Amount:', formData.amount);
+    
     setLoading(true);
     try {
       const response = await fetch('/api/invoices', {
@@ -116,9 +129,11 @@ export default function NewInvoicePage() {
         })
       });
       
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
       
-      if (data.success) {
+      if (response.ok && data.success) {
         router.push(`/invoicing/${data.data.id}`);
       } else {
         alert(data.error || 'Failed to create invoice');
@@ -129,15 +144,6 @@ export default function NewInvoicePage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatCurrency = (amount) => {
-    if (!amount) return 'R 0';
-    return new Intl.NumberFormat('en-ZA', { 
-      style: 'currency', 
-      currency: 'ZAR', 
-      minimumFractionDigits: 0 
-    }).format(amount);
   };
 
   const calculateTotal = () => {
@@ -199,7 +205,6 @@ export default function NewInvoicePage() {
       ) : (
         <form onSubmit={handleSubmit} className="invoice-form">
           <div className="form-grid">
-            {/* Left Column - Main Details */}
             <div className="form-main">
               <div className="form-section">
                 <h3>Invoice Details</h3>
@@ -280,7 +285,6 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
-            {/* Right Column - Amount Calculation */}
             <div className="form-sidebar">
               <div className="form-section calculation-section">
                 <h3>Amount Calculation</h3>
@@ -348,295 +352,53 @@ export default function NewInvoicePage() {
           margin: 0 auto;
           padding: 2rem;
         }
-
-        .page-header {
-          margin-bottom: 2rem;
-        }
-
-        .back-link {
-          color: #3b82f6;
-          text-decoration: none;
-          font-size: 0.875rem;
-          display: inline-block;
-          margin-bottom: 0.5rem;
-        }
-
-        .back-link:hover {
-          text-decoration: underline;
-        }
-
-        h1 {
-          font-size: 1.875rem;
-          font-weight: 600;
-          color: #1e293b;
-          margin: 0 0 0.25rem 0;
-        }
-
-        p {
-          color: #64748b;
-          margin: 0;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 4rem;
-          background: #f8fafc;
-          border-radius: 1rem;
-        }
-
-        .empty-icon {
-          font-size: 4rem;
-          margin-bottom: 1rem;
-        }
-
-        .empty-state h3 {
-          margin-bottom: 0.5rem;
-          color: #1e293b;
-        }
-
-        .empty-state p {
-          color: #64748b;
-          margin-bottom: 1.5rem;
-        }
-
-        .btn-primary {
-          background: #3b82f6;
-          color: white;
-          padding: 0.5rem 1rem;
-          border-radius: 0.5rem;
-          text-decoration: none;
-          display: inline-block;
-        }
-
-        .form-grid {
-          display: grid;
-          grid-template-columns: 1fr 380px;
-          gap: 2rem;
-        }
-
-        .form-section {
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 0.75rem;
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .form-section h3 {
-          font-size: 1rem;
-          font-weight: 600;
-          color: #1e293b;
-          margin: 0 0 1.5rem 0;
-          padding-bottom: 0.75rem;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-group label {
-          display: block;
-          font-size: 0.75rem;
-          font-weight: 500;
-          color: #64748b;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 0.5rem;
-        }
-
-        .form-group select,
-        .form-group input,
-        .form-group textarea {
-          width: 100%;
-          padding: 0.625rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          background: white;
-          transition: all 0.2s;
-        }
-
-        .form-group select:focus,
-        .form-group input:focus,
-        .form-group textarea:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-        }
-
-        .form-group select.error,
-        .form-group input.error {
-          border-color: #ef4444;
-        }
-
-        .error-message {
-          font-size: 0.7rem;
-          color: #ef4444;
-          margin-top: 0.25rem;
-          display: block;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        .currency-input {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .currency-symbol {
-          position: absolute;
-          left: 0.75rem;
-          color: #64748b;
-          font-weight: 500;
-        }
-
-        .currency-input input {
-          padding-left: 1.75rem;
-        }
-
-        .job-info {
-          background: #f8fafc;
-          border-radius: 0.5rem;
-          padding: 1rem;
-          margin-bottom: 1rem;
-        }
-
-        .job-info-item {
-          display: flex;
-          justify-content: space-between;
-          padding: 0.5rem 0;
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .job-info-item:last-child {
-          border-bottom: none;
-        }
-
-        .job-info-item .label {
-          font-size: 0.75rem;
-          color: #64748b;
-        }
-
-        .job-info-item .value {
-          font-weight: 500;
-          color: #1e293b;
-        }
-
-        .job-info-item .value.highlight {
-          color: #10b981;
-          font-weight: 600;
-        }
-
-        .calculation-section {
-          position: sticky;
-          top: 2rem;
-        }
-
-        .calculation-summary {
-          margin-top: 1.5rem;
-          padding-top: 1rem;
-          border-top: 1px solid #e2e8f0;
-        }
-
-        .calc-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 0.5rem 0;
-          font-size: 0.875rem;
-          color: #1e293b;
-        }
-
-        .calc-row.total {
-          font-weight: 700;
-          font-size: 1rem;
-          border-top: 1px solid #e2e8f0;
-          margin-top: 0.5rem;
-          padding-top: 0.75rem;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 1rem;
-          justify-content: flex-end;
-          margin-top: 1rem;
-        }
-
-        .btn-cancel {
-          padding: 0.625rem 1.25rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 0.5rem;
-          background: white;
-          color: #64748b;
-          text-decoration: none;
-          font-size: 0.875rem;
-          transition: all 0.2s;
-        }
-
-        .btn-cancel:hover {
-          background: #f8fafc;
-        }
-
-        .btn-submit {
-          padding: 0.625rem 1.5rem;
-          background: #3b82f6;
-          color: white;
-          border: none;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-
-        .btn-submit:hover {
-          background: #2563eb;
-        }
-
-        .btn-submit:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .loading-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          min-height: 400px;
-        }
-
-        .loading-spinner {
-          width: 40px;
-          height: 40px;
-          border: 3px solid #e2e8f0;
-          border-top-color: #3b82f6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
+        .page-header { margin-bottom: 2rem; }
+        .back-link { color: #3b82f6; text-decoration: none; font-size: 0.875rem; display: inline-block; margin-bottom: 0.5rem; }
+        .back-link:hover { text-decoration: underline; }
+        h1 { font-size: 1.875rem; font-weight: 600; color: #1e293b; margin: 0 0 0.25rem 0; }
+        p { color: #64748b; margin: 0; }
+        .empty-state { text-align: center; padding: 4rem; background: #f8fafc; border-radius: 1rem; }
+        .empty-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .empty-state h3 { margin-bottom: 0.5rem; color: #1e293b; }
+        .empty-state p { color: #64748b; margin-bottom: 1.5rem; }
+        .btn-primary { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; display: inline-block; }
+        .form-grid { display: grid; grid-template-columns: 1fr 380px; gap: 2rem; }
+        .form-section { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .form-section h3 { font-size: 1rem; font-weight: 600; color: #1e293b; margin: 0 0 1.5rem 0; padding-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.75rem; font-weight: 500; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
+        .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 0.625rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.875rem; background: white; transition: all 0.2s; }
+        .form-group select:focus, .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .form-group select.error, .form-group input.error { border-color: #ef4444; }
+        .error-message { font-size: 0.7rem; color: #ef4444; margin-top: 0.25rem; display: block; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .currency-input { position: relative; display: flex; align-items: center; }
+        .currency-symbol { position: absolute; left: 0.75rem; color: #64748b; font-weight: 500; }
+        .currency-input input { padding-left: 1.75rem; }
+        .job-info { background: #f8fafc; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
+        .job-info-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0; }
+        .job-info-item:last-child { border-bottom: none; }
+        .job-info-item .label { font-size: 0.75rem; color: #64748b; }
+        .job-info-item .value { font-weight: 500; color: #1e293b; }
+        .job-info-item .value.highlight { color: #10b981; font-weight: 600; }
+        .calculation-section { position: sticky; top: 2rem; }
+        .calculation-summary { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+        .calc-row { display: flex; justify-content: space-between; padding: 0.5rem 0; font-size: 0.875rem; color: #1e293b; }
+        .calc-row.total { font-weight: 700; font-size: 1rem; border-top: 1px solid #e2e8f0; margin-top: 0.5rem; padding-top: 0.75rem; }
+        .form-actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem; }
+        .btn-cancel { padding: 0.625rem 1.25rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; background: white; color: #64748b; text-decoration: none; font-size: 0.875rem; transition: all 0.2s; }
+        .btn-cancel:hover { background: #f8fafc; }
+        .btn-submit { padding: 0.625rem 1.5rem; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+        .btn-submit:hover { background: #2563eb; }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 900px) {
-          .new-invoice-container {
-            padding: 1rem;
-          }
-          .form-grid {
-            grid-template-columns: 1fr;
-          }
-          .form-sidebar {
-            order: -1;
-          }
-          .calculation-section {
-            position: static;
-          }
+          .new-invoice-container { padding: 1rem; }
+          .form-grid { grid-template-columns: 1fr; }
+          .form-sidebar { order: -1; }
+          .calculation-section { position: static; }
         }
       `}</style>
     </div>
