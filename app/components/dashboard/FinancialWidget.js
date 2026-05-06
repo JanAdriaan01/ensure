@@ -1,10 +1,49 @@
+// app/components/FinancialWidget.jsx
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Card from '@/app/components/ui/Card/Card';
+import { useAuth } from '@/app/hooks/useAuth';
 
-export function FinancialWidget({ stats }) {
-  const safeStats = stats || { activeJobs: 0, pendingQuotes: 0, totalInvoiced: 0, poAmount: 0, thisMonthRevenue: 0 };
+export function FinancialWidget() {
+  const { token, isAuthenticated } = useAuth();
+  const [stats, setStats] = useState({
+    activeJobs: 0,
+    pendingQuotes: 0,
+    totalInvoiced: 0,
+    poAmount: 0,
+    thisMonthRevenue: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      fetchStats();
+    }
+  }, [isAuthenticated, token]);
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/financial', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        setStats({
+          activeJobs: result.data.jobs?.active || 0,
+          pendingQuotes: result.data.quotes?.pending || 0,
+          totalInvoiced: result.data.overview?.totalInvoiced || 0,
+          poAmount: result.data.overview?.totalRevenue || 0,
+          thisMonthRevenue: result.data.monthlyRevenue?.[result.data.monthlyRevenue.length - 1]?.amount || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching financial stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-ZA', {
@@ -13,6 +52,33 @@ export function FinancialWidget({ stats }) {
       minimumFractionDigits: 0
     }).format(amount || 0);
   };
+
+  if (loading) {
+    return (
+      <div className="financial-widget loading">
+        <div className="loading-spinner-small"></div>
+        <style jsx>{`
+          .financial-widget.loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 150px;
+          }
+          .loading-spinner-small {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #e2e8f0;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="financial-widget">
@@ -24,25 +90,25 @@ export function FinancialWidget({ stats }) {
       <div className="widget-stats">
         <div className="stat">
           <div className="stat-label">Active Jobs</div>
-          <div className="stat-value">{safeStats.activeJobs || 0}</div>
+          <div className="stat-value">{stats.activeJobs}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Pending Quotes</div>
-          <div className="stat-value">{safeStats.pendingQuotes || 0}</div>
+          <div className="stat-value">{stats.pendingQuotes}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Total Invoiced</div>
-          <div className="stat-value">{formatCurrency(safeStats.totalInvoiced)}</div>
+          <div className="stat-value">{formatCurrency(stats.totalInvoiced)}</div>
         </div>
       </div>
       <div className="widget-footer">
         <div className="stat">
           <div className="stat-label">PO Amount</div>
-          <div className="stat-value">{formatCurrency(safeStats.poAmount)}</div>
+          <div className="stat-value">{formatCurrency(stats.poAmount)}</div>
         </div>
         <div className="stat">
           <div className="stat-label">This Month</div>
-          <div className="stat-value">{formatCurrency(safeStats.thisMonthRevenue)}</div>
+          <div className="stat-value">{formatCurrency(stats.thisMonthRevenue)}</div>
         </div>
       </div>
 
