@@ -1,3 +1,4 @@
+// app/api/financial/route.js
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
@@ -11,143 +12,157 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get financial overview data
-    const result = await query(`
+    // Get jobs financials
+    const jobsResult = await query(`
       SELECT 
-        -- Jobs financials
-        (SELECT COALESCE(SUM(po_amount), 0) FROM jobs) as total_po_amount,
-        (SELECT COALESCE(SUM(total_invoiced), 0) FROM jobs) as total_invoiced,
-        (SELECT COUNT(*) FROM jobs WHERE completion_status != 'completed') as active_jobs,
-        (SELECT COUNT(*) FROM jobs WHERE completion_status = 'completed') as completed_jobs,
-        
-        -- Quotes financials
-        (SELECT COALESCE(SUM(amount), 0) FROM quotes WHERE status = 'accepted') as accepted_quotes_value,
-        (SELECT COUNT(*) FROM quotes WHERE status = 'pending') as pending_quotes,
-        (SELECT COUNT(*) FROM quotes WHERE status = 'accepted') as accepted_quotes,
-        
-        -- Invoices financials
-        (SELECT COALESCE(SUM(total_amount), 0) FROM invoices) as total_invoiced_amount,
-        (SELECT COALESCE(SUM(CASE WHEN status = 'paid' THEN total_amount ELSE 0 END), 0) FROM invoices) as total_paid,
-        (SELECT COALESCE(SUM(CASE WHEN status = 'pending' THEN total_amount ELSE 0 END), 0) FROM invoices) as pending_invoices,
-        (SELECT COALESCE(SUM(CASE WHEN status = 'overdue' THEN total_amount ELSE 0 END), 0) FROM invoices) as overdue_invoices,
-        (SELECT COUNT(*) FROM invoices WHERE status = 'paid') as paid_invoices_count,
-        (SELECT COUNT(*) FROM invoices WHERE status = 'pending') as pending_invoices_count,
-        
-        -- Clients
-        (SELECT COUNT(*) FROM clients WHERE status = 'active') as active_clients,
-        (SELECT COUNT(*) FROM clients) as total_clients
+        COALESCE(SUM(po_amount), 0) as total_po_amount,
+        COALESCE(SUM(total_invoiced), 0) as total_jobs_invoiced,
+        COUNT(*) as total_jobs,
+        COUNT(CASE WHEN completion_status != 'completed' AND completion_status != 'done' THEN 1 END) as active_jobs,
+        COUNT(CASE WHEN completion_status = 'completed' OR completion_status = 'done' THEN 1 END) as completed_jobs
+      FROM jobs
+      WHERE po_status = 'approved'
     `);
 
-    // Get monthly revenue data
+    // Get quotes financials
+    const quotesResult = await query(`
+      SELECT 
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_quotes,
+        COUNT(CASE WHEN status = 'approved' OR status = 'accepted' THEN 1 END) as accepted_quotes,
+        COALESCE(SUM(CASE WHEN status = 'approved' OR status = 'accepted' THEN total_amount ELSE 0 END), 0) as accepted_quotes_value
+      FROM quotes
+    `);
+
+    // Get invoices financials - FIXED to use your actual data
+    const invoicesResult = await query(`
+      SELECT 
+        COALESCE(SUM(total_amount), 0) as total_invoiced,
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN total_amount ELSE 0 END), 0) as total_paid,
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN total_amount ELSE 0 END), 0) as total_pending,
+        COALESCE(SUM(CASE WHEN status = 'overdue' THEN total_amount ELSE 0 END), 0) as total_overdue,
+        COUNT(*) as total_invoices,
+        COUNT(CASE WHEN status = 'paid' THEN 1 END) as paid_count,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_count,
+        COUNT(CASE WHEN status = 'overdue' THEN 1 END) as overdue_count
+      FROM invoices
+    `);
+
+    // Get clients count
+    const clientsResult = await query(`
+      SELECT 
+        COUNT(*) as total_clients,
+        COUNT(*) as active_clients
+      FROM clients
+    `);
+
+    // Get monthly revenue from paid invoices (last 12 months)
     const monthlyResult = await query(`
       SELECT 
         TO_CHAR(DATE_TRUNC('month', created_at), 'Mon') as month,
         EXTRACT(MONTH FROM created_at) as month_num,
+        EXTRACT(YEAR FROM created_at) as year_num,
         COALESCE(SUM(total_amount), 0) as revenue
       FROM invoices
-      WHERE status = 'paid' AND created_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY DATE_TRUNC('month', created_at), EXTRACT(MONTH FROM created_at)
-      ORDER BY month_num
+      WHERE status = 'paid'
+      GROUP BY DATE_TRUNC('month', created_at), EXTRACT(MONTH FROM created_at), EXTRACT(YEAR FROM created_at)
+      ORDER BY year_num DESC, month_num DESC
+      LIMIT 6
     `);
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthlyRevenue = [];
-    
-    for (let i = 1; i <= 12; i++) {
-      const monthData = monthlyResult.rows.find(r => parseInt(r.month_num) === i);
-      monthlyRevenue.push({
-        month: monthNames[i - 1],
-        amount: monthData ? parseFloat(monthData.revenue) : 0
-      });
-    }
+    // Reverse to show chronological order
+    const monthlyRevenue = monthlyResult.rows.reverse().map(row => ({
+      month: row.month,
+      amount: parseFloat(row.revenue)
+    }));
 
-    const stats = result.rows[0];
+    // Get recent invoices
+    const recentInvoices = await query(`
+      SELECT 
+        i.id,
+        i.invoice_number,
+        i.client_name,
+        i.total_amount,
+        i.status,
+        i.issue_date,
+        i.due_date,
+        i.created_at
+      FROM invoices i
+      ORDER BY i.created_at DESC
+      LIMIT 10
+    `);
+
+    const jobs = jobsResult.rows[0] || {};
+    const quotes = quotesResult.rows[0] || {};
+    const invoices = invoicesResult.rows[0] || {};
+    const clients = clientsResult.rows[0] || {};
+
+    // Calculate derived values
+    const totalRevenue = parseFloat(jobs.total_po_amount || 0);
+    const totalInvoiced = parseFloat(invoices.total_invoiced || 0);
+    const totalPaid = parseFloat(invoices.total_paid || 0);
+    const pendingAmount = parseFloat(invoices.total_pending || 0);
+    const overdueAmount = parseFloat(invoices.total_overdue || 0);
+    const netProfit = totalPaid * 0.3; // Estimated 30% profit margin
+
+    console.log('Financial Data:', {
+      totalRevenue,
+      totalInvoiced,
+      totalPaid,
+      pendingAmount,
+      overdueAmount,
+      paidCount: invoices.paid_count,
+      monthlyRevenue: monthlyRevenue.length
+    });
 
     return NextResponse.json({
       success: true,
       data: {
         overview: {
-          totalRevenue: parseFloat(stats.total_po_amount || 0),
-          totalInvoiced: parseFloat(stats.total_invoiced_amount || 0),
-          totalPaid: parseFloat(stats.total_paid || 0),
-          pendingAmount: parseFloat(stats.pending_invoices || 0),
-          overdueAmount: parseFloat(stats.overdue_invoices || 0),
-          netProfit: parseFloat(stats.total_paid || 0) * 0.3, // Estimated 30% profit margin
+          totalRevenue,
+          totalInvoiced,
+          totalPaid,
+          pendingAmount,
+          overdueAmount,
+          netProfit,
         },
         jobs: {
-          active: parseInt(stats.active_jobs || 0),
-          completed: parseInt(stats.completed_jobs || 0),
-          totalPoValue: parseFloat(stats.total_po_amount || 0),
-          totalInvoiced: parseFloat(stats.total_invoiced || 0),
+          active: parseInt(jobs.active_jobs || 0),
+          completed: parseInt(jobs.completed_jobs || 0),
+          totalPoValue: totalRevenue,
+          totalJobsInvoiced: parseFloat(jobs.total_jobs_invoiced || 0),
         },
         quotes: {
-          pending: parseInt(stats.pending_quotes || 0),
-          accepted: parseInt(stats.accepted_quotes || 0),
-          acceptedValue: parseFloat(stats.accepted_quotes_value || 0),
+          pending: parseInt(quotes.pending_quotes || 0),
+          accepted: parseInt(quotes.accepted_quotes || 0),
+          acceptedValue: parseFloat(quotes.accepted_quotes_value || 0),
         },
         invoices: {
-          total: parseFloat(stats.total_invoiced_amount || 0),
-          paid: parseFloat(stats.total_paid || 0),
-          paidCount: parseInt(stats.paid_invoices_count || 0),
-          pending: parseFloat(stats.pending_invoices || 0),
-          pendingCount: parseInt(stats.pending_invoices_count || 0),
-          overdue: parseFloat(stats.overdue_invoices || 0),
+          total: totalInvoiced,
+          paid: totalPaid,
+          paidCount: parseInt(invoices.paid_count || 0),
+          pending: pendingAmount,
+          pendingCount: parseInt(invoices.pending_count || 0),
+          overdue: overdueAmount,
+          overdueCount: parseInt(invoices.overdue_count || 0),
+          totalCount: parseInt(invoices.total_invoices || 0),
         },
         clients: {
-          total: parseInt(stats.total_clients || 0),
-          active: parseInt(stats.active_clients || 0),
+          total: parseInt(clients.total_clients || 0),
+          active: parseInt(clients.active_clients || 0),
         },
-        monthlyRevenue: monthlyRevenue.slice(-6) // Last 6 months
+        monthlyRevenue: monthlyRevenue.length > 0 ? monthlyRevenue : [
+          { month: 'Jan', amount: 0 }, { month: 'Feb', amount: 0 }, { month: 'Mar', amount: 0 },
+          { month: 'Apr', amount: 0 }, { month: 'May', amount: 0 }, { month: 'Jun', amount: 0 }
+        ],
+        recentInvoices: recentInvoices.rows
       }
     });
 
   } catch (error) {
     console.error('Financial API error:', error);
-    
-    // Fallback mock data
-    return NextResponse.json({
-      success: true,
-      data: {
-        overview: {
-          totalRevenue: 245000,
-          totalInvoiced: 189500,
-          totalPaid: 142125,
-          pendingAmount: 47375,
-          overdueAmount: 15750,
-          netProfit: 46550,
-        },
-        jobs: {
-          active: 8,
-          completed: 4,
-          totalPoValue: 245000,
-          totalInvoiced: 189500,
-        },
-        quotes: {
-          pending: 5,
-          accepted: 3,
-          acceptedValue: 120000,
-        },
-        invoices: {
-          total: 189500,
-          paid: 142125,
-          paidCount: 8,
-          pending: 32500,
-          pendingCount: 3,
-          overdue: 14875,
-        },
-        clients: {
-          total: 24,
-          active: 18,
-        },
-        monthlyRevenue: [
-          { month: 'Jan', amount: 25000 },
-          { month: 'Feb', amount: 28500 },
-          { month: 'Mar', amount: 32000 },
-          { month: 'Apr', amount: 40000 },
-          { month: 'May', amount: 38500 },
-          { month: 'Jun', amount: 41000 },
-        ]
-      }
-    });
+    return NextResponse.json({ 
+      error: error.message,
+      success: false 
+    }, { status: 500 });
   }
 }

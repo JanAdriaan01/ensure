@@ -9,6 +9,7 @@ export default function FinancialPage() {
   const { token, isAuthenticated } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated && token) {
@@ -19,6 +20,7 @@ export default function FinancialPage() {
   const fetchFinancialData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch('/api/financial', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -27,10 +29,11 @@ export default function FinancialPage() {
       if (result.success) {
         setData(result.data);
       } else {
-        console.error('Failed to fetch financial data:', result.error);
+        setError(result.error || 'Failed to fetch financial data');
       }
     } catch (error) {
       console.error('Error fetching financial data:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -49,6 +52,15 @@ export default function FinancialPage() {
     if (!data?.monthlyRevenue) return 1;
     const amounts = data.monthlyRevenue.map(m => m.amount);
     return Math.max(...amounts, 1);
+  };
+
+  const getStatusColor = (status) => {
+    switch(status?.toLowerCase()) {
+      case 'paid': return '#10b981';
+      case 'pending': return '#f59e0b';
+      case 'overdue': return '#ef4444';
+      default: return '#6b7280';
+    }
   };
 
   if (loading) {
@@ -80,11 +92,11 @@ export default function FinancialPage() {
     );
   }
 
-  if (!data) {
+  if (error) {
     return (
       <div className="error-container">
         <h2>Unable to load financial data</h2>
-        <p>Please try again later.</p>
+        <p>{error}</p>
         <button onClick={fetchFinancialData} className="retry-btn">Retry</button>
         <style jsx>{`
           .error-container { text-align: center; padding: 4rem; }
@@ -97,6 +109,18 @@ export default function FinancialPage() {
             cursor: pointer;
             margin-top: 1rem;
           }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="error-container">
+        <h2>No financial data available</h2>
+        <p>Please check back later.</p>
+        <style jsx>{`
+          .error-container { text-align: center; padding: 4rem; }
         `}</style>
       </div>
     );
@@ -264,12 +288,63 @@ export default function FinancialPage() {
         </div>
       </div>
 
+      {/* Recent Invoices */}
+      <div className="card">
+        <div className="section-header">
+          <h2>Recent Invoices</h2>
+          <Link href="/invoicing" className="view-all">View All Invoices →</Link>
+        </div>
+        <div className="table-container">
+          {data.recentInvoices?.length === 0 ? (
+            <div className="empty-state">
+              <p>No invoices found</p>
+            </div>
+          ) : (
+            <table className="invoices-table">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Client</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recentInvoices?.map((invoice) => (
+                  <tr key={invoice.id}>
+                    <td className="invoice-link">
+                      <Link href={`/invoicing/${invoice.id}`}>
+                        {invoice.invoice_number}
+                      </Link>
+                    </td>
+                    <td>{invoice.client_name || 'Unknown Client'}</td>
+                    <td>{invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}</td>
+                    <td className="amount">{formatCurrency(invoice.total_amount)}</td>
+                    <td>
+                      <span className={`status-badge ${invoice.status}`} style={{ backgroundColor: getStatusColor(invoice.status), color: 'white' }}>
+                        {invoice.status}
+                      </span>
+                    </td>
+                    <td>
+                      <Link href={`/invoicing/${invoice.id}`} className="view-link">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="quick-actions">
         <Link href="/invoicing/new" className="action-btn primary">+ New Invoice</Link>
         <Link href="/jobs/new" className="action-btn secondary">+ New Job</Link>
         <Link href="/quotes/new" className="action-btn secondary">+ New Quote</Link>
-        <Link href="/reports/financial" className="action-btn outline">📊 Generate Report</Link>
       </div>
 
       <style jsx>{`
@@ -536,6 +611,60 @@ export default function FinancialPage() {
           color: #ef4444;
         }
 
+        .table-container {
+          overflow-x: auto;
+        }
+
+        .invoices-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .invoices-table th {
+          text-align: left;
+          padding: 0.75rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #64748b;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .invoices-table td {
+          padding: 0.75rem;
+          font-size: 0.875rem;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .invoice-link a {
+          color: #3b82f6;
+          text-decoration: none;
+          font-weight: 500;
+        }
+
+        .amount {
+          font-weight: 600;
+        }
+
+        .status-badge {
+          display: inline-block;
+          padding: 0.25rem 0.5rem;
+          border-radius: 9999px;
+          font-size: 0.7rem;
+          font-weight: 500;
+        }
+
+        .view-link {
+          color: #3b82f6;
+          text-decoration: none;
+          font-size: 0.75rem;
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 3rem;
+          color: #64748b;
+        }
+
         .quick-actions {
           display: flex;
           gap: 1rem;
@@ -571,17 +700,6 @@ export default function FinancialPage() {
           background: #e2e8f0;
         }
 
-        .action-btn.outline {
-          border: 1px solid #e2e8f0;
-          background: white;
-          color: #64748b;
-        }
-
-        .action-btn.outline:hover {
-          border-color: #3b82f6;
-          color: #3b82f6;
-        }
-
         @media (max-width: 768px) {
           .financial-container {
             padding: 1rem;
@@ -595,6 +713,12 @@ export default function FinancialPage() {
           .invoice-stats {
             grid-template-columns: 1fr;
             gap: 0.75rem;
+          }
+          .chart-bars {
+            gap: 0.5rem;
+          }
+          .chart-bar-wrapper {
+            max-width: 40px;
           }
         }
       `}</style>
