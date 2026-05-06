@@ -9,8 +9,6 @@ export default function FinancialPage() {
   const { token, isAuthenticated } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
-  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     if (isAuthenticated && token) {
@@ -47,13 +45,10 @@ export default function FinancialPage() {
     }).format(amount);
   };
 
-  const getStatusColor = (status) => {
-    switch(status?.toLowerCase()) {
-      case 'paid': return '#10b981';
-      case 'pending': return '#f59e0b';
-      case 'overdue': return '#ef4444';
-      default: return '#6b7280';
-    }
+  const getMaxAmount = () => {
+    if (!data?.monthlyRevenue) return 1;
+    const amounts = data.monthlyRevenue.map(m => m.amount);
+    return Math.max(...amounts, 1);
   };
 
   if (loading) {
@@ -107,6 +102,8 @@ export default function FinancialPage() {
     );
   }
 
+  const maxAmount = getMaxAmount();
+
   return (
     <div className="financial-container">
       <div className="page-header">
@@ -134,7 +131,9 @@ export default function FinancialPage() {
           <div className="stat-content">
             <div className="stat-label">Total Invoiced</div>
             <div className="stat-value">{formatCurrency(data.overview?.totalInvoiced)}</div>
-            <div className="stat-trend">{Math.round((data.overview?.totalInvoiced / data.overview?.totalRevenue) * 100)}% of total revenue</div>
+            <div className="stat-trend">
+              {data.overview?.totalRevenue ? Math.round((data.overview?.totalInvoiced / data.overview?.totalRevenue) * 100) : 0}% of total revenue
+            </div>
           </div>
         </div>
         <div className="stat-card paid">
@@ -142,7 +141,9 @@ export default function FinancialPage() {
           <div className="stat-content">
             <div className="stat-label">Total Paid</div>
             <div className="stat-value">{formatCurrency(data.overview?.totalPaid)}</div>
-            <div className="stat-trend">{Math.round((data.overview?.totalPaid / data.overview?.totalInvoiced) * 100)}% collection rate</div>
+            <div className="stat-trend">
+              {data.overview?.totalInvoiced ? Math.round((data.overview?.totalPaid / data.overview?.totalInvoiced) * 100) : 0}% collection rate
+            </div>
           </div>
         </div>
         <div className="stat-card warning">
@@ -150,7 +151,7 @@ export default function FinancialPage() {
           <div className="stat-content">
             <div className="stat-label">Pending Payment</div>
             <div className="stat-value">{formatCurrency(data.overview?.pendingAmount)}</div>
-            <div className="stat-trend">{data.invoices?.pendingCount} invoices pending</div>
+            <div className="stat-trend">{data.invoices?.pendingCount || 0} invoices pending</div>
           </div>
         </div>
         <div className="stat-card danger">
@@ -175,32 +176,32 @@ export default function FinancialPage() {
       <div className="secondary-stats">
         <div className="stat-card-small">
           <div className="stat-label">Active Jobs</div>
-          <div className="stat-value">{data.jobs?.active}</div>
+          <div className="stat-value">{data.jobs?.active || 0}</div>
           <Link href="/jobs" className="stat-link">View All →</Link>
         </div>
         <div className="stat-card-small">
           <div className="stat-label">Completed Jobs</div>
-          <div className="stat-value">{data.jobs?.completed}</div>
+          <div className="stat-value">{data.jobs?.completed || 0}</div>
           <Link href="/jobs?status=completed" className="stat-link">View All →</Link>
         </div>
         <div className="stat-card-small">
           <div className="stat-label">Pending Quotes</div>
-          <div className="stat-value">{data.quotes?.pending}</div>
+          <div className="stat-value">{data.quotes?.pending || 0}</div>
           <Link href="/quotes?status=pending" className="stat-link">View All →</Link>
         </div>
         <div className="stat-card-small">
           <div className="stat-label">Accepted Quotes</div>
-          <div className="stat-value">{data.quotes?.accepted}</div>
+          <div className="stat-value">{data.quotes?.accepted || 0}</div>
           <div className="stat-subvalue">{formatCurrency(data.quotes?.acceptedValue)}</div>
         </div>
         <div className="stat-card-small">
           <div className="stat-label">Total Clients</div>
-          <div className="stat-value">{data.clients?.total}</div>
+          <div className="stat-value">{data.clients?.total || 0}</div>
           <Link href="/clients" className="stat-link">View All →</Link>
         </div>
         <div className="stat-card-small">
           <div className="stat-label">Active Clients</div>
-          <div className="stat-value">{data.clients?.active}</div>
+          <div className="stat-value">{data.clients?.active || 0}</div>
         </div>
       </div>
 
@@ -215,19 +216,22 @@ export default function FinancialPage() {
         </div>
         <div className="chart-container">
           <div className="chart-bars">
-            {data.monthlyRevenue?.map((item, index) => (
-              <div key={index} className="chart-bar-container">
-                <div className="chart-bar-label">{item.month}</div>
-                <div className="chart-bar-wrapper">
-                  <div 
-                    className="chart-bar" 
-                    style={{ height: `${Math.min(100, (item.amount / (Math.max(...data.monthlyRevenue.map(m => m.amount)) || 1)) * 100}%` }}
-                  >
-                    <span className="chart-bar-value">{formatCurrency(item.amount)}</span>
+            {data.monthlyRevenue?.map((item, index) => {
+              const barHeight = maxAmount > 0 ? (item.amount / maxAmount) * 100 : 0;
+              return (
+                <div key={index} className="chart-bar-container">
+                  <div className="chart-bar-label">{item.month}</div>
+                  <div className="chart-bar-wrapper">
+                    <div 
+                      className="chart-bar" 
+                      style={{ height: `${Math.min(100, barHeight)}%` }}
+                    >
+                      <span className="chart-bar-value">{formatCurrency(item.amount)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         <div className="chart-total">
@@ -243,12 +247,12 @@ export default function FinancialPage() {
         </div>
         <div className="invoice-stats">
           <div className="invoice-stat">
-            <div className="invoice-stat-value">{data.invoices?.paidCount}</div>
+            <div className="invoice-stat-value">{data.invoices?.paidCount || 0}</div>
             <div className="invoice-stat-label">Paid Invoices</div>
             <div className="invoice-stat-amount">{formatCurrency(data.invoices?.paid)}</div>
           </div>
           <div className="invoice-stat">
-            <div className="invoice-stat-value">{data.invoices?.pendingCount}</div>
+            <div className="invoice-stat-value">{data.invoices?.pendingCount || 0}</div>
             <div className="invoice-stat-label">Pending Invoices</div>
             <div className="invoice-stat-amount">{formatCurrency(data.invoices?.pending)}</div>
           </div>
@@ -304,7 +308,6 @@ export default function FinancialPage() {
           color: #475569;
         }
 
-        /* Stats Grid */
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -362,7 +365,6 @@ export default function FinancialPage() {
           margin-top: 0.25rem;
         }
 
-        /* Secondary Stats */
         .secondary-stats {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -398,7 +400,6 @@ export default function FinancialPage() {
           margin-top: 0.25rem;
         }
 
-        /* Chart */
         .card {
           background: white;
           border: 1px solid #e2e8f0;
@@ -506,7 +507,6 @@ export default function FinancialPage() {
           color: #64748b;
         }
 
-        /* Invoice Stats */
         .invoice-stats {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -536,7 +536,6 @@ export default function FinancialPage() {
           color: #ef4444;
         }
 
-        /* Quick Actions */
         .quick-actions {
           display: flex;
           gap: 1rem;
