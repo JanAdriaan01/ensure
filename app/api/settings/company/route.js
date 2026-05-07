@@ -49,13 +49,20 @@ export async function PUT(request) {
       logo_data,
       currency,
       date_format,
-      timezone
+      timezone,
+      // New financial year fields
+      financial_year_start_month,
+      financial_year_start_day
     } = body;
 
     // Validate required fields
     if (!company_name) {
       return NextResponse.json({ success: false, error: 'Company name is required' }, { status: 400 });
     }
+
+    // Set default financial year values (South Africa: March 1)
+    const fyStartMonth = financial_year_start_month || 3;
+    const fyStartDay = financial_year_start_day || 1;
 
     // Check if settings exist
     const existing = await query(`SELECT id FROM company_settings LIMIT 1`);
@@ -67,13 +74,16 @@ export async function PUT(request) {
         `INSERT INTO company_settings (
           company_name, display_name, registration_number, vat_number, tax_number,
           email, phone, website, address_line1, address_line2, city, postal_code, country,
-          logo_url, logo_data, currency, date_format, timezone, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          logo_url, logo_data, currency, date_format, timezone,
+          financial_year_start_month, financial_year_start_day,
+          created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING *`,
         [
           company_name, display_name, registration_number, vat_number, tax_number,
           email, phone, website, address_line1, address_line2, city, postal_code, country,
-          logo_url, logo_data, currency, date_format, timezone
+          logo_url, logo_data, currency, date_format, timezone,
+          fyStartMonth, fyStartDay
         ]
       );
     } else {
@@ -83,12 +93,16 @@ export async function PUT(request) {
           company_name = $1, display_name = $2, registration_number = $3, vat_number = $4, tax_number = $5,
           email = $6, phone = $7, website = $8, address_line1 = $9, address_line2 = $10,
           city = $11, postal_code = $12, country = $13, logo_url = $14, logo_data = $15,
-          currency = $16, date_format = $17, timezone = $18, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $19 RETURNING *`,
+          currency = $16, date_format = $17, timezone = $18,
+          financial_year_start_month = $19, financial_year_start_day = $20,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $21 RETURNING *`,
         [
           company_name, display_name, registration_number, vat_number, tax_number,
           email, phone, website, address_line1, address_line2, city, postal_code, country,
-          logo_url, logo_data, currency, date_format, timezone, existing.rows[0].id
+          logo_url, logo_data, currency, date_format, timezone,
+          fyStartMonth, fyStartDay,
+          existing.rows[0].id
         ]
       );
     }

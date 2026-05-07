@@ -79,6 +79,7 @@ export default function Navbar() {
       links: [
         { href: '/Settings', label: 'General Settings' },
         { href: '/Settings/company', label: 'Company Information' },
+        { href: '/Settings/financial', label: 'Financial Settings' },  // ← ADDED
         { href: '/Settings/terms', label: 'Terms & Conditions' },
         { href: '/Settings/users', label: 'User Management' },
         { href: '/Settings/backup', label: 'Backup' },
