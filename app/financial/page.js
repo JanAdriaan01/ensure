@@ -10,18 +10,30 @@ export default function FinancialPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Period filter states
+  const [period, setPeriod] = useState('current');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showCustomDate, setShowCustomDate] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchFinancialData();
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, period, customStartDate, customEndDate]);
 
   const fetchFinancialData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/financial', {
+      
+      let url = '/api/financial?period=' + period;
+      if (period === 'custom' && customStartDate && customEndDate) {
+        url += `&startDate=${customStartDate}&endDate=${customEndDate}`;
+      }
+      
+      const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
@@ -49,19 +61,12 @@ export default function FinancialPage() {
   };
 
   const getMaxAmount = () => {
-    if (!data?.monthlyRevenue) return 1;
+    if (!data?.monthlyRevenue || data.monthlyRevenue.length === 0) return 1;
     const amounts = data.monthlyRevenue.map(m => m.amount);
     return Math.max(...amounts, 1);
   };
 
-  const getStatusColor = (status) => {
-    switch(status?.toLowerCase()) {
-      case 'paid': return '#10b981';
-      case 'pending': return '#f59e0b';
-      case 'overdue': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
+  const maxAmount = getMaxAmount();
 
   if (loading) {
     return (
@@ -126,8 +131,6 @@ export default function FinancialPage() {
     );
   }
 
-  const maxAmount = getMaxAmount();
-
   return (
     <div className="financial-container">
       <div className="page-header">
@@ -135,9 +138,68 @@ export default function FinancialPage() {
           <h1>Financial Dashboard</h1>
           <p>Real-time financial overview and analytics</p>
         </div>
-        <div className="date-range">
-          <span className="date-badge">Year to Date</span>
+      </div>
+
+      {/* Period Filter Section */}
+      <div className="filter-section">
+        <div className="filter-header">
+          <span className="filter-label">📅 Period Filter</span>
         </div>
+        <div className="period-selector">
+          <button 
+            className={`period-btn ${period === 'current' ? 'active' : ''}`}
+            onClick={() => { setPeriod('current'); setShowCustomDate(false); }}
+          >
+            Current Financial Year
+          </button>
+          <button 
+            className={`period-btn ${period === 'previous' ? 'active' : ''}`}
+            onClick={() => { setPeriod('previous'); setShowCustomDate(false); }}
+          >
+            Previous Financial Year
+          </button>
+          <button 
+            className={`period-btn ${period === 'custom' ? 'active' : ''}`}
+            onClick={() => { setPeriod('custom'); setShowCustomDate(true); }}
+          >
+            Custom Range
+          </button>
+        </div>
+        
+        {showCustomDate && (
+          <div className="custom-date-range">
+            <input 
+              type="date" 
+              value={customStartDate} 
+              onChange={(e) => setCustomStartDate(e.target.value)}
+              placeholder="Start Date"
+            />
+            <span>→</span>
+            <input 
+              type="date" 
+              value={customEndDate} 
+              onChange={(e) => setCustomEndDate(e.target.value)}
+              placeholder="End Date"
+            />
+            <button onClick={fetchFinancialData} className="apply-btn">Apply</button>
+          </div>
+        )}
+        
+        {data?.comparison && period === 'current' && (
+          <div className="comparison-badge">
+            <span className="comparison-label">vs {data.comparison.period}:</span>
+            <span className={data.comparison.percentageChange >= 0 ? 'positive' : 'negative'}>
+              {data.comparison.percentageChange >= 0 ? '+' : ''}{data.comparison.percentageChange.toFixed(1)}%
+            </span>
+          </div>
+        )}
+        
+        {data?.period && (
+          <div className="period-info">
+            📊 Showing data for: <strong>{data.period.label}</strong>
+            <span className="period-dates">({data.period.startDate} to {data.period.endDate})</span>
+          </div>
+        )}
       </div>
 
       {/* Main Stats Grid */}
@@ -196,7 +258,7 @@ export default function FinancialPage() {
         </div>
       </div>
 
-      {/* Secondary Stats - Jobs, Quotes, Clients */}
+      {/* Secondary Stats */}
       <div className="secondary-stats">
         <div className="stat-card-small">
           <div className="stat-label">Active Jobs</div>
@@ -229,7 +291,7 @@ export default function FinancialPage() {
         </div>
       </div>
 
-      {/* Monthly Revenue Chart */}
+      {/* Monthly Revenue Chart - FIXED LAYOUT */}
       <div className="card">
         <div className="section-header">
           <h2>Monthly Revenue</h2>
@@ -241,25 +303,25 @@ export default function FinancialPage() {
         <div className="chart-container">
           <div className="chart-bars">
             {data.monthlyRevenue?.map((item, index) => {
-              const barHeight = maxAmount > 0 ? (item.amount / maxAmount) * 100 : 0;
+              const barHeight = maxAmount > 0 ? (item.amount / maxAmount) * 180 : 0;
               return (
                 <div key={index} className="chart-bar-container">
-                  <div className="chart-bar-label">{item.month}</div>
                   <div className="chart-bar-wrapper">
                     <div 
                       className="chart-bar" 
-                      style={{ height: `${Math.min(100, barHeight)}%` }}
+                      style={{ height: `${Math.min(180, barHeight)}px` }}
                     >
                       <span className="chart-bar-value">{formatCurrency(item.amount)}</span>
                     </div>
                   </div>
+                  <div className="chart-bar-label">{item.month}</div>
                 </div>
               );
             })}
           </div>
         </div>
         <div className="chart-total">
-          <span>Total Revenue YTD: {formatCurrency(data.monthlyRevenue?.reduce((sum, m) => sum + m.amount, 0))}</span>
+          <span>Total Revenue for Period: {formatCurrency(data.monthlyRevenue?.reduce((sum, m) => sum + m.amount, 0))}</span>
         </div>
       </div>
 
@@ -297,7 +359,7 @@ export default function FinancialPage() {
         <div className="table-container">
           {data.recentInvoices?.length === 0 ? (
             <div className="empty-state">
-              <p>No invoices found</p>
+              <p>No invoices found for this period</p>
             </div>
           ) : (
             <table className="invoices-table">
@@ -319,11 +381,11 @@ export default function FinancialPage() {
                         {invoice.invoice_number}
                       </Link>
                     </td>
-                    <td>{invoice.client_name || 'Unknown Client'}</td>
-                    <td>{invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}</td>
+                    <td className="client-name">{invoice.client_name || 'Unknown Client'}</td>
+                    <td className="date">{invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : '-'}</td>
                     <td className="amount">{formatCurrency(invoice.total_amount)}</td>
                     <td>
-                      <span className={`status-badge ${invoice.status}`} style={{ backgroundColor: getStatusColor(invoice.status), color: 'white' }}>
+                      <span className={`status-badge ${invoice.status}`}>
                         {invoice.status}
                       </span>
                     </td>
@@ -355,12 +417,7 @@ export default function FinancialPage() {
         }
 
         .page-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
           margin-bottom: 2rem;
-          flex-wrap: wrap;
-          gap: 1rem;
         }
 
         .page-header h1 {
@@ -375,14 +432,115 @@ export default function FinancialPage() {
           margin: 0;
         }
 
-        .date-badge {
-          background: #e2e8f0;
-          padding: 0.25rem 0.75rem;
-          border-radius: 9999px;
-          font-size: 0.75rem;
-          color: #475569;
+        /* Filter Section */
+        .filter-section {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.75rem;
+          padding: 1rem 1.25rem;
+          margin-bottom: 1.5rem;
         }
 
+        .filter-header {
+          margin-bottom: 0.75rem;
+        }
+
+        .filter-label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #1e293b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .period-selector {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .period-btn {
+          padding: 0.5rem 1rem;
+          border: 1px solid #e2e8f0;
+          background: white;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          transition: all 0.2s;
+        }
+
+        .period-btn:hover {
+          background: #f1f5f9;
+        }
+
+        .period-btn.active {
+          background: #3b82f6;
+          color: white;
+          border-color: #3b82f6;
+        }
+
+        .custom-date-range {
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+          flex-wrap: wrap;
+        }
+
+        .custom-date-range input {
+          padding: 0.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.5rem;
+          font-size: 0.875rem;
+        }
+
+        .apply-btn {
+          padding: 0.5rem 1rem;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 0.5rem;
+          cursor: pointer;
+        }
+
+        .comparison-badge {
+          margin-top: 0.75rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid #e2e8f0;
+          font-size: 0.875rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .comparison-label {
+          color: #64748b;
+        }
+
+        .comparison-badge .positive {
+          color: #10b981;
+          font-weight: 600;
+        }
+
+        .comparison-badge .negative {
+          color: #ef4444;
+          font-weight: 600;
+        }
+
+        .period-info {
+          margin-top: 0.75rem;
+          font-size: 0.75rem;
+          color: #64748b;
+        }
+
+        .period-dates {
+          margin-left: 0.5rem;
+          color: #94a3b8;
+        }
+
+        /* Stats Grid */
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -440,6 +598,7 @@ export default function FinancialPage() {
           margin-top: 0.25rem;
         }
 
+        /* Secondary Stats */
         .secondary-stats {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -475,6 +634,7 @@ export default function FinancialPage() {
           margin-top: 0.25rem;
         }
 
+        /* Chart */
         .card {
           background: white;
           border: 1px solid #e2e8f0;
@@ -527,10 +687,10 @@ export default function FinancialPage() {
         .chart-bars {
           display: flex;
           align-items: flex-end;
-          gap: 1.5rem;
           justify-content: center;
-          min-height: 280px;
+          gap: 1.5rem;
           min-width: 500px;
+          padding: 0.5rem 0;
         }
 
         .chart-bar-container {
@@ -538,17 +698,12 @@ export default function FinancialPage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.5rem;
-        }
-
-        .chart-bar-label {
-          font-size: 0.75rem;
-          color: #64748b;
+          gap: 0.75rem;
         }
 
         .chart-bar-wrapper {
           width: 100%;
-          max-width: 60px;
+          max-width: 80px;
           height: 200px;
           display: flex;
           flex-direction: column;
@@ -556,32 +711,50 @@ export default function FinancialPage() {
         }
 
         .chart-bar {
-          background: #3b82f6;
-          border-radius: 0.375rem;
+          background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+          border-radius: 0.5rem 0.5rem 0 0;
           position: relative;
           transition: height 0.3s ease;
           min-height: 4px;
+          cursor: pointer;
+        }
+
+        .chart-bar:hover {
+          background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
         }
 
         .chart-bar-value {
           position: absolute;
-          top: -24px;
+          top: -28px;
           left: 50%;
           transform: translateX(-50%);
           font-size: 0.7rem;
           white-space: nowrap;
-          color: #3b82f6;
+          color: #1e293b;
+          font-weight: 500;
+          background: #f1f5f9;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .chart-bar-label {
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: #64748b;
+          text-align: center;
         }
 
         .chart-total {
           text-align: center;
-          margin-top: 1rem;
+          margin-top: 1.5rem;
           padding-top: 1rem;
           border-top: 1px solid #e2e8f0;
           font-size: 0.875rem;
-          color: #64748b;
+          color: #1e293b;
+          font-weight: 500;
         }
 
+        /* Invoice Stats */
         .invoice-stats {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -611,6 +784,7 @@ export default function FinancialPage() {
           color: #ef4444;
         }
 
+        /* Table */
         .table-container {
           overflow-x: auto;
         }
@@ -641,8 +815,17 @@ export default function FinancialPage() {
           font-weight: 500;
         }
 
+        .client-name {
+          color: #1e293b;
+        }
+
+        .date {
+          color: #64748b;
+        }
+
         .amount {
           font-weight: 600;
+          color: #1e293b;
         }
 
         .status-badge {
@@ -651,6 +834,22 @@ export default function FinancialPage() {
           border-radius: 9999px;
           font-size: 0.7rem;
           font-weight: 500;
+          text-transform: capitalize;
+        }
+
+        .status-badge.paid {
+          background: #d1fae5;
+          color: #065f46;
+        }
+
+        .status-badge.pending {
+          background: #fef3c7;
+          color: #92400e;
+        }
+
+        .status-badge.overdue {
+          background: #fee2e2;
+          color: #dc2626;
         }
 
         .view-link {
@@ -665,6 +864,7 @@ export default function FinancialPage() {
           color: #64748b;
         }
 
+        /* Quick Actions */
         .quick-actions {
           display: flex;
           gap: 1rem;
@@ -715,10 +915,14 @@ export default function FinancialPage() {
             gap: 0.75rem;
           }
           .chart-bars {
-            gap: 0.5rem;
+            gap: 0.75rem;
           }
           .chart-bar-wrapper {
-            max-width: 40px;
+            max-width: 50px;
+          }
+          .chart-bar-value {
+            font-size: 0.6rem;
+            top: -22px;
           }
         }
       `}</style>
