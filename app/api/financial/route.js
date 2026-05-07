@@ -33,7 +33,7 @@ export async function GET(request) {
       FROM quotes
     `);
 
-    // Get invoices financials - FIXED to use your actual data
+    // Get invoices financials
     const invoicesResult = await query(`
       SELECT 
         COALESCE(SUM(total_amount), 0) as total_invoiced,
@@ -55,24 +55,28 @@ export async function GET(request) {
       FROM clients
     `);
 
-    // Get monthly revenue from paid invoices (last 12 months)
+    // Get monthly revenue from paid invoices using ISSUE_DATE
     const monthlyResult = await query(`
       SELECT 
-        TO_CHAR(DATE_TRUNC('month', created_at), 'Mon') as month,
-        EXTRACT(MONTH FROM created_at) as month_num,
-        EXTRACT(YEAR FROM created_at) as year_num,
-        COALESCE(SUM(total_amount), 0) as revenue
+        TO_CHAR(DATE_TRUNC('month', issue_date), 'Mon YYYY') as month_label,
+        EXTRACT(MONTH FROM issue_date) as month_num,
+        EXTRACT(YEAR FROM issue_date) as year_num,
+        DATE_TRUNC('month', issue_date) as month_date,
+        COALESCE(SUM(total_amount), 0) as revenue,
+        COUNT(*) as invoice_count
       FROM invoices
-      WHERE status = 'paid'
-      GROUP BY DATE_TRUNC('month', created_at), EXTRACT(MONTH FROM created_at), EXTRACT(YEAR FROM created_at)
-      ORDER BY year_num DESC, month_num DESC
-      LIMIT 6
+      WHERE status = 'paid' AND issue_date IS NOT NULL
+      GROUP BY DATE_TRUNC('month', issue_date), EXTRACT(MONTH FROM issue_date), EXTRACT(YEAR FROM issue_date)
+      ORDER BY month_date ASC
     `);
 
-    // Reverse to show chronological order
-    const monthlyRevenue = monthlyResult.rows.reverse().map(row => ({
-      month: row.month,
-      amount: parseFloat(row.revenue)
+    // Format monthly revenue
+    const monthlyRevenue = monthlyResult.rows.map(row => ({
+      month: row.month_label,
+      amount: parseFloat(row.revenue),
+      year: parseInt(row.year_num),
+      monthNum: parseInt(row.month_num),
+      invoiceCount: parseInt(row.invoice_count)
     }));
 
     // Get recent invoices
@@ -87,7 +91,7 @@ export async function GET(request) {
         i.due_date,
         i.created_at
       FROM invoices i
-      ORDER BY i.created_at DESC
+      ORDER BY i.issue_date DESC, i.created_at DESC
       LIMIT 10
     `);
 
@@ -102,17 +106,9 @@ export async function GET(request) {
     const totalPaid = parseFloat(invoices.total_paid || 0);
     const pendingAmount = parseFloat(invoices.total_pending || 0);
     const overdueAmount = parseFloat(invoices.total_overdue || 0);
-    const netProfit = totalPaid * 0.3; // Estimated 30% profit margin
+    const netProfit = totalPaid * 0.3;
 
-    console.log('Financial Data:', {
-      totalRevenue,
-      totalInvoiced,
-      totalPaid,
-      pendingAmount,
-      overdueAmount,
-      paidCount: invoices.paid_count,
-      monthlyRevenue: monthlyRevenue.length
-    });
+    console.log('Monthly Revenue Data:', monthlyRevenue);
 
     return NextResponse.json({
       success: true,
@@ -150,10 +146,7 @@ export async function GET(request) {
           total: parseInt(clients.total_clients || 0),
           active: parseInt(clients.active_clients || 0),
         },
-        monthlyRevenue: monthlyRevenue.length > 0 ? monthlyRevenue : [
-          { month: 'Jan', amount: 0 }, { month: 'Feb', amount: 0 }, { month: 'Mar', amount: 0 },
-          { month: 'Apr', amount: 0 }, { month: 'May', amount: 0 }, { month: 'Jun', amount: 0 }
-        ],
+        monthlyRevenue: monthlyRevenue,
         recentInvoices: recentInvoices.rows
       }
     });
