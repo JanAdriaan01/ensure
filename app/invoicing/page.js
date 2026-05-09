@@ -13,7 +13,13 @@ export default function InvoicingPage() {
     total_invoiced: 0,
     total_paid: 0,
     total_pending: 0,
-    total_overdue: 0
+    total_overdue: 0,
+    total_draft: 0,
+    count_paid: 0,
+    count_pending: 0,
+    count_overdue: 0,
+    count_draft: 0,
+    total_invoice_count: 0
   });
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState([]);
@@ -59,7 +65,13 @@ export default function InvoicingPage() {
           total_invoiced: 0,
           total_paid: 0,
           total_pending: 0,
-          total_overdue: 0
+          total_overdue: 0,
+          total_draft: 0,
+          count_paid: 0,
+          count_pending: 0,
+          count_overdue: 0,
+          count_draft: 0,
+          total_invoice_count: 0
         });
       }
     } catch (error) {
@@ -112,7 +124,7 @@ export default function InvoicingPage() {
       filtered = filtered.filter(i => i.issue_date <= filters.date_to);
     }
     
-    // Filter by search (invoice number or client name)
+    // Filter by search
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(i => 
@@ -185,21 +197,12 @@ export default function InvoicingPage() {
   };
 
   const getStatusBadgeClass = (status) => {
-    switch(status) {
+    switch(status?.toLowerCase()) {
       case 'paid': return 'status-paid';
       case 'pending': return 'status-pending';
       case 'overdue': return 'status-overdue';
       default: return 'status-draft';
     }
-  };
-
-  // Calculate filtered stats
-  const filteredStats = {
-    total_invoiced: filteredInvoices.reduce((sum, i) => sum + (i.total_amount || 0), 0),
-    total_paid: filteredInvoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + (i.total_amount || 0), 0),
-    total_pending: filteredInvoices.filter(i => i.status === 'pending').reduce((sum, i) => sum + (i.total_amount || 0), 0),
-    total_overdue: filteredInvoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + (i.total_amount || 0), 0),
-    count: filteredInvoices.length
   };
 
   if (loading) {
@@ -247,9 +250,10 @@ export default function InvoicingPage() {
                 onChange={(e) => handleFilterChange('status', e.target.value)}
               >
                 <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
                 <option value="paid">Paid</option>
+                <option value="pending">Pending</option>
                 <option value="overdue">Overdue</option>
+                <option value="draft">Draft</option>
               </select>
             </div>
 
@@ -322,24 +326,27 @@ export default function InvoicingPage() {
         </div>
       )}
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Using API stats for accurate totals */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-label">Total Invoiced</div>
-          <div className="stat-value">{formatCurrency(filteredStats.total_invoiced)}</div>
-          <div className="stat-sub">{filteredStats.count} invoices</div>
+          <div className="stat-value">{formatCurrency(stats.total_invoiced)}</div>
+          <div className="stat-sub">{stats.total_invoice_count || invoices.length} invoices</div>
         </div>
         <div className="stat-card success">
           <div className="stat-label">Total Paid</div>
-          <div className="stat-value">{formatCurrency(filteredStats.total_paid)}</div>
+          <div className="stat-value">{formatCurrency(stats.total_paid)}</div>
+          <div className="stat-sub">{stats.count_paid} invoices paid</div>
         </div>
         <div className="stat-card warning">
           <div className="stat-label">Pending Payment</div>
-          <div className="stat-value">{formatCurrency(filteredStats.total_pending)}</div>
+          <div className="stat-value">{formatCurrency(stats.total_pending)}</div>
+          <div className="stat-sub">{stats.count_pending} invoices pending</div>
         </div>
         <div className="stat-card danger">
           <div className="stat-label">Overdue</div>
-          <div className="stat-value">{formatCurrency(filteredStats.total_overdue)}</div>
+          <div className="stat-value">{formatCurrency(stats.total_overdue)}</div>
+          <div className="stat-sub">{stats.count_overdue} invoices overdue</div>
         </div>
       </div>
 
@@ -349,25 +356,31 @@ export default function InvoicingPage() {
           className={`filter-tab ${filters.status === 'all' ? 'active' : ''}`}
           onClick={() => handleFilterChange('status', 'all')}
         >
-          All ({filteredStats.count})
-        </button>
-        <button 
-          className={`filter-tab ${filters.status === 'pending' ? 'active' : ''}`}
-          onClick={() => handleFilterChange('status', 'pending')}
-        >
-          Pending ({invoices.filter(i => i.status === 'pending').length})
+          All ({stats.total_invoice_count || invoices.length})
         </button>
         <button 
           className={`filter-tab ${filters.status === 'paid' ? 'active' : ''}`}
           onClick={() => handleFilterChange('status', 'paid')}
         >
-          Paid ({invoices.filter(i => i.status === 'paid').length})
+          Paid ({stats.count_paid})
+        </button>
+        <button 
+          className={`filter-tab ${filters.status === 'pending' ? 'active' : ''}`}
+          onClick={() => handleFilterChange('status', 'pending')}
+        >
+          Pending ({stats.count_pending})
         </button>
         <button 
           className={`filter-tab ${filters.status === 'overdue' ? 'active' : ''}`}
           onClick={() => handleFilterChange('status', 'overdue')}
         >
-          Overdue ({invoices.filter(i => i.status === 'overdue').length})
+          Overdue ({stats.count_overdue})
+        </button>
+        <button 
+          className={`filter-tab ${filters.status === 'draft' ? 'active' : ''}`}
+          onClick={() => handleFilterChange('status', 'draft')}
+        >
+          Draft ({stats.count_draft})
         </button>
       </div>
 
@@ -507,7 +520,6 @@ export default function InvoicingPage() {
           background: #2563eb;
         }
 
-        /* Filter Panel */
         .filter-panel {
           background: #f8fafc;
           border: 1px solid #e2e8f0;
@@ -583,7 +595,6 @@ export default function InvoicingPage() {
           background: #dc2626;
         }
 
-        /* Stats */
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -618,7 +629,6 @@ export default function InvoicingPage() {
           margin-top: 0.25rem;
         }
 
-        /* Filter Tabs */
         .filter-tabs {
           display: flex;
           gap: 0.5rem;
@@ -649,7 +659,6 @@ export default function InvoicingPage() {
           color: white;
         }
 
-        /* Table */
         .table-container {
           background: white;
           border-radius: 0.75rem;
@@ -713,6 +722,7 @@ export default function InvoicingPage() {
         .status-paid { background: #d1fae5; color: #065f46; }
         .status-pending { background: #fef3c7; color: #92400e; }
         .status-overdue { background: #fee2e2; color: #991b1b; }
+        .status-draft { background: #f3f4f6; color: #4b5563; }
 
         .actions {
           display: flex;

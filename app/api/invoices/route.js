@@ -18,7 +18,6 @@ export async function GET(request) {
     const job_id = searchParams.get('job_id');
     const client_id = searchParams.get('client_id');
     
-    // Fixed query to properly retrieve client_name from clients table
     let sql = `
       SELECT 
         i.id,
@@ -38,11 +37,9 @@ export async function GET(request) {
         i.notes,
         i.created_by,
         i.created_at,
-        i.updated_at,
-        j.job_number as job_number_ref
+        i.updated_at
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id
-      LEFT JOIN jobs j ON i.job_id = j.id
       WHERE 1=1
     `;
     const params = [];
@@ -71,18 +68,19 @@ export async function GET(request) {
     const result = await query(sql, params);
     const invoices = result.rows;
     
-    // Get stats
+    // Get stats - CORRECTED TOTALS
     const statsResult = await query(`
       SELECT 
         COALESCE(SUM(total_amount), 0) as total_invoiced,
-        COALESCE(SUM(CASE WHEN status = 'paid' THEN total_amount ELSE 0 END), 0) as total_paid,
-        COALESCE(SUM(CASE WHEN status = 'pending' THEN total_amount ELSE 0 END), 0) as total_pending,
-        COALESCE(SUM(CASE WHEN status = 'overdue' THEN total_amount ELSE 0 END), 0) as total_overdue,
-        COALESCE(SUM(CASE WHEN status = 'draft' THEN total_amount ELSE 0 END), 0) as total_draft,
-        COUNT(CASE WHEN status = 'paid' THEN 1 END) as count_paid,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as count_pending,
-        COUNT(CASE WHEN status = 'overdue' THEN 1 END) as count_overdue,
-        COUNT(CASE WHEN status = 'draft' THEN 1 END) as count_draft
+        COALESCE(SUM(CASE WHEN LOWER(status) = 'paid' THEN total_amount ELSE 0 END), 0) as total_paid,
+        COALESCE(SUM(CASE WHEN LOWER(status) = 'pending' THEN total_amount ELSE 0 END), 0) as total_pending,
+        COALESCE(SUM(CASE WHEN LOWER(status) = 'overdue' THEN total_amount ELSE 0 END), 0) as total_overdue,
+        COALESCE(SUM(CASE WHEN LOWER(status) = 'draft' THEN total_amount ELSE 0 END), 0) as total_draft,
+        COUNT(*) as total_invoice_count,
+        COUNT(CASE WHEN LOWER(status) = 'paid' THEN 1 END) as count_paid,
+        COUNT(CASE WHEN LOWER(status) = 'pending' THEN 1 END) as count_pending,
+        COUNT(CASE WHEN LOWER(status) = 'overdue' THEN 1 END) as count_overdue,
+        COUNT(CASE WHEN LOWER(status) = 'draft' THEN 1 END) as count_draft
       FROM invoices
     `);
     
