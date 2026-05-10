@@ -1,118 +1,364 @@
-export const dynamic = 'force-dynamic';
+// app/employees/new/page.js
+'use client';
 
-import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';  // ← ADD THIS
 
-export async function GET(request, { params }) {
-  try {
-    const auth = await verifyAuth(request);
-    if (!auth.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export default function NewEmployeePage() {
+  const router = useRouter();
+  const { token, isAuthenticated } = useAuth();  // ← ADD THIS
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    employee_number: '',
+    first_name: '',
+    last_name: '',
+    date_of_birth: '',
+    nationality: '',
+    passport_number: '',
+    work_permit: '',
+    company_start_date: '',
+    email: '',
+    phone: '',
+    position: '',
+    department: '',
+    hourly_rate: ''
+  });
 
-    const { id } = await params;
-    const employeeId = parseInt(id);
-    
-    // Get employee details
-    const employeeResult = await query(`
-      SELECT 
-        e.*,
-        EXTRACT(YEAR FROM age(CURRENT_DATE, e.date_of_birth)) as age,
-        EXTRACT(YEAR FROM age(CURRENT_DATE, e.company_start_date)) as years_worked
-      FROM employees e
-      WHERE e.id = $1
-    `, [employeeId]);
-    
-    if (employeeResult.rows.length === 0) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
-    }
-    
-    // Get certifications
-    const certsResult = await query(`
-      SELECT c.certification_name, ec.certified_date, ec.expiry_date
-      FROM employee_certifications ec
-      JOIN certifications c ON ec.certification_id = c.id
-      WHERE ec.employee_id = $1
-    `, [employeeId]);
-    
-    // Get skills
-    const skillsResult = await query(`
-      SELECT s.skill_name, es.years_experience
-      FROM employee_skills es
-      JOIN skills s ON es.skill_id = s.id
-      WHERE es.employee_id = $1
-    `, [employeeId]);
-    
-    // Get daily time entries
-    const timeResult = await query(`
-      SELECT edt.*, j.lc_number as job_number
-      FROM employee_daily_time edt
-      LEFT JOIN jobs j ON edt.job_id = j.id
-      WHERE edt.employee_id = $1
-      ORDER BY edt.work_date DESC
-    `, [employeeId]);
-    
-    return NextResponse.json({
-      employee: employeeResult.rows[0],
-      certifications: certsResult.rows,
-      skills: skillsResult.rows,
-      time_entries: timeResult.rows
-    });
-  } catch (error) {
-    console.error('Error fetching employee:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-export async function PUT(request, { params }) {
-  try {
-    const auth = await verifyAuth(request);
-    if (!auth.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const employeeId = parseInt(id);
-    const body = await request.json();
-    const { first_name, last_name, nationality, passport_number, work_permit, email, phone, position, department, hourly_rate } = body;
-    
-    const result = await query(
-      `UPDATE employees 
-       SET first_name = $1, last_name = $2, nationality = $3, 
-           passport_number = $4, work_permit = $5, email = $6, 
-           phone = $7, position = $8, department = $9, hourly_rate = $10,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $11
-       RETURNING *`,
-      [first_name, last_name, nationality, passport_number, work_permit, email, phone, position, department, hourly_rate, employeeId]
+  // Check authentication
+  if (!isAuthenticated) {
+    return (
+      <div className="form-container">
+        <div className="page-header">
+          <h1>Authentication Required</h1>
+          <p>Please log in to create employees.</p>
+          <Link href="/login" className="btn-primary">Go to Login</Link>
+        </div>
+      </div>
     );
-    
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
-    }
-    
-    return NextResponse.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating employee:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
 
-export async function DELETE(request, { params }) {
-  try {
-    const auth = await verifyAuth(request);
-    if (!auth.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const employeeId = parseInt(id);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     
-    await query('DELETE FROM employees WHERE id = $1', [employeeId]);
-    return NextResponse.json({ message: 'Employee deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting employee:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    try {
+      const res = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`  // ← ADD THIS
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        router.push('/employees');
+      } else {
+        alert(data.error || 'Failed to create employee');
+      }
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      alert('Failed to create employee');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const today = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="form-container">
+      <div className="page-header">
+        <h1>Add New Employee</h1>
+        <Link href="/employees" className="btn-secondary">Back</Link>
+      </div>
+
+      <form onSubmit={handleSubmit} className="form-card">
+        <div className="form-grid">
+          <div className="form-group">
+            <label>Employee Number *</label>
+            <input
+              type="text"
+              name="employee_number"
+              value={formData.employee_number}
+              onChange={handleChange}
+              required
+              placeholder="EMP-001"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>First Name *</label>
+            <input
+              type="text"
+              name="first_name"
+              value={formData.first_name}
+              onChange={handleChange}
+              required
+              placeholder="First name"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Last Name *</label>
+            <input
+              type="text"
+              name="last_name"
+              value={formData.last_name}
+              onChange={handleChange}
+              required
+              placeholder="Last name"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Date of Birth *</label>
+            <input
+              type="date"
+              name="date_of_birth"
+              value={formData.date_of_birth}
+              onChange={handleChange}
+              required
+              max={today}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="employee@company.com"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Phone</label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="+27 12 345 6789"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Position</label>
+            <input
+              type="text"
+              name="position"
+              value={formData.position}
+              onChange={handleChange}
+              placeholder="e.g., Electrician, Project Manager"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Department</label>
+            <input
+              type="text"
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              placeholder="e.g., Operations, HR, Finance"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Hourly Rate (R)</label>
+            <input
+              type="number"
+              name="hourly_rate"
+              value={formData.hourly_rate}
+              onChange={handleChange}
+              step="0.01"
+              placeholder="0.00"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Nationality</label>
+            <input
+              type="text"
+              name="nationality"
+              value={formData.nationality}
+              onChange={handleChange}
+              placeholder="South African"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Passport Number</label>
+            <input
+              type="text"
+              name="passport_number"
+              value={formData.passport_number}
+              onChange={handleChange}
+              placeholder="Passport number"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Work Permit</label>
+            <input
+              type="text"
+              name="work_permit"
+              value={formData.work_permit}
+              onChange={handleChange}
+              placeholder="Critical Skills, General, etc."
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Company Start Date *</label>
+            <input
+              type="date"
+              name="company_start_date"
+              value={formData.company_start_date}
+              onChange={handleChange}
+              required
+            />
+          </div>
+        </div>
+        
+        <div className="form-actions">
+          <button type="submit" disabled={loading} className="btn-primary">
+            {loading ? 'Creating...' : 'Create Employee'}
+          </button>
+          <Link href="/employees" className="btn-secondary">Cancel</Link>
+        </div>
+      </form>
+
+      <style jsx>{`
+        .form-container {
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
+        .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+        }
+        .page-header h1 {
+          margin: 0;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .form-card {
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
+          border-radius: 0.75rem;
+          padding: 2rem;
+        }
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+        }
+        .form-group label {
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .form-group input {
+          width: 100%;
+          padding: 0.625rem;
+          border: 1px solid var(--border-medium);
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+          transition: all 0.2s;
+        }
+        .form-group input:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .form-group input::placeholder {
+          color: var(--text-muted);
+        }
+        .form-actions {
+          display: flex;
+          gap: 1rem;
+          justify-content: flex-end;
+          padding-top: 0.5rem;
+          border-top: 1px solid var(--border-light);
+        }
+        .btn-primary {
+          background: var(--primary);
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          font-weight: 500;
+          transition: background 0.2s;
+        }
+        .btn-primary:hover {
+          background: var(--primary-dark);
+        }
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .btn-secondary {
+          background: var(--secondary);
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 0.375rem;
+          text-decoration: none;
+          font-size: 0.875rem;
+          font-weight: 500;
+          transition: background 0.2s;
+          display: inline-block;
+        }
+        .btn-secondary:hover {
+          background: var(--secondary-dark);
+        }
+        @media (max-width: 768px) {
+          .form-container {
+            padding: 1rem;
+          }
+          .form-card {
+            padding: 1.5rem;
+          }
+          .form-grid {
+            grid-template-columns: 1fr;
+          }
+          .form-actions {
+            flex-direction: column-reverse;
+          }
+          .form-actions button,
+          .form-actions a {
+            width: 100%;
+            text-align: center;
+          }
+        }
+      `}</style>
+    </div>
+  );
 }
