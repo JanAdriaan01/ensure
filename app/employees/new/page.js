@@ -1,40 +1,67 @@
+// app/employees/new/page.js
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function NewEmployeePage() {
   const router = useRouter();
+  const { token, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     employee_number: '',
-    first_name: '',
-    last_name: '',
+    name: '',           // Changed from first_name
+    surname: '',        // Changed from last_name
     date_of_birth: '',
     nationality: '',
     passport_number: '',
     work_permit: '',
-    company_start_date: ''
+    company_start_date: '',
+    hourly_rate: ''
   });
+
+  // Check authentication
+  if (!isAuthenticated) {
+    return (
+      <div className="form-container">
+        <div className="page-header">
+          <h1>Authentication Required</h1>
+          <p>Please log in to create employees.</p>
+          <Link href="/login" className="btn-primary">Go to Login</Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
-    const res = await fetch('/api/employees', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    
-    if (res.ok) {
-      router.push('/employees');
-    } else {
-      const error = await res.json();
-      alert(error.error || 'Failed to create employee');
+    try {
+      const res = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        router.push('/employees');
+      } else {
+        alert(data.error || 'Failed to create employee');
+      }
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      alert('Failed to create employee');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleChange = (e) => {
@@ -65,11 +92,11 @@ export default function NewEmployeePage() {
           </div>
           
           <div className="form-group">
-            <label>First Name *</label>
+            <label>Name *</label>
             <input
               type="text"
-              name="first_name"
-              value={formData.first_name}
+              name="name"
+              value={formData.name}
               onChange={handleChange}
               required
               placeholder="First name"
@@ -77,11 +104,11 @@ export default function NewEmployeePage() {
           </div>
           
           <div className="form-group">
-            <label>Last Name *</label>
+            <label>Surname *</label>
             <input
               type="text"
-              name="last_name"
-              value={formData.last_name}
+              name="surname"
+              value={formData.surname}
               onChange={handleChange}
               required
               placeholder="Last name"
@@ -97,6 +124,18 @@ export default function NewEmployeePage() {
               onChange={handleChange}
               required
               max={today}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Hourly Rate (R)</label>
+            <input
+              type="number"
+              name="hourly_rate"
+              value={formData.hourly_rate}
+              onChange={handleChange}
+              step="0.01"
+              placeholder="0.00"
             />
           </div>
           

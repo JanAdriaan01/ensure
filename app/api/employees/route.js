@@ -1,3 +1,4 @@
+// app/api/employees/route.js
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
@@ -13,13 +14,22 @@ export async function GET(request) {
 
     const result = await query(`
       SELECT 
-        e.*,
+        e.id,
+        e.employee_number,
+        e.name,
+        e.surname,
+        CONCAT(e.name, ' ', e.surname) as full_name,
+        e.date_of_birth,
+        e.nationality,
+        e.passport_number,
+        e.work_permit,
+        e.company_start_date,
+        e.hourly_rate,
+        e.created_at,
+        e.updated_at,
         EXTRACT(YEAR FROM age(CURRENT_DATE, e.date_of_birth)) as age,
-        EXTRACT(YEAR FROM age(CURRENT_DATE, e.company_start_date)) as years_worked,
-        COALESCE(SUM(edt.hours_worked), 0) as total_hours_worked
+        EXTRACT(YEAR FROM age(CURRENT_DATE, e.company_start_date)) as years_worked
       FROM employees e
-      LEFT JOIN employee_daily_time edt ON e.id = edt.employee_id
-      GROUP BY e.id
       ORDER BY e.employee_number
     `);
     
@@ -39,22 +49,34 @@ export async function POST(request) {
 
     const body = await request.json();
     const { 
-      employee_number, first_name, last_name, date_of_birth, 
-      nationality, passport_number, work_permit, company_start_date,
-      email, phone, position, department, hourly_rate
+      employee_number, 
+      name,
+      surname,
+      date_of_birth, 
+      nationality, 
+      passport_number, 
+      work_permit, 
+      company_start_date,
+      hourly_rate
     } = body;
+    
+    if (!employee_number || !name || !surname || !date_of_birth || !company_start_date) {
+      return NextResponse.json({ 
+        error: 'Missing required fields: employee_number, name, surname, date_of_birth, company_start_date' 
+      }, { status: 400 });
+    }
     
     const result = await query(
       `INSERT INTO employees (
-        employee_number, first_name, last_name, date_of_birth, 
+        employee_number, name, surname, date_of_birth, 
         nationality, passport_number, work_permit, company_start_date,
-        email, phone, position, department, hourly_rate, created_at
+        hourly_rate, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *`,
-      [employee_number, first_name, last_name, date_of_birth, 
-       nationality, passport_number, work_permit, company_start_date,
-       email, phone, position, department, hourly_rate]
+      [employee_number, name, surname, date_of_birth, 
+       nationality || null, passport_number || null, work_permit || null, company_start_date,
+       hourly_rate || null]
     );
     
     return NextResponse.json(result.rows[0], { status: 201 });
