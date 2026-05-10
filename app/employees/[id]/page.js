@@ -1,76 +1,58 @@
+// app/employees/[id]/page.js
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
 
-export default function EmployeeDetailPage({ params }) {
+export default function EmployeeDetailPage() {
+  const params = useParams();
   const router = useRouter();
+  const { token, isAuthenticated } = useAuth();
   const [employee, setEmployee] = useState(null);
-  const [certifications, setCertifications] = useState([]);
-  const [skills, setSkills] = useState([]);
-  const [timeEntries, setTimeEntries] = useState([]);
-  const [availableCertifications, setAvailableCertifications] = useState([]);
-  const [availableSkills, setAvailableSkills] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({});
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchEmployeeData();
-    fetchAvailableData();
-  }, [params.id]);
+    if (isAuthenticated && token && params.id) {
+      fetchEmployee();
+    }
+  }, [isAuthenticated, token, params.id]);
 
-  const fetchEmployeeData = async () => {
-    const res = await fetch(`/api/employees/${params.id}`);
-    const data = await res.json();
-    setEmployee(data.employee);
-    setCertifications(data.certifications || []);
-    setSkills(data.skills || []);
-    setTimeEntries(data.time_entries || []);
-    setFormData(data.employee);
-    setLoading(false);
-  };
-
-  const fetchAvailableData = async () => {
-    const certsRes = await fetch('/api/employees/certifications');
-    const certsData = await certsRes.json();
-    setAvailableCertifications(certsData);
-    
-    const skillsRes = await fetch('/api/employees/skills');
-    const skillsData = await skillsRes.json();
-    setAvailableSkills(skillsData);
-  };
-
-  const updateEmployee = async () => {
-    const res = await fetch(`/api/employees/${params.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    
-    if (res.ok) {
-      setEditing(false);
-      fetchEmployeeData();
-    } else {
-      alert('Failed to update employee');
+  const fetchEmployee = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/employees/${params.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setEmployee(data.employee || data);
+    } catch (error) {
+      console.error('Error fetching employee:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateCertifications = async (selectedCerts) => {
-    await fetch(`/api/employees/${params.id}/certifications`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ certifications: selectedCerts })
-    });
-    fetchEmployeeData();
+  const formatDate = (date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString('en-ZA');
   };
 
-  const deleteEmployee = async () => {
-    if (confirm('Delete this employee? All time entries will be deleted.')) {
-      await fetch(`/api/employees/${params.id}`, { method: 'DELETE' });
-      router.push('/employees');
-    }
+  const formatCurrency = (amount) => {
+    if (!amount) return 'R 0';
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR',
+      minimumFractionDigits: 0
+    }).format(amount);
   };
 
   if (loading) {
@@ -82,234 +64,90 @@ export default function EmployeeDetailPage({ params }) {
     );
   }
 
-  if (!employee) {
+  if (error || !employee) {
     return (
-      <div className="container">
-        <div className="empty-state">Employee not found</div>
-        <Link href="/employees" className="btn-secondary" style={{ marginTop: '1rem', display: 'inline-block' }}>Back to Employees</Link>
+      <div className="error-container">
+        <h2>Error Loading Employee</h2>
+        <p>{error || 'Employee not found'}</p>
+        <Link href="/employees" className="btn-primary">Back to Employees</Link>
       </div>
     );
   }
 
-  const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString();
-  };
-
-  const totalHours = timeEntries.reduce((sum, t) => sum + (t.hours_worked || 0), 0);
-
   return (
-    <div className="container">
-      {/* Header */}
+    <div className="employee-detail-container">
       <div className="page-header">
         <div>
           <Link href="/employees" className="back-link">← Back to Employees</Link>
-          <h1>{employee.first_name} {employee.last_name}</h1>
-          <div className="employee-badge">{employee.employee_number}</div>
+          <h1>{employee.name} {employee.surname}</h1>
+          <p className="subtitle">Employee #{employee.employee_number}</p>
         </div>
         <div className="header-actions">
-          <button onClick={() => setEditing(!editing)} className="btn-secondary">
-            {editing ? 'Cancel' : 'Edit'}
-          </button>
-          <button onClick={deleteEmployee} className="btn-danger">Delete</button>
+          <Link href={`/employees/${employee.id}/edit`} className="btn-edit">
+            Edit Employee
+          </Link>
         </div>
       </div>
 
-      {/* Employee Info Cards */}
-      <div className="info-grid">
-        <div className="info-card">
-          <h3>Personal Information</h3>
-          {editing ? (
-            <div className="edit-form">
-              <div className="form-group">
-                <label>First Name</label>
-                <input 
-                  type="text"
-                  value={formData.first_name || ''} 
-                  onChange={e => setFormData({...formData, first_name: e.target.value})} 
-                />
-              </div>
-              <div className="form-group">
-                <label>Last Name</label>
-                <input 
-                  type="text"
-                  value={formData.last_name || ''} 
-                  onChange={e => setFormData({...formData, last_name: e.target.value})} 
-                />
-              </div>
-              <div className="form-group">
-                <label>Nationality</label>
-                <input 
-                  type="text"
-                  value={formData.nationality || ''} 
-                  onChange={e => setFormData({...formData, nationality: e.target.value})} 
-                />
-              </div>
-              <div className="form-group">
-                <label>Passport Number</label>
-                <input 
-                  type="text"
-                  value={formData.passport_number || ''} 
-                  onChange={e => setFormData({...formData, passport_number: e.target.value})} 
-                />
-              </div>
-              <div className="form-group">
-                <label>Work Permit</label>
-                <input 
-                  type="text"
-                  value={formData.work_permit || ''} 
-                  onChange={e => setFormData({...formData, work_permit: e.target.value})} 
-                />
-              </div>
-              <button onClick={updateEmployee} className="btn-primary">Save Changes</button>
-            </div>
-          ) : (
-            <div className="info-list">
-              <div className="info-row">
-                <span className="info-label">Date of Birth</span>
-                <span className="info-value">{formatDate(employee.date_of_birth)} (Age: {employee.age} yrs)</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Nationality</span>
-                <span className="info-value">{employee.nationality || '-'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Passport Number</span>
-                <span className="info-value">{employee.passport_number || '-'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Work Permit</span>
-                <span className="info-value">{employee.work_permit || '-'}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="info-card">
-          <h3>Employment Information</h3>
-          <div className="info-list">
-            <div className="info-row">
-              <span className="info-label">Start Date</span>
-              <span className="info-value">{formatDate(employee.company_start_date)}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Years Worked</span>
-              <span className="info-value">{Math.round(employee.years_worked || 0)} years</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Total Hours</span>
-              <span className="info-value">{totalHours} hrs</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Days Worked</span>
-              <span className="info-value">{timeEntries.length} days</span>
-            </div>
+      <div className="detail-card">
+        <h2>Personal Information</h2>
+        <div className="info-grid">
+          <div className="info-item">
+            <span className="info-label">Employee Number</span>
+            <span className="info-value">{employee.employee_number}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Full Name</span>
+            <span className="info-value">{employee.name} {employee.surname}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Date of Birth</span>
+            <span className="info-value">{formatDate(employee.date_of_birth)}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Age</span>
+            <span className="info-value">{employee.age || '-'} years</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Nationality</span>
+            <span className="info-value">{employee.nationality || '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Passport Number</span>
+            <span className="info-value">{employee.passport_number || '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Work Permit</span>
+            <span className="info-value">{employee.work_permit || '-'}</span>
           </div>
         </div>
       </div>
 
-      {/* Certifications Section */}
-      <div className="section">
-        <div className="section-header">
-          <h2>Certifications & Training</h2>
-        </div>
-        <div className="cert-grid">
-          {availableCertifications.map(cert => {
-            const hasCert = certifications.some(c => c.certification_name === cert.certification_name);
-            return (
-              <label key={cert.id} className="cert-checkbox">
-                <input
-                  type="checkbox"
-                  checked={hasCert}
-                  onChange={() => {
-                    const newCerts = hasCert
-                      ? certifications.filter(c => c.certification_name !== cert.certification_name).map(c => c.certification_name)
-                      : [...certifications.map(c => c.certification_name), cert.certification_name];
-                    updateCertifications(newCerts);
-                  }}
-                />
-                <span>{cert.certification_name}</span>
-              </label>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Skills Section */}
-      <div className="section">
-        <div className="section-header">
-          <h2>Skills</h2>
-        </div>
-        <div className="skills-list">
-          {skills.map(skill => (
-            <span key={skill.skill_name} className="skill-tag">
-              {skill.skill_name}
-              {skill.years_experience ? ` (${skill.years_experience} yrs)` : ''}
-            </span>
-          ))}
-          {skills.length === 0 && <p className="no-data">No skills added yet.</p>}
-        </div>
-      </div>
-
-      {/* Time Entries History */}
-      <div className="section">
-        <div className="section-header">
-          <h2>Time Entry History</h2>
-        </div>
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Hours</th>
-                <th>Site</th>
-                <th>Job Number</th>
-                <th>Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {timeEntries.map(entry => (
-                <tr key={entry.id}>
-                  <td>{formatDate(entry.work_date)}</td>
-                  <td>{entry.hours_worked}</td>
-                  <td>{entry.site_name || '-'}</td>
-                  <td>{entry.job_number || '-'}</td>
-                  <td>{entry.description || '-'}</td>
-                </tr>
-              ))}
-              {timeEntries.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="no-data">No time entries yet.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <div className="detail-card">
+        <h2>Employment Information</h2>
+        <div className="info-grid">
+          <div className="info-item">
+            <span className="info-label">Start Date</span>
+            <span className="info-value">{formatDate(employee.company_start_date)}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Years Worked</span>
+            <span className="info-value">{employee.years_worked || 0} years</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">Hourly Rate</span>
+            <span className="info-value">{formatCurrency(employee.hourly_rate)}/hour</span>
+          </div>
         </div>
       </div>
 
       <style jsx>{`
-        .back-link {
-          color: var(--text-tertiary);
-          text-decoration: none;
-          display: inline-block;
-          margin-bottom: 0.5rem;
-          font-size: 0.875rem;
+        .employee-detail-container {
+          max-width: 1000px;
+          margin: 0 auto;
+          padding: 2rem;
         }
-        .back-link:hover {
-          color: var(--primary);
-        }
-        h1 {
-          margin: 0.5rem 0 0.25rem 0;
-          color: var(--text-primary);
-        }
-        .employee-badge {
-          background: var(--bg-tertiary);
-          padding: 0.25rem 0.75rem;
-          border-radius: 1rem;
-          font-size: 0.75rem;
-          display: inline-block;
-          color: var(--text-secondary);
-        }
+
         .page-header {
           display: flex;
           justify-content: space-between;
@@ -318,188 +156,128 @@ export default function EmployeeDetailPage({ params }) {
           flex-wrap: wrap;
           gap: 1rem;
         }
-        .header-actions {
-          display: flex;
-          gap: 0.75rem;
+
+        .back-link {
+          color: #3b82f6;
+          text-decoration: none;
+          font-size: 0.875rem;
+          display: inline-block;
+          margin-bottom: 0.5rem;
         }
-        .info-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-          gap: 1.5rem;
+
+        .back-link:hover {
+          text-decoration: underline;
+        }
+
+        h1 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #1e293b;
+          margin: 0;
+        }
+
+        .subtitle {
+          color: #64748b;
+          margin: 0.25rem 0 0;
+        }
+
+        .btn-edit {
+          background: #3b82f6;
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 0.5rem;
+          text-decoration: none;
+          font-size: 0.875rem;
+          transition: background 0.2s;
+        }
+
+        .btn-edit:hover {
+          background: #2563eb;
+        }
+
+        .detail-card {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.75rem;
+          padding: 1.5rem;
           margin-bottom: 1.5rem;
         }
-        .info-card {
-          background: var(--card-bg);
-          border: 1px solid var(--card-border);
-          padding: 1.5rem;
-          border-radius: 0.75rem;
-        }
-        .info-card h3 {
-          margin: 0 0 1rem 0;
-          font-size: 0.875rem;
+
+        .detail-card h2 {
+          font-size: 1rem;
           font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: var(--text-tertiary);
-        }
-        .info-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-        .info-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
+          color: #1e293b;
+          margin: 0 0 1rem 0;
           padding-bottom: 0.5rem;
-          border-bottom: 1px solid var(--border-light);
+          border-bottom: 1px solid #e2e8f0;
         }
-        .info-label {
-          font-size: 0.8rem;
-          color: var(--text-tertiary);
-        }
-        .info-value {
-          font-size: 0.8rem;
-          font-weight: 500;
-          color: var(--text-primary);
-        }
-        .edit-form {
-          display: flex;
-          flex-direction: column;
+
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
           gap: 1rem;
         }
-        .form-group {
+
+        .info-item {
           display: flex;
           flex-direction: column;
           gap: 0.25rem;
         }
-        .form-group label {
-          font-size: 0.75rem;
-          font-weight: 500;
-          color: var(--text-secondary);
-        }
-        .form-group input {
-          padding: 0.5rem;
-          border: 1px solid var(--border-medium);
-          border-radius: 0.375rem;
-          background: var(--bg-primary);
-          color: var(--text-primary);
-        }
-        .section {
-          background: var(--card-bg);
-          border: 1px solid var(--card-border);
-          padding: 1.5rem;
-          border-radius: 0.75rem;
-          margin-bottom: 1.5rem;
-        }
-        .section-header {
-          margin-bottom: 1rem;
-        }
-        .section-header h2 {
-          margin: 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-        .cert-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 0.5rem;
-        }
-        .cert-checkbox {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          padding: 0.5rem;
-          border-radius: 0.375rem;
-          background: var(--bg-tertiary);
-          font-size: 0.875rem;
-          color: var(--text-secondary);
-        }
-        .cert-checkbox:hover {
-          background: var(--bg-quaternary);
-        }
-        .skills-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-        .skill-tag {
-          background: var(--primary-bg);
-          color: var(--primary-dark);
-          padding: 0.375rem 0.75rem;
-          border-radius: 2rem;
-          font-size: 0.75rem;
-          font-weight: 500;
-        }
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid var(--border-light);
-        }
-        .data-table th {
-          background: var(--bg-tertiary);
-          font-weight: 600;
+
+        .info-label {
           font-size: 0.7rem;
+          color: #64748b;
           text-transform: uppercase;
-          color: var(--text-secondary);
+          letter-spacing: 0.5px;
         }
-        .data-table td {
-          color: var(--text-secondary);
+
+        .info-value {
           font-size: 0.875rem;
+          font-weight: 500;
+          color: #1e293b;
         }
-        .no-data {
+
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 400px;
+        }
+
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid #e2e8f0;
+          border-top-color: #3b82f6;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .error-container {
           text-align: center;
-          padding: 2rem;
-          color: var(--text-tertiary);
+          padding: 4rem;
         }
+
         .btn-primary {
-          background: var(--primary);
+          background: #3b82f6;
           color: white;
           padding: 0.5rem 1rem;
-          border: none;
-          border-radius: 0.375rem;
-          cursor: pointer;
-          font-size: 0.875rem;
+          border-radius: 0.5rem;
+          text-decoration: none;
+          display: inline-block;
+          margin-top: 1rem;
         }
-        .btn-primary:hover {
-          background: var(--primary-dark);
-        }
-        .btn-secondary {
-          background: var(--secondary);
-          color: white;
-          padding: 0.5rem 1rem;
-          border: none;
-          border-radius: 0.375rem;
-          cursor: pointer;
-          font-size: 0.875rem;
-        }
-        .btn-secondary:hover {
-          background: var(--secondary-dark);
-        }
-        .btn-danger {
-          background: var(--danger);
-          color: white;
-          padding: 0.5rem 1rem;
-          border: none;
-          border-radius: 0.375rem;
-          cursor: pointer;
-          font-size: 0.875rem;
-        }
-        .btn-danger:hover {
-          background: var(--danger-dark);
-        }
+
         @media (max-width: 768px) {
-          .info-grid {
-            grid-template-columns: 1fr;
+          .employee-detail-container {
+            padding: 1rem;
           }
-          .cert-grid {
+          .info-grid {
             grid-template-columns: 1fr;
           }
         }
