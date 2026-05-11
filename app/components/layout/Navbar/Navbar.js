@@ -37,6 +37,17 @@ export default function Navbar() {
     };
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuOpen && !event.target.closest('.user-menu')) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [userMenuOpen]);
+
   const handleLogout = async () => {
     await logout();
     router.push('/login');
@@ -45,54 +56,59 @@ export default function Navbar() {
   const navModules = [
     {
       title: 'Financial',
+      icon: '💰',
       links: [
-        { href: '/financial', label: 'Dashboard' },
-        { href: '/jobs', label: 'Jobs' },
-        { href: '/quotes', label: 'Quotes' },
-        { href: '/invoicing', label: 'Invoicing' },
-        { href: '/reconciliation', label: 'Reconciliation' },
-        { href: '/clients', label: 'Clients' },
+        { href: '/financial', label: 'Dashboard', icon: '📊' },
+        { href: '/jobs', label: 'Jobs', icon: '🔨' },
+        { href: '/quotes', label: 'Quotes', icon: '📋' },
+        { href: '/invoicing', label: 'Invoicing', icon: '📄' },
+        { href: '/reconciliation', label: 'Reconciliation', icon: '🔄' },
+        { href: '/clients', label: 'Clients', icon: '👥' },
       ]
     },
     {
       title: 'HR',
+      icon: '👥',
       links: [
-        { href: '/hr', label: 'Dashboard' },
-        { href: '/employees', label: 'Employees' },
-        { href: '/payroll', label: 'Payroll' },
-        { href: '/employees/skills', label: 'Skills' },
-        { href: '/employees/certifications', label: 'Certifications' },
+        { href: '/hr', label: 'Dashboard', icon: '📊' },
+        { href: '/employees', label: 'Employees', icon: '👤' },
+        { href: '/payroll', label: 'Payroll', icon: '💰' },
+        { href: '/employees/skills', label: 'Skills', icon: '⭐' },
+        { href: '/employees/certifications', label: 'Certifications', icon: '📜' },
       ]
     },
     {
       title: 'Operations',
+      icon: '🔧',
       links: [
-        { href: '/operations', label: 'Dashboard' },
-        { href: '/tools', label: 'Tools' },
-        { href: '/inventory', label: 'Inventory' },
-        { href: '/schedule', label: 'Schedule' },
-        { href: '/ohs', label: 'OHS' },
+        { href: '/operations', label: 'Dashboard', icon: '📊' },
+        { href: '/tools', label: 'Tools', icon: '🔧' },
+        { href: '/inventory', label: 'Inventory', icon: '📦' },
+        { href: '/schedule', label: 'Schedule', icon: '📅' },
+        { href: '/ohs', label: 'OHS', icon: '🛡️' },
       ]
     },
     {
       title: 'Reports',
+      icon: '📊',
       links: [
-        { href: '/reports/monthly', label: 'Monthly Reports' },
-        { href: '/reports/financial', label: 'Financial Reports' },
-        { href: '/reports/hr', label: 'HR Reports' },
-        { href: '/reports/operations', label: 'Operations Reports' },
+        { href: '/reports/monthly', label: 'Monthly Reports', icon: '📅' },
+        { href: '/reports/financial', label: 'Financial Reports', icon: '💰' },
+        { href: '/reports/hr', label: 'HR Reports', icon: '👥' },
+        { href: '/reports/operations', label: 'Operations Reports', icon: '🔧' },
       ]
     },
     {
       title: 'Settings',
+      icon: '⚙️',
       links: [
-        { href: '/Settings', label: 'General Settings' },
-        { href: '/Settings/company', label: 'Company Information' },
-        { href: '/Settings/financial', label: 'Financial Settings' },
-        { href: '/Settings/terms', label: 'Terms & Conditions' },
-        { href: '/Settings/users', label: 'User Management' },
-        { href: '/Settings/backup', label: 'Backup' },
-        { href: '/Settings/audit-logs', label: 'Audit Logs' },
+        { href: '/Settings', label: 'General Settings', icon: '⚙️' },
+        { href: '/Settings/company', label: 'Company Information', icon: '🏢' },
+        { href: '/Settings/financial', label: 'Financial Settings', icon: '💰' },
+        { href: '/Settings/terms', label: 'Terms & Conditions', icon: '📜' },
+        { href: '/Settings/users', label: 'User Management', icon: '👥' },
+        { href: '/Settings/backup', label: 'Backup', icon: '💾' },
+        { href: '/Settings/audit-logs', label: 'Audit Logs', icon: '📋' },
       ]
     }
   ];
@@ -114,12 +130,21 @@ export default function Navbar() {
     return 'User';
   };
 
+  const getUserRole = () => {
+    if (user?.role === 'admin') return 'Administrator';
+    if (user?.role === 'user') return 'User';
+    return user?.role || 'User';
+  };
+
   return (
     <nav className="navbar">
       <div className="nav-container">
         {/* Logo */}
         <div className="nav-brand">
-          <Link href="/">ENSURE</Link>
+          <Link href="/">
+            <span className="logo-icon">🏗️</span>
+            <span>ENSURE</span>
+          </Link>
         </div>
 
         {/* Desktop Navigation */}
@@ -132,6 +157,7 @@ export default function Navbar() {
               onMouseLeave={handleMouseLeave}
             >
               <button className="nav-button">
+                <span className="nav-icon">{module.icon}</span>
                 {module.title}
                 <svg className={`dropdown-arrow ${openDropdown === module.title ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="6 9 12 15 18 9"></polyline>
@@ -146,6 +172,7 @@ export default function Navbar() {
                       className={`dropdown-link ${pathname === link.href ? 'active' : ''}`}
                       onClick={() => setOpenDropdown(null)}
                     >
+                      <span className="dropdown-link-icon">{link.icon}</span>
                       {link.label}
                     </Link>
                   ))}
@@ -167,8 +194,10 @@ export default function Navbar() {
             <div className="user-menu">
               <button 
                 className="user-menu-btn"
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                onBlur={() => setTimeout(() => setUserMenuOpen(false), 200)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUserMenuOpen(!userMenuOpen);
+                }}
               >
                 <div className="user-avatar">
                   {getUserInitials()}
@@ -186,12 +215,16 @@ export default function Navbar() {
                       {getUserInitials()}
                     </div>
                     <div className="user-details">
-                      <div className="user-name-full">{user?.name || 'User'}</div>
+                      <div className="user-name-full">{user?.name || getUserName()}</div>
                       <div className="user-email">{user?.email}</div>
-                      <div className="user-role">{user?.role || 'User'}</div>
+                      <div className="user-role-badge">{getUserRole()}</div>
                     </div>
                   </div>
                   <div className="dropdown-divider"></div>
+                  <Link href="/dashboard" className="user-dropdown-link" onClick={() => setUserMenuOpen(false)}>
+                    <span className="dropdown-icon">🏠</span>
+                    Dashboard
+                  </Link>
                   <Link href="/Settings/users" className="user-dropdown-link" onClick={() => setUserMenuOpen(false)}>
                     <span className="dropdown-icon">👤</span>
                     Profile Settings
@@ -211,7 +244,7 @@ export default function Navbar() {
           )}
           
           <button className="mobile-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            Menu
+            {mobileMenuOpen ? '✕' : '☰'} Menu
           </button>
         </div>
       </div>
@@ -228,6 +261,7 @@ export default function Navbar() {
               <div className="mobile-user-details">
                 <div className="mobile-user-name">{getUserName()}</div>
                 <div className="mobile-user-email">{user?.email}</div>
+                <div className="mobile-user-role">{getUserRole()}</div>
               </div>
               <button onClick={handleLogout} className="mobile-logout-btn">
                 Logout
@@ -237,7 +271,10 @@ export default function Navbar() {
           
           {navModules.map((module) => (
             <div key={module.title} className="mobile-group">
-              <div className="mobile-group-title">{module.title}</div>
+              <div className="mobile-group-title">
+                <span className="mobile-group-icon">{module.icon}</span>
+                {module.title}
+              </div>
               {module.links.map((link) => (
                 <Link
                   key={link.href}
@@ -245,13 +282,14 @@ export default function Navbar() {
                   className="mobile-link"
                   onClick={() => setMobileMenuOpen(false)}
                 >
+                  <span className="mobile-link-icon">{link.icon}</span>
                   {link.label}
                 </Link>
               ))}
             </div>
           ))}
           <button onClick={toggleTheme} className="mobile-theme-btn">
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
           </button>
         </div>
       )}
@@ -277,11 +315,18 @@ export default function Navbar() {
 
         /* Brand */
         .nav-brand a {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
           font-size: 1.25rem;
           font-weight: 700;
           color: var(--text-primary);
           text-decoration: none;
           letter-spacing: -0.5px;
+        }
+
+        .logo-icon {
+          font-size: 1.5rem;
         }
 
         /* Desktop Navigation */
@@ -315,6 +360,10 @@ export default function Navbar() {
           color: var(--text-primary);
         }
 
+        .nav-icon {
+          font-size: 1rem;
+        }
+
         .dropdown-arrow {
           transition: transform 0.2s;
           opacity: 0.6;
@@ -324,12 +373,11 @@ export default function Navbar() {
           transform: rotate(180deg);
         }
 
-        /* Dropdown Menu */
         .dropdown {
           position: absolute;
           top: calc(100% + 0.5rem);
           left: 0;
-          min-width: 220px;
+          min-width: 240px;
           background: var(--card-bg);
           border: 1px solid var(--border-light);
           border-radius: 0.75rem;
@@ -353,7 +401,9 @@ export default function Navbar() {
         }
 
         .dropdown-link {
-          display: block;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
           padding: 0.625rem 1rem;
           color: var(--text-secondary);
           text-decoration: none;
@@ -372,6 +422,10 @@ export default function Navbar() {
         .dropdown-link.active {
           color: var(--primary);
           background: var(--primary-bg);
+        }
+
+        .dropdown-link-icon {
+          font-size: 1rem;
         }
 
         /* Right Side Actions */
@@ -497,7 +551,7 @@ export default function Navbar() {
           color: var(--text-tertiary);
         }
 
-        .user-role {
+        .user-role-badge {
           font-size: 0.65rem;
           color: var(--primary);
           margin-top: 0.25rem;
@@ -552,6 +606,9 @@ export default function Navbar() {
           font-size: 0.75rem;
           font-weight: 500;
           color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
 
         /* Mobile Menu */
@@ -600,6 +657,12 @@ export default function Navbar() {
           color: var(--text-tertiary);
         }
 
+        .mobile-user-role {
+          font-size: 0.65rem;
+          color: var(--primary);
+          margin-top: 0.25rem;
+        }
+
         .mobile-logout-btn {
           background: #ef4444;
           color: white;
@@ -615,6 +678,9 @@ export default function Navbar() {
         }
 
         .mobile-group-title {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
           font-size: 0.7rem;
           font-weight: 600;
           text-transform: uppercase;
@@ -623,8 +689,14 @@ export default function Navbar() {
           margin-bottom: 0.75rem;
         }
 
+        .mobile-group-icon {
+          font-size: 0.8rem;
+        }
+
         .mobile-link {
-          display: block;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
           padding: 0.625rem 0;
           color: var(--text-secondary);
           text-decoration: none;
@@ -641,6 +713,10 @@ export default function Navbar() {
           color: var(--primary);
         }
 
+        .mobile-link-icon {
+          font-size: 1rem;
+        }
+
         .mobile-theme-btn {
           width: 100%;
           padding: 0.625rem;
@@ -652,6 +728,10 @@ export default function Navbar() {
           font-weight: 500;
           cursor: pointer;
           margin-top: 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
         }
 
         /* Responsive */
@@ -663,10 +743,19 @@ export default function Navbar() {
             display: none;
           }
           .mobile-btn {
-            display: block;
+            display: flex;
           }
           .mobile-menu {
             display: block;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .nav-container {
+            padding: 0 1rem;
+          }
+          .nav-brand a span:first-child {
+            display: none;
           }
         }
       `}</style>
