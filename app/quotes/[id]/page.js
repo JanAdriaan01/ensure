@@ -65,7 +65,6 @@ export default function QuoteDetailPage() {
 
   const handlePrint = () => {
     const printContent = printRef.current.innerHTML;
-    const originalContent = document.body.innerHTML;
     
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
@@ -107,6 +106,12 @@ export default function QuoteDetailPage() {
               margin: 0;
               font-size: 0.75rem;
               color: #64748b;
+            }
+            .company-logo {
+              max-height: 60px;
+              max-width: 200px;
+              margin-bottom: 0.5rem;
+              object-fit: contain;
             }
             .quote-title {
               text-align: right;
@@ -322,8 +327,14 @@ export default function QuoteDetailPage() {
         {/* Header with Company and Quote Info */}
         <div className="print-header">
           <div className="company-info">
-            {company?.logo_url && (
-              <img src={company.logo_url} alt="Company Logo" className="company-logo" />
+            {/* FIXED: Use logo_data instead of logo_url */}
+            {company?.logo_data && (
+              <img 
+                src={company.logo_data} 
+                alt="Company Logo" 
+                className="company-logo"
+                style={{ maxHeight: '60px', maxWidth: '200px', objectFit: 'contain' }}
+              />
             )}
             <h1>{company?.company_name || 'ENSURE System'}</h1>
             <p>{company?.address_line1 || ''}</p>
@@ -375,7 +386,7 @@ export default function QuoteDetailPage() {
           </div>
         )}
 
-        {/* Quote Items Table - Add if you have line items */}
+        {/* Quote Items Table */}
         {quote.items && quote.items.length > 0 && (
           <table>
             <thead>
@@ -532,6 +543,7 @@ export default function QuoteDetailPage() {
           border-radius: 0.75rem;
           padding: 2rem;
           margin-top: 1rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .print-header {
@@ -563,6 +575,7 @@ export default function QuoteDetailPage() {
           max-height: 60px;
           max-width: 200px;
           margin-bottom: 0.5rem;
+          object-fit: contain;
         }
 
         .quote-title {
