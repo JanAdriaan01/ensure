@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
-import CurrencySelector from '@/app/components/CurrencySelector';
 import { useTheme } from '@/app/context/ThemeContext';
 import { useAuth } from '@/app/hooks/useAuth';
 
@@ -184,10 +183,30 @@ export default function Navbar() {
 
         {/* Right Side - User Profile & Actions */}
         <div className="nav-actions">
-          <button onClick={toggleTheme} className="theme-btn" title="Toggle theme">
-            {theme === 'dark' ? '☀️' : '🌙'}
+          {/* Theme Toggle - Sleek version */}
+          <button 
+            onClick={toggleTheme} 
+            className="theme-toggle" 
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            )}
           </button>
-          <CurrencySelector />
           
           {/* User Profile Dropdown */}
           {isAuthenticated && (
@@ -244,7 +263,7 @@ export default function Navbar() {
           )}
           
           <button className="mobile-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? '✕' : '☰'} Menu
+            {mobileMenuOpen ? '✕' : '☰'}
           </button>
         </div>
       </div>
@@ -310,7 +329,7 @@ export default function Navbar() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          height: 70px;
+          height: 64px;
         }
 
         /* Brand */
@@ -343,7 +362,7 @@ export default function Navbar() {
         .nav-button {
           background: transparent;
           border: none;
-          padding: 0.625rem 1.25rem;
+          padding: 0.5rem 1rem;
           font-size: 0.875rem;
           font-weight: 500;
           color: var(--text-secondary);
@@ -367,6 +386,8 @@ export default function Navbar() {
         .dropdown-arrow {
           transition: transform 0.2s;
           opacity: 0.6;
+          width: 10px;
+          height: 10px;
         }
 
         .dropdown-arrow.open {
@@ -377,7 +398,7 @@ export default function Navbar() {
           position: absolute;
           top: calc(100% + 0.5rem);
           left: 0;
-          min-width: 240px;
+          min-width: 220px;
           background: var(--card-bg);
           border: 1px solid var(--border-light);
           border-radius: 0.75rem;
@@ -404,7 +425,7 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.625rem 1rem;
+          padding: 0.5rem 0.75rem;
           color: var(--text-secondary);
           text-decoration: none;
           font-size: 0.875rem;
@@ -425,7 +446,7 @@ export default function Navbar() {
         }
 
         .dropdown-link-icon {
-          font-size: 1rem;
+          font-size: 0.9rem;
         }
 
         /* Right Side Actions */
@@ -435,23 +456,25 @@ export default function Navbar() {
           gap: 0.75rem;
         }
 
-        .theme-btn {
-          background: var(--bg-tertiary);
+        /* Sleek Theme Toggle */
+        .theme-toggle {
+          background: transparent;
           border: none;
           padding: 0.5rem;
           width: 36px;
           height: 36px;
           border-radius: 0.5rem;
           cursor: pointer;
-          font-size: 1rem;
-          transition: all 0.2s;
           display: flex;
           align-items: center;
           justify-content: center;
+          color: var(--text-secondary);
+          transition: all 0.2s;
         }
 
-        .theme-btn:hover {
-          background: var(--bg-quaternary);
+        .theme-toggle:hover {
+          background: var(--bg-tertiary);
+          color: var(--text-primary);
         }
 
         /* User Menu */
@@ -463,16 +486,16 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          background: var(--bg-tertiary);
+          background: transparent;
           border: none;
-          padding: 0.375rem 0.75rem;
+          padding: 0.375rem 0.5rem;
           border-radius: 0.5rem;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .user-menu-btn:hover {
-          background: var(--bg-quaternary);
+          background: var(--bg-tertiary);
         }
 
         .user-avatar {
@@ -497,6 +520,8 @@ export default function Navbar() {
         .user-arrow {
           transition: transform 0.2s;
           opacity: 0.6;
+          width: 10px;
+          height: 10px;
         }
 
         .user-arrow.open {
@@ -507,7 +532,7 @@ export default function Navbar() {
           position: absolute;
           top: calc(100% + 0.5rem);
           right: 0;
-          min-width: 280px;
+          min-width: 260px;
           background: var(--card-bg);
           border: 1px solid var(--border-light);
           border-radius: 0.75rem;
@@ -568,7 +593,7 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.625rem 1rem;
+          padding: 0.5rem 1rem;
           color: var(--text-secondary);
           text-decoration: none;
           font-size: 0.875rem;
@@ -600,24 +625,24 @@ export default function Navbar() {
           display: none;
           background: var(--bg-tertiary);
           border: none;
-          padding: 0.5rem 1rem;
+          padding: 0.5rem;
+          width: 36px;
+          height: 36px;
           border-radius: 0.5rem;
           cursor: pointer;
-          font-size: 0.75rem;
-          font-weight: 500;
+          font-size: 1rem;
           color: var(--text-secondary);
-          display: flex;
           align-items: center;
-          gap: 0.5rem;
+          justify-content: center;
         }
 
         /* Mobile Menu */
         .mobile-menu {
           display: none;
-          padding: 1.5rem;
+          padding: 1rem;
           background: var(--bg-primary);
           border-top: 1px solid var(--border-light);
-          max-height: calc(100vh - 70px);
+          max-height: calc(100vh - 64px);
           overflow-y: auto;
         }
 
@@ -667,14 +692,14 @@ export default function Navbar() {
           background: #ef4444;
           color: white;
           border: none;
-          padding: 0.5rem 1rem;
+          padding: 0.5rem 0.75rem;
           border-radius: 0.5rem;
           cursor: pointer;
           font-size: 0.75rem;
         }
 
         .mobile-group {
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.25rem;
         }
 
         .mobile-group-title {
@@ -686,7 +711,7 @@ export default function Navbar() {
           text-transform: uppercase;
           letter-spacing: 1px;
           color: var(--text-tertiary);
-          margin-bottom: 0.75rem;
+          margin-bottom: 0.5rem;
         }
 
         .mobile-group-icon {
@@ -697,7 +722,7 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.625rem 0;
+          padding: 0.5rem 0;
           color: var(--text-secondary);
           text-decoration: none;
           font-size: 0.875rem;
@@ -747,15 +772,6 @@ export default function Navbar() {
           }
           .mobile-menu {
             display: block;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .nav-container {
-            padding: 0 1rem;
-          }
-          .nav-brand a span:first-child {
-            display: none;
           }
         }
       `}</style>
