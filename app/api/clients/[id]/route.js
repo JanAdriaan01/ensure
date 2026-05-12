@@ -103,20 +103,62 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
     const clientId = parseInt(id);
     
-    // Check if client has jobs
-    const jobCheck = await query(`SELECT COUNT(*) FROM jobs WHERE client_id = $1`, [clientId]);
-    if (parseInt(jobCheck.rows[0].count) > 0) {
-      return NextResponse.json({ error: 'Cannot delete client with existing jobs' }, { status: 400 });
+    if (isNaN(clientId)) {
+      return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 });
     }
+    
+    // Get client name for error message
+    const clientResult = await query(`SELECT client_name FROM clients WHERE id = $1`, [clientId]);
+    if (clientResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    }
+    const clientName = clientResult.rows[0].client_name;
+    
+    // Check if client has jobs
+    const jobCheck = await query(`
+      SELECT COUNT(*) as count, array_agg(job_number) as jobs 
+      FROM jobs 
+      WHERE client_id = $1
+    `, [clientId]);
+    const jobCount = parseInt(jobCheck.rows[0].count);
+    const jobList = jobCheck.rows[0].jobs || [];
     
     // Check if client has quotes
-    const quoteCheck = await query(`SELECT COUNT(*) FROM quotes WHERE client_id = $1`, [clientId]);
-    if (parseInt(quoteCheck.rows[0].count) > 0) {
-      return NextResponse.json({ error: 'Cannot delete client with existing quotes' }, { status: 400 });
+    const quoteCheck = await query(`
+      SELECT COUNT(*) as count, array_agg(quote_number) as quotes 
+      FROM quotes 
+      WHERE client_id = $1
+    `, [clientId]);
+    const quoteCount = parseInt(quoteCheck.rows[0].count);
+    const quoteList = quoteCheck.rows[0].quotes || [];
+    
+    // If client has related records, return detailed error
+    if (jobCount > 0) {
+      return NextResponse.json({ 
+        error: `Cannot delete "${clientName}". This client has ${jobCount} active job(s): ${jobList.join(', ')}. Please delete or reassign these jobs first.`,
+        hasJobs: true,
+        jobCount: jobCount,
+        jobList: jobList
+      }, { status: 400 });
     }
     
+    if (quoteCount > 0) {
+      return NextResponse.json({ 
+        error: `Cannot delete "${clientName}". This client has ${quoteCount} active quote(s): ${quoteList.join(', ')}. Please delete or reassign these quotes first.`,
+        hasQuotes: true,
+        quoteCount: quoteCount,
+        quoteList: quoteList
+      }, { status: 400 });
+    }
+    
+    // If no related records, delete the client
     await query(`DELETE FROM clients WHERE id = $1`, [clientId]);
-    return NextResponse.json({ success: true, message: 'Client deleted successfully' });
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: `Client "${clientName}" deleted successfully` 
+    });
+    
   } catch (error) {
     console.error('DELETE client error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
