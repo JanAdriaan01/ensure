@@ -1,3 +1,4 @@
+// app/api/client-sites/route.js
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
@@ -47,7 +48,13 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { organization_id, site_name, contact_person, email, phone, site_address, site_manager } = body;
+    const {
+      organization_id, site_name, site_type, site_code,
+      contact_person, email, phone,
+      site_address, city, postal_code,
+      site_manager, operating_hours, special_instructions,
+      is_primary
+    } = body;
     
     if (!organization_id || !site_name) {
       return NextResponse.json({ error: 'Organization ID and site name are required' }, { status: 400 });
@@ -55,10 +62,20 @@ export async function POST(request) {
     
     const result = await query(
       `INSERT INTO client_sites (
-        organization_id, site_name, contact_person, email, phone, site_address, site_manager, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+        organization_id, site_name, site_type, site_code,
+        contact_person, email, phone,
+        site_address, city, postal_code,
+        site_manager, operating_hours, special_instructions,
+        is_primary, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
       RETURNING *`,
-      [organization_id, site_name, contact_person, email, phone, site_address, site_manager]
+      [
+        organization_id, site_name, site_type, site_code,
+        contact_person, email, phone,
+        site_address, city, postal_code,
+        site_manager, operating_hours, special_instructions,
+        is_primary || false
+      ]
     );
     
     return NextResponse.json(result.rows[0], { status: 201 });
