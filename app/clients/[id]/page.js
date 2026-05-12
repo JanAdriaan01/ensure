@@ -34,12 +34,25 @@ export default function ClientDetailPage({ params }) {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
+      if (clientRes.status === 404) {
+        setError('Client not found');
+        setLoading(false);
+        return;
+      }
+      
       if (!clientRes.ok) {
-        throw new Error('Failed to fetch client');
+        throw new Error(`HTTP ${clientRes.status}`);
       }
       
       const clientData = await clientRes.json();
-      console.log('Client data received:', clientData);
+      
+      // Check if we got an error response
+      if (clientData.error) {
+        setError(clientData.error);
+        setLoading(false);
+        return;
+      }
+      
       setClient(clientData);
       setFormData(clientData);
       
@@ -48,9 +61,7 @@ export default function ClientDetailPage({ params }) {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const quotesData = await quotesRes.json();
-      console.log('Quotes data:', quotesData);
       
-      // Handle quotes response (could be array or object with data property)
       let quotesArray = [];
       if (Array.isArray(quotesData)) {
         quotesArray = quotesData;
@@ -66,9 +77,7 @@ export default function ClientDetailPage({ params }) {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const jobsData = await jobsRes.json();
-      console.log('Jobs data:', jobsData);
       
-      // Handle jobs response
       let jobsArray = [];
       if (Array.isArray(jobsData)) {
         jobsArray = jobsData;
@@ -201,12 +210,40 @@ export default function ClientDetailPage({ params }) {
 
   if (error || !client) {
     return (
-      <div className="container">
-        <div className="error-container">
-          <h2>Error</h2>
-          <p>{error || 'Client not found'}</p>
-          <Link href="/clients" className="btn-secondary">Back to Clients</Link>
-        </div>
+      <div className="error-container">
+        <h2>Client Not Found</h2>
+        <p>{error || 'The client you are looking for does not exist.'}</p>
+        <Link href="/clients" className="btn-secondary">Back to Clients</Link>
+        <style jsx>{`
+          .error-container {
+            max-width: 600px;
+            margin: 4rem auto;
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+          }
+          .error-container h2 {
+            margin-bottom: 1rem;
+            color: #1e293b;
+          }
+          .error-container p {
+            color: #64748b;
+            margin-bottom: 1.5rem;
+          }
+          .btn-secondary {
+            background: #64748b;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            text-decoration: none;
+            display: inline-block;
+          }
+          .btn-secondary:hover {
+            background: #475569;
+          }
+        `}</style>
       </div>
     );
   }
@@ -238,7 +275,6 @@ export default function ClientDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Warning if client has records */}
       {hasRelatedRecords && (
         <div className="warning-card">
           <h4>⚠️ Cannot Delete This Client</h4>
@@ -251,7 +287,6 @@ export default function ClientDetailPage({ params }) {
         </div>
       )}
 
-      {/* Client Information Card */}
       <div className="card">
         <h3>Client Information</h3>
         {editing ? (
@@ -341,19 +376,10 @@ export default function ClientDetailPage({ params }) {
               <span className="label">Client Since:</span>
               <span className="value">{formatDate(client.created_at)}</span>
             </div>
-            <div className="info-item">
-              <span className="label">Total Jobs:</span>
-              <span className="value">{jobs.length}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Total Quotes:</span>
-              <span className="value">{quotes.length}</span>
-            </div>
           </div>
         )}
       </div>
 
-      {/* Quotes Section */}
       <div className="section">
         <div className="section-header">
           <h3>💰 Quotes ({quotes.length})</h3>
@@ -377,14 +403,14 @@ export default function ClientDetailPage({ params }) {
                 {quotes.map(quote => (
                   <tr key={quote.id}>
                     <td className="quote-number">{quote.quote_number}</td>
-                    <td>{formatDate(quote.quote_date)}</td>
-                    <td>{formatCurrency(quote.total_amount)}</td>
-                    <td>
+                    <td className="quote-date">{formatDate(quote.quote_date)}</td>
+                    <td className="quote-amount">{formatCurrency(quote.total_amount)}</td>
+                    <td className="quote-status">
                       <span className={`status-badge status-${quote.status}`}>
                         {quote.status?.toUpperCase() || 'DRAFT'}
                       </span>
                     </td>
-                    <td>
+                    <td className="quote-actions">
                       <Link href={`/quotes/${quote.id}`} className="action-link">View</Link>
                     </td>
                   </tr>
@@ -395,7 +421,6 @@ export default function ClientDetailPage({ params }) {
         )}
       </div>
 
-      {/* Jobs Section */}
       <div className="section">
         <div className="section-header">
           <h3>📋 Jobs ({jobs.length})</h3>
@@ -419,14 +444,14 @@ export default function ClientDetailPage({ params }) {
                 {jobs.map(job => (
                   <tr key={job.id}>
                     <td className="job-number">{job.job_number}</td>
-                    <td>{job.po_number || '-'}</td>
-                    <td>{formatCurrency(job.po_amount)}</td>
-                    <td>
+                    <td className="job-po">{job.po_number || '-'}</td>
+                    <td className="job-amount">{formatCurrency(job.po_amount)}</td>
+                    <td className="job-status">
                       <span className={`status-badge status-${job.po_status}`}>
                         {job.po_status?.toUpperCase() || 'PENDING'}
                       </span>
                     </td>
-                    <td>
+                    <td className="job-actions">
                       <Link href={`/jobs/${job.id}`} className="action-link">View</Link>
                     </td>
                   </tr>
@@ -682,10 +707,6 @@ export default function ClientDetailPage({ params }) {
           text-align: center;
           padding: 2rem;
           color: #64748b;
-        }
-        .error-container {
-          text-align: center;
-          padding: 4rem;
         }
         .status-badge {
           display: inline-block;
