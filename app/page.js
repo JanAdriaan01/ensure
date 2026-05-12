@@ -135,7 +135,7 @@ export default function DashboardPage() {
           .loading-spinner {
             width: 40px;
             height: 40px;
-            border: 3px solid #e2e8f0;
+            border: 3px solid var(--border-light);
             border-top-color: #22c55e;
             border-radius: 50%;
             animation: spin 1s linear infinite;
@@ -159,12 +159,12 @@ export default function DashboardPage() {
         </svg>
       ),
       links: [
-        { href: '/financial', label: 'Financial Dashboard', icon: '📊' },
-        { href: '/invoicing', label: 'Invoicing', icon: '📄' },
-        { href: '/quotes', label: 'Quotes', icon: '📋' },
-        { href: '/jobs', label: 'Jobs', icon: '🔨' },
-        { href: '/clients', label: 'Clients', icon: '👥' },
-        { href: '/reconciliation', label: 'Reconciliation', icon: '🔄' }
+        { href: '/financial', label: 'Financial Dashboard' },
+        { href: '/invoicing', label: 'Invoicing' },
+        { href: '/quotes', label: 'Quotes' },
+        { href: '/jobs', label: 'Jobs' },
+        { href: '/clients', label: 'Clients' },
+        { href: '/reconciliation', label: 'Reconciliation' }
       ]
     },
     {
@@ -176,11 +176,11 @@ export default function DashboardPage() {
         </svg>
       ),
       links: [
-        { href: '/operations', label: 'Operations Dashboard', icon: '📊' },
-        { href: '/tools', label: 'Tools', icon: '🔧' },
-        { href: '/inventory', label: 'Inventory', icon: '📦' },
-        { href: '/schedule', label: 'Schedule', icon: '📅' },
-        { href: '/ohs', label: 'OHS', icon: '🛡️' }
+        { href: '/operations', label: 'Operations Dashboard' },
+        { href: '/tools', label: 'Tools' },
+        { href: '/inventory', label: 'Inventory' },
+        { href: '/schedule', label: 'Schedule' },
+        { href: '/ohs', label: 'OHS' }
       ]
     },
     {
@@ -195,11 +195,11 @@ export default function DashboardPage() {
         </svg>
       ),
       links: [
-        { href: '/hr', label: 'HR Dashboard', icon: '📊' },
-        { href: '/employees', label: 'Employees', icon: '👤' },
-        { href: '/payroll', label: 'Payroll', icon: '💰' },
-        { href: '/employees/skills', label: 'Skills', icon: '⭐' },
-        { href: '/employees/certifications', label: 'Certifications', icon: '📜' }
+        { href: '/hr', label: 'HR Dashboard' },
+        { href: '/employees', label: 'Employees' },
+        { href: '/payroll', label: 'Payroll' },
+        { href: '/employees/skills', label: 'Skills' },
+        { href: '/employees/certifications', label: 'Certifications' }
       ]
     },
     {
@@ -213,10 +213,10 @@ export default function DashboardPage() {
         </svg>
       ),
       links: [
-        { href: '/reports/financial', label: 'Financial Reports', icon: '💰' },
-        { href: '/reports/operations', label: 'Operations Reports', icon: '🔧' },
-        { href: '/reports/hr', label: 'HR Reports', icon: '👥' },
-        { href: '/reports/monthly', label: 'Monthly Reports', icon: '📅' }
+        { href: '/reports/financial', label: 'Financial Reports' },
+        { href: '/reports/operations', label: 'Operations Reports' },
+        { href: '/reports/hr', label: 'HR Reports' },
+        { href: '/reports/monthly', label: 'Monthly Reports' }
       ]
     },
     {
@@ -229,10 +229,10 @@ export default function DashboardPage() {
         </svg>
       ),
       links: [
-        { href: '/Settings', label: 'General Settings', icon: '⚙️' },
-        { href: '/Settings/company', label: 'Company Information', icon: '🏢' },
-        { href: '/Settings/financial', label: 'Financial Settings', icon: '💰' },
-        { href: '/Settings/users', label: 'User Management', icon: '👥' }
+        { href: '/Settings', label: 'General Settings' },
+        { href: '/Settings/company', label: 'Company Information' },
+        { href: '/Settings/financial', label: 'Financial Settings' },
+        { href: '/Settings/users', label: 'User Management' }
       ]
     }
   ];
@@ -301,6 +301,7 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard-container">
+      {/* Matte Black Greeting Banner */}
       <div className="welcome-section">
         <div className="welcome-content">
           <div className="greeting">
@@ -328,6 +329,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Profile Card - Updated for better contrast */}
       <div className="profile-card">
         <div className="profile-avatar">
           {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
@@ -344,6 +346,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Quick Stats */}
       <div className="stats-grid">
         {quickStats.map((stat, index) => (
           <Link href={stat.link} key={index} className="stat-card">
@@ -358,6 +361,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Module Cards */}
       <div className="modules-grid">
         {modules.map((module, index) => (
           <div key={index} className="module-card">
@@ -382,6 +386,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Quick Actions */}
       <div className="quick-actions-section">
         <h3>Quick Actions</h3>
         <div className="quick-actions-grid">
@@ -455,8 +460,13 @@ export default function DashboardPage() {
           padding: 2rem;
         }
 
+        /* Matte Black Greeting Banner */
         .welcome-section {
+          background: #1a1a1a;
+          border-radius: 1rem;
+          padding: 1.5rem;
           margin-bottom: 2rem;
+          border: 1px solid #2a2a2a;
         }
 
         .welcome-content {
@@ -483,12 +493,12 @@ export default function DashboardPage() {
         .greeting h1 {
           font-size: 1.5rem;
           font-weight: 600;
-          color: #1e293b;
+          color: #ffffff;
           margin: 0 0 0.25rem 0;
         }
 
         .greeting p {
-          color: #64748b;
+          color: #a3a3a3;
           margin: 0;
           font-size: 0.875rem;
         }
@@ -508,16 +518,18 @@ export default function DashboardPage() {
         .time {
           font-size: 1.25rem;
           font-weight: 600;
-          color: #1e293b;
+          color: #ffffff;
         }
 
         .date {
           font-size: 0.75rem;
-          color: #64748b;
+          color: #a3a3a3;
         }
 
+        /* Profile Card */
         .profile-card {
-          background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+          background: var(--card-bg);
+          border: 1px solid var(--border-light);
           border-radius: 1rem;
           padding: 1.5rem;
           margin-bottom: 2rem;
@@ -525,7 +537,6 @@ export default function DashboardPage() {
           align-items: center;
           gap: 1.5rem;
           flex-wrap: wrap;
-          color: white;
         }
 
         .profile-avatar {
@@ -538,21 +549,19 @@ export default function DashboardPage() {
           justify-content: center;
           font-size: 2rem;
           font-weight: 600;
-        }
-
-        .profile-info {
-          flex: 1;
+          color: white;
         }
 
         .profile-info h3 {
           margin: 0 0 0.25rem 0;
           font-size: 1.25rem;
+          color: var(--text-primary);
         }
 
         .profile-info p {
           margin: 0 0 0.5rem 0;
           font-size: 0.875rem;
-          opacity: 0.9;
+          color: var(--text-tertiary);
         }
 
         .role-badge {
@@ -574,18 +583,18 @@ export default function DashboardPage() {
         }
 
         .profile-link {
-          color: white;
+          color: var(--primary);
           text-decoration: none;
           font-size: 0.875rem;
-          opacity: 0.9;
           transition: opacity 0.2s;
         }
 
         .profile-link:hover {
-          opacity: 1;
+          opacity: 0.8;
           text-decoration: underline;
         }
 
+        /* Stats Grid */
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -594,8 +603,8 @@ export default function DashboardPage() {
         }
 
         .stat-card {
-          background: white;
-          border: 1px solid #e2e8f0;
+          background: var(--card-bg);
+          border: 1px solid var(--border-light);
           border-radius: 0.75rem;
           padding: 1rem;
           display: flex;
@@ -627,7 +636,7 @@ export default function DashboardPage() {
 
         .stat-label {
           font-size: 0.7rem;
-          color: #64748b;
+          color: var(--text-tertiary);
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
@@ -635,11 +644,12 @@ export default function DashboardPage() {
         .stat-value {
           font-size: 1.25rem;
           font-weight: 700;
-          color: #1e293b;
+          color: var(--text-primary);
           display: block;
           margin: 0.25rem 0;
         }
 
+        /* Modules Grid */
         .modules-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -648,8 +658,8 @@ export default function DashboardPage() {
         }
 
         .module-card {
-          background: white;
-          border: 1px solid #e2e8f0;
+          background: var(--card-bg);
+          border: 1px solid var(--border-light);
           border-radius: 0.75rem;
           overflow: hidden;
           transition: all 0.2s;
@@ -664,7 +674,7 @@ export default function DashboardPage() {
           display: flex;
           align-items: center;
           gap: 1rem;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border-light);
         }
 
         .module-icon {
@@ -680,13 +690,13 @@ export default function DashboardPage() {
           margin: 0 0 0.25rem 0;
           font-size: 1rem;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--text-primary);
         }
 
         .module-info p {
           margin: 0;
           font-size: 0.75rem;
-          color: #64748b;
+          color: var(--text-tertiary);
         }
 
         .module-links {
@@ -704,13 +714,13 @@ export default function DashboardPage() {
         }
 
         .module-link:hover {
-          background: #f8fafc;
+          background: var(--bg-tertiary);
         }
 
         .link-label {
           flex: 1;
           font-size: 0.875rem;
-          color: #1e293b;
+          color: var(--text-secondary);
         }
 
         .link-arrow {
@@ -718,6 +728,7 @@ export default function DashboardPage() {
           color: #22c55e;
         }
 
+        /* Quick Actions */
         .quick-actions-section {
           margin-top: 0.5rem;
         }
@@ -726,7 +737,7 @@ export default function DashboardPage() {
           font-size: 1rem;
           font-weight: 600;
           margin-bottom: 1rem;
-          color: #1e293b;
+          color: var(--text-primary);
         }
 
         .quick-actions-grid {
@@ -740,17 +751,17 @@ export default function DashboardPage() {
           align-items: center;
           gap: 0.75rem;
           padding: 0.75rem 1rem;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+          background: var(--bg-tertiary);
+          border: 1px solid var(--border-light);
           border-radius: 0.5rem;
           text-decoration: none;
-          color: #1e293b;
+          color: var(--text-primary);
           font-size: 0.875rem;
           transition: all 0.2s;
         }
 
         .quick-action:hover {
-          background: white;
+          background: var(--card-bg);
           border-color: #22c55e;
           transform: translateY(-2px);
         }
