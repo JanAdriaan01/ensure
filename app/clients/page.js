@@ -12,7 +12,6 @@ export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated && token) {
@@ -54,47 +53,6 @@ export default function ClientsPage() {
       setError('Failed to load clients. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const deleteClient = async (clientId, clientName) => {
-    if (!confirm(`Delete client "${clientName}"? This action cannot be undone.`)) {
-      return;
-    }
-    
-    setDeletingId(clientId);
-    
-    try {
-      const response = await fetch(`/api/clients/${clientId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        // Remove the deleted client from the list
-        setClients(clients.filter(c => c.id !== clientId));
-        alert(`Client "${clientName}" deleted successfully!`);
-      } else {
-        // Show detailed error message
-        if (data.hasJobs && data.hasQuotes) {
-          alert(`Cannot delete "${clientName}". This client has ${data.jobCount} job(s) and ${data.quoteCount} quote(s). Please delete or reassign these records first.`);
-        } else if (data.hasJobs) {
-          alert(`Cannot delete "${clientName}". This client has ${data.jobCount} job(s). Please delete or reassign these jobs first.`);
-        } else if (data.hasQuotes) {
-          alert(`Cannot delete "${clientName}". This client has ${data.quoteCount} quote(s). Please delete or reassign these quotes first.`);
-        } else {
-          alert(data.error || 'Failed to delete client');
-        }
-      }
-    } catch (error) {
-      console.error('Error deleting client:', error);
-      alert('Failed to delete client. Please try again.');
-    } finally {
-      setDeletingId(null);
     }
   };
 
@@ -172,7 +130,7 @@ export default function ClientsPage() {
                 <th>Phone</th>
                 <th>Signup Date</th>
                 <th>Jobs</th>
-                <th>Actions</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -182,25 +140,24 @@ export default function ClientsPage() {
                     <Link href={`/clients/${client.id}`} className="client-link">
                       {client.client_name}
                     </Link>
-                   </td>
-                  <td className="contact-person">{client.contact_person || '-'}</td>
-                  <td className="email">{client.email || '-'}</td>
-                  <td className="phone">{client.phone || '-'}</td>
-                  <td className="signup-date">{formatDate(client.signup_date)}</td>
-                  <td className="jobs-count">{client.total_jobs || 0}</td>
+                    
+                  </td>
+                  <td className="contact-person">{client.contact_person || '-'} 
+                  </td>
+                  <td className="email">{client.email || '-'} 
+                  </td>
+                  <td className="phone">{client.phone || '-'} 
+                  </td>
+                  <td className="signup-date">{formatDate(client.signup_date)} 
+                  </td>
+                  <td className="jobs-count">{client.total_jobs || 0} 
+                  </td>
                   <td className="actions">
                     <Link href={`/clients/${client.id}`} className="action-btn view">
-                      View
+                      View Details →
                     </Link>
-                    <button 
-                      onClick={() => deleteClient(client.id, client.client_name)}
-                      disabled={deletingId === client.id}
-                      className="action-btn delete"
-                    >
-                      {deletingId === client.id ? '...' : 'Delete'}
-                    </button>
                   </td>
-                </tr>
+                 </tr>
               ))}
             </tbody>
           </table>
@@ -322,15 +279,8 @@ export default function ClientsPage() {
           text-decoration: underline;
         }
 
-        .contact-person, .email, .phone, .signup-date, .jobs-count {
-          color: #1e293b;
-        }
-
         .actions {
-          display: flex;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          white-space: nowrap;
+          text-align: right;
         }
 
         .action-btn {
@@ -340,31 +290,14 @@ export default function ClientsPage() {
           font-size: 0.7rem;
           text-decoration: none;
           transition: all 0.2s;
-          cursor: pointer;
-          border: none;
         }
 
         .action-btn.view {
-          background: #22c55e;
-          color: white;
+          color: #22c55e;
         }
 
         .action-btn.view:hover {
-          background: #16a34a;
-        }
-
-        .action-btn.delete {
-          background: #ef4444;
-          color: white;
-        }
-
-        .action-btn.delete:hover {
-          background: #dc2626;
-        }
-
-        .action-btn.delete:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
+          text-decoration: underline;
         }
 
         .empty-state {

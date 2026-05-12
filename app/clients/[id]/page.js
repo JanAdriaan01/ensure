@@ -1,28 +1,40 @@
+// app/clients/[id]/page.js
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function ClientDetailPage({ params }) {
   const router = useRouter();
+  const { token, isAuthenticated } = useAuth();
   const [client, setClient] = useState(null);
   const [quotes, setQuotes] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    fetchClientData();
-  }, [params.id]);
+    if (isAuthenticated && token && params.id) {
+      fetchClientData();
+    }
+  }, [isAuthenticated, token, params.id]);
 
   const fetchClientData = async () => {
     try {
       const [clientRes, quotesRes, jobsRes] = await Promise.all([
-        fetch(`/api/clients/${params.id}`),
-        fetch(`/api/quotes?client_id=${params.id}`),
-        fetch(`/api/jobs?client_id=${params.id}`)
+        fetch(`/api/clients/${params.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`/api/quotes?client_id=${params.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`/api/jobs?client_id=${params.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
       ]);
       
       const clientData = await clientRes.json();
@@ -41,24 +53,71 @@ export default function ClientDetailPage({ params }) {
   };
 
   const updateClient = async () => {
-    const res = await fetch(`/api/clients/${params.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    
-    if (res.ok) {
-      setEditing(false);
-      fetchClientData();
-    } else {
+    try {
+      const res = await fetch(`/api/clients/${params.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      if (res.ok) {
+        setEditing(false);
+        fetchClientData();
+        alert('Client updated successfully!');
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to update client');
+      }
+    } catch (error) {
+      console.error('Error updating client:', error);
       alert('Failed to update client');
     }
   };
 
   const deleteClient = async () => {
-    if (confirm(`Delete client "${client?.client_name}"? This will also delete all associated quotes and jobs.`)) {
-      await fetch(`/api/clients/${params.id}`, { method: 'DELETE' });
-      router.push('/clients');
+    // First check if client has jobs
+    if (jobs.length > 0) {
+      alert(`Cannot delete "${client?.client_name}". This client has ${jobs.length} active job(s):\n\n${jobs.map(j => j.job_number).join('\n')}\n\nPlease delete or reassign these jobs first.`);
+      return;
+    }
+    
+    // Check if client has quotes
+    if (quotes.length > 0) {
+      alert(`Cannot delete "${client?.client_name}". This client has ${quotes.length} active quote(s):\n\n${quotes.map(q => q.quote_number).join('\n')}\n\nPlease delete or reassign these quotes first.`);
+      return;
+    }
+    
+    // Confirm deletion
+    if (!confirm(`Delete client "${client?.client_name}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    setDeleting(true);
+    
+    try {
+      const res = await fetch(`/api/clients/${params.id}`, { 
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        alert(`Client "${client?.client_name}" deleted successfully!`);
+        router.push('/clients');
+      } else {
+        alert(data.error || 'Failed to delete client');
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      alert('Failed to delete client');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -67,6 +126,26 @@ export default function ClientDetailPage({ params }) {
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading client details...</p>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+          }
+          .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #22c55e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -107,7 +186,14 @@ export default function ClientDetailPage({ params }) {
           <button onClick={() => setEditing(!editing)} className="btn-edit">
             {editing ? 'Cancel' : 'Edit'}
           </button>
-          <button onClick={deleteClient} className="btn-delete">Delete Client</button>
+          <button 
+            onClick={deleteClient} 
+            disabled={deleting || jobs.length > 0 || quotes.length > 0}
+            className={`btn-delete ${(jobs.length > 0 || quotes.length > 0) ? 'btn-delete-disabled' : ''}`}
+            title={jobs.length > 0 ? `Cannot delete: Has ${jobs.length} job(s)` : quotes.length > 0 ? `Cannot delete: Has ${quotes.length} quote(s)` : 'Delete client'}
+          >
+            {deleting ? 'Deleting...' : 'Delete Client'}
+          </button>
         </div>
       </div>
 
@@ -156,6 +242,14 @@ export default function ClientDetailPage({ params }) {
                 rows="3"
               />
             </div>
+            <div className="form-group">
+              <label>Signup Date</label>
+              <input 
+                type="date"
+                value={formData.signup_date || ''} 
+                onChange={e => setFormData({...formData, signup_date: e.target.value})} 
+              />
+            </div>
             <button onClick={updateClient} className="btn-primary">Save Changes</button>
           </div>
         ) : (
@@ -176,9 +270,30 @@ export default function ClientDetailPage({ params }) {
               <span className="label">Signed Up:</span>
               <span>{formatDate(client.signup_date)}</span>
             </div>
+            <div className="info-item">
+              <span className="label">Total Jobs:</span>
+              <span>{jobs.length}</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Total Quotes:</span>
+              <span>{quotes.length}</span>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Warning if client has records */}
+      {(jobs.length > 0 || quotes.length > 0) && (
+        <div className="warning-card">
+          <h4>⚠️ Cannot Delete This Client</h4>
+          <p>This client has existing records that prevent deletion:</p>
+          <ul>
+            {jobs.length > 0 && <li>• {jobs.length} active job(s): {jobs.map(j => j.job_number).join(', ')}</li>}
+            {quotes.length > 0 && <li>• {quotes.length} active quote(s): {quotes.map(q => q.quote_number).join(', ')}</li>}
+          </ul>
+          <p className="warning-note">Please delete or reassign these records before deleting the client.</p>
+        </div>
+      )}
 
       {/* Quotes Section */}
       <div className="section">
@@ -197,17 +312,21 @@ export default function ClientDetailPage({ params }) {
                   <th>Date</th>
                   <th>Amount</th>
                   <th>Status</th>
-                  <th>Job #</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {quotes.map(quote => (
-                  <tr key={quote.id} onClick={() => router.push(`/quotes/${quote.id}`)} className="clickable-row">
-                    <td>{quote.quote_number}</td>
-                    <td>{formatDate(quote.quote_date)}</td>
-                    <td>{formatCurrency(quote.quote_amount)}</td>
-                    <td><span className={`status-badge status-${quote.status}`}>{quote.status}</span></td>
-                    <td>{quote.job_number || '-'}</td>
+                  <tr key={quote.id}>
+                    <td className="quote-number">{quote.quote_number}</td>
+                    <td className="quote-date">{formatDate(quote.quote_date)}</td>
+                    <td className="quote-amount">{formatCurrency(quote.total_amount)}</td>
+                    <td className="quote-status">
+                      <span className={`status-badge status-${quote.status}`}>{quote.status}</span>
+                    </td>
+                    <td className="quote-actions">
+                      <Link href={`/quotes/${quote.id}`} className="action-link">View</Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -230,18 +349,24 @@ export default function ClientDetailPage({ params }) {
               <thead>
                 <tr>
                   <th>Job #</th>
-                  <th>PO Status</th>
-                  <th>Completion</th>
-                  <th>Total Hours</th>
+                  <th>PO Number</th>
+                  <th>PO Amount</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {jobs.map(job => (
-                  <tr key={job.id} onClick={() => router.push(`/jobs/${job.id}`)} className="clickable-row">
-                    <td>{job.lc_number}</td>
-                    <td><span className={`status-badge status-${job.po_status}`}>{job.po_status}</span></td>
-                    <td><span className={`status-badge status-${job.completion_status?.replace(/_/g, '-')}`}>{job.completion_status}</span></td>
-                    <td>{Math.round(job.total_hours || 0)} hrs</td>
+                  <tr key={job.id}>
+                    <td className="job-number">{job.job_number}</td>
+                    <td className="job-po">{job.po_number || '-'}</td>
+                    <td className="job-amount">{formatCurrency(job.po_amount)}</td>
+                    <td className="job-status">
+                      <span className={`status-badge status-${job.po_status}`}>{job.po_status}</span>
+                    </td>
+                    <td className="job-actions">
+                      <Link href={`/jobs/${job.id}`} className="action-link">View</Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -251,21 +376,36 @@ export default function ClientDetailPage({ params }) {
       </div>
 
       <style jsx>{`
+        .container {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
         .back-link {
-          color: var(--text-tertiary);
+          color: #64748b;
           text-decoration: none;
           display: inline-block;
           margin-bottom: 0.5rem;
           font-size: 0.875rem;
         }
         .back-link:hover {
-          color: var(--primary);
+          color: #22c55e;
+        }
+        .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+          gap: 1rem;
         }
         .header-title h1 {
           margin: 0;
+          font-size: 1.5rem;
+          color: #1e293b;
         }
         .contact {
-          color: var(--text-tertiary);
+          color: #64748b;
           margin: 0.25rem 0 0 0;
         }
         .header-actions {
@@ -273,8 +413,8 @@ export default function ClientDetailPage({ params }) {
           gap: 0.75rem;
         }
         .card {
-          background: var(--card-bg);
-          border: 1px solid var(--card-border);
+          background: white;
+          border: 1px solid #e2e8f0;
           border-radius: 0.75rem;
           padding: 1.5rem;
           margin-bottom: 1.5rem;
@@ -283,11 +423,35 @@ export default function ClientDetailPage({ params }) {
           margin: 0 0 1rem 0;
           font-size: 1rem;
           font-weight: 600;
-          color: var(--text-primary);
+          color: #1e293b;
+        }
+        .warning-card {
+          background: #fef3c7;
+          border: 1px solid #f59e0b;
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        .warning-card h4 {
+          margin: 0 0 0.5rem 0;
+          color: #92400e;
+        }
+        .warning-card p {
+          margin: 0 0 0.5rem 0;
+          color: #78350f;
+        }
+        .warning-card ul {
+          margin: 0.5rem 0;
+          padding-left: 1.5rem;
+          color: #78350f;
+        }
+        .warning-note {
+          font-size: 0.875rem;
+          margin-top: 0.5rem;
         }
         .section {
-          background: var(--card-bg);
-          border: 1px solid var(--card-border);
+          background: white;
+          border: 1px solid #e2e8f0;
           border-radius: 0.75rem;
           padding: 1.5rem;
           margin-bottom: 1.5rem;
@@ -302,7 +466,7 @@ export default function ClientDetailPage({ params }) {
           margin: 0;
           font-size: 1rem;
           font-weight: 600;
-          color: var(--text-primary);
+          color: #1e293b;
         }
         .info-grid {
           display: grid;
@@ -312,56 +476,45 @@ export default function ClientDetailPage({ params }) {
         .info-item {
           display: flex;
           padding: 0.5rem;
-          border-bottom: 1px solid var(--border-light);
+          border-bottom: 1px solid #e2e8f0;
         }
         .info-item .label {
-          width: 80px;
+          width: 100px;
           font-weight: 500;
-          color: var(--text-tertiary);
+          color: #64748b;
         }
         .info-item span:last-child {
-          color: var(--text-secondary);
+          color: #1e293b;
         }
         .full-width {
           grid-column: span 2;
         }
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid var(--border-light);
-        }
-        .data-table th {
-          background: var(--bg-tertiary);
-          font-weight: 600;
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          color: var(--text-secondary);
-        }
-        .data-table td {
-          color: var(--text-secondary);
-        }
-        .clickable-row {
-          cursor: pointer;
-        }
-        .clickable-row:hover td {
-          background: var(--bg-tertiary);
-        }
         .edit-form .form-group {
           margin-bottom: 1rem;
+        }
+        .edit-form label {
+          display: block;
+          margin-bottom: 0.25rem;
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: #64748b;
         }
         .edit-form input,
         .edit-form textarea {
           width: 100%;
           padding: 0.5rem;
-          border: 1px solid var(--border-medium);
+          border: 1px solid #e2e8f0;
           border-radius: 0.375rem;
-          background: var(--bg-primary);
-          color: var(--text-primary);
+          background: white;
+          color: #1e293b;
+        }
+        .btn-primary {
+          background: #22c55e;
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
         }
         .btn-edit {
           background: #10b981;
@@ -379,21 +532,57 @@ export default function ClientDetailPage({ params }) {
           border-radius: 0.375rem;
           cursor: pointer;
         }
+        .btn-delete-disabled {
+          background: #fca5a5;
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+        .btn-delete:hover:not(:disabled) {
+          background: #dc2626;
+        }
         .btn-small {
-          background: var(--primary);
+          background: #22c55e;
           color: white;
           padding: 0.25rem 0.75rem;
           border-radius: 0.375rem;
           text-decoration: none;
           font-size: 0.75rem;
         }
-        .btn-small:hover {
-          background: var(--primary-dark);
+        .table-container {
+          overflow-x: auto;
+        }
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .data-table th,
+        .data-table td {
+          padding: 0.75rem;
+          text-align: left;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .data-table th {
+          background: #f8fafc;
+          font-weight: 600;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+        .data-table td {
+          color: #1e293b;
+        }
+        .action-link {
+          color: #22c55e;
+          text-decoration: none;
+          font-size: 0.75rem;
+        }
+        .action-link:hover {
+          text-decoration: underline;
         }
         .empty-state {
           text-align: center;
           padding: 2rem;
-          color: var(--text-tertiary);
+          color: #64748b;
         }
         .status-badge {
           display: inline-block;
@@ -402,20 +591,30 @@ export default function ClientDetailPage({ params }) {
           font-size: 0.7rem;
           font-weight: 500;
         }
-        .status-pending { background: var(--warning-bg); color: var(--warning-dark); }
-        .status-approved { background: var(--success-bg); color: var(--success-dark); }
-        .status-rejected { background: var(--danger-bg); color: var(--danger-dark); }
-        .status-not_started { background: var(--secondary-bg); color: var(--secondary-dark); }
-        .status-in_progress, .status-in-progress { background: var(--primary-bg); color: var(--primary-dark); }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-approved { background: #d1fae5; color: #065f46; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-draft { background: #f3f4f6; color: #4b5563; }
+        .quote-number, .job-number {
+          font-weight: 500;
+        }
         @media (max-width: 768px) {
+          .container {
+            padding: 1rem;
+          }
           .info-grid {
             grid-template-columns: 1fr;
           }
           .full-width {
             grid-column: span 1;
           }
-          .data-table {
-            font-size: 0.875rem;
+          .header-actions {
+            flex-direction: column;
+            width: 100%;
+          }
+          .btn-edit, .btn-delete {
+            width: 100%;
+            text-align: center;
           }
         }
       `}</style>
