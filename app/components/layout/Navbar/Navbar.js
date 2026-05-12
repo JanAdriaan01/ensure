@@ -66,7 +66,6 @@ export default function Navbar() {
         { href: '/quotes', label: 'Quotes' },
         { href: '/invoicing', label: 'Invoicing' },
         { href: '/reconciliation', label: 'Reconciliation' },
-        { href: '/clients', label: 'Clients' },
       ]
     },
     {
@@ -114,8 +113,8 @@ export default function Navbar() {
       ),
       links: [
         { href: '/organizations', label: 'Organizations' },
-        { href: '/clients', label: 'Client Sites' },
-        { href: '/contacts', label: 'Contacts' },
+        { href: '/client-sites', label: 'Client Sites' },
+        { href: '/clients', label: 'Contacts' },
         { href: '/leads', label: 'Leads' },
       ]
     },
@@ -129,11 +128,11 @@ export default function Navbar() {
         </svg>
       ),
       links: [
-        { href: '/reports/monthly', label: 'Monthly Reports' },
         { href: '/reports/financial', label: 'Financial Reports' },
-        { href: '/reports/hr', label: 'HR Reports' },
         { href: '/reports/operations', label: 'Operations Reports' },
+        { href: '/reports/hr', label: 'HR Reports' },
         { href: '/reports/crm', label: 'CRM Reports' },
+        { href: '/reports/monthly', label: 'Monthly Reports' },
       ]
     },
     {
