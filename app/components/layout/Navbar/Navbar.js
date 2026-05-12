@@ -103,6 +103,23 @@ export default function Navbar() {
       ]
     },
     {
+      title: 'CRM',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor"/>
+          <circle cx="12" cy="7" r="4" stroke="currentColor"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor"/>
+        </svg>
+      ),
+      links: [
+        { href: '/organizations', label: 'Organizations' },
+        { href: '/clients', label: 'Client Sites' },
+        { href: '/contacts', label: 'Contacts' },
+        { href: '/leads', label: 'Leads' },
+      ]
+    },
+    {
       title: 'Reports',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -116,6 +133,7 @@ export default function Navbar() {
         { href: '/reports/financial', label: 'Financial Reports' },
         { href: '/reports/hr', label: 'HR Reports' },
         { href: '/reports/operations', label: 'Operations Reports' },
+        { href: '/reports/crm', label: 'CRM Reports' },
       ]
     },
     {
@@ -130,10 +148,8 @@ export default function Navbar() {
         { href: '/Settings', label: 'General Settings' },
         { href: '/Settings/company', label: 'Company Information' },
         { href: '/Settings/financial', label: 'Financial Settings' },
-        { href: '/Settings/terms', label: 'Terms & Conditions' },
+        { href: '/Settings/organizations', label: 'Organization Settings' },
         { href: '/Settings/users', label: 'User Management' },
-        { href: '/Settings/backup', label: 'Backup' },
-        { href: '/Settings/audit-logs', label: 'Audit Logs' },
       ]
     }
   ];
