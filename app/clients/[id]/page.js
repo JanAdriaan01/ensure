@@ -16,6 +16,7 @@ export default function ClientDetailPage({ params }) {
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (isAuthenticated && token && params.id) {
@@ -25,28 +26,62 @@ export default function ClientDetailPage({ params }) {
 
   const fetchClientData = async () => {
     try {
-      const [clientRes, quotesRes, jobsRes] = await Promise.all([
-        fetch(`/api/clients/${params.id}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`/api/quotes?client_id=${params.id}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`/api/jobs?client_id=${params.id}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-      ]);
+      setLoading(true);
+      setError('');
+      
+      // Fetch client details
+      const clientRes = await fetch(`/api/clients/${params.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!clientRes.ok) {
+        throw new Error('Failed to fetch client');
+      }
       
       const clientData = await clientRes.json();
-      const quotesData = await quotesRes.json();
-      const jobsData = await jobsRes.json();
-      
+      console.log('Client data received:', clientData);
       setClient(clientData);
-      setQuotes(Array.isArray(quotesData) ? quotesData : (quotesData.data || []));
-      setJobs(Array.isArray(jobsData) ? jobsData : (jobsData.data || []));
       setFormData(clientData);
+      
+      // Fetch quotes for this client
+      const quotesRes = await fetch(`/api/quotes?client_id=${params.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const quotesData = await quotesRes.json();
+      console.log('Quotes data:', quotesData);
+      
+      // Handle quotes response (could be array or object with data property)
+      let quotesArray = [];
+      if (Array.isArray(quotesData)) {
+        quotesArray = quotesData;
+      } else if (quotesData.data && Array.isArray(quotesData.data)) {
+        quotesArray = quotesData.data;
+      } else if (quotesData.success && quotesData.data) {
+        quotesArray = quotesData.data;
+      }
+      setQuotes(quotesArray);
+      
+      // Fetch jobs for this client
+      const jobsRes = await fetch(`/api/jobs?client_id=${params.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const jobsData = await jobsRes.json();
+      console.log('Jobs data:', jobsData);
+      
+      // Handle jobs response
+      let jobsArray = [];
+      if (Array.isArray(jobsData)) {
+        jobsArray = jobsData;
+      } else if (jobsData.data && Array.isArray(jobsData.data)) {
+        jobsArray = jobsData.data;
+      } else if (jobsData.success && jobsData.data) {
+        jobsArray = jobsData.data;
+      }
+      setJobs(jobsArray);
+      
     } catch (error) {
       console.error('Error fetching client:', error);
+      setError('Failed to load client data');
     } finally {
       setLoading(false);
     }
@@ -64,8 +99,9 @@ export default function ClientDetailPage({ params }) {
       });
       
       if (res.ok) {
+        const updatedClient = await res.json();
+        setClient(updatedClient);
         setEditing(false);
-        fetchClientData();
         alert('Client updated successfully!');
       } else {
         const error = await res.json();
@@ -78,19 +114,18 @@ export default function ClientDetailPage({ params }) {
   };
 
   const deleteClient = async () => {
-    // First check if client has jobs
+    // Check if client has jobs
     if (jobs.length > 0) {
-      alert(`Cannot delete "${client?.client_name}". This client has ${jobs.length} active job(s):\n\n${jobs.map(j => j.job_number).join('\n')}\n\nPlease delete or reassign these jobs first.`);
+      alert(`Cannot delete "${client?.client_name}". This client has ${jobs.length} active job(s). Please delete or reassign these jobs first.`);
       return;
     }
     
     // Check if client has quotes
     if (quotes.length > 0) {
-      alert(`Cannot delete "${client?.client_name}". This client has ${quotes.length} active quote(s):\n\n${quotes.map(q => q.quote_number).join('\n')}\n\nPlease delete or reassign these quotes first.`);
+      alert(`Cannot delete "${client?.client_name}". This client has ${quotes.length} active quote(s). Please delete or reassign these quotes first.`);
       return;
     }
     
-    // Confirm deletion
     if (!confirm(`Delete client "${client?.client_name}"? This action cannot be undone.`)) {
       return;
     }
@@ -119,6 +154,20 @@ export default function ClientDetailPage({ params }) {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const formatCurrency = (amount) => {
+    if (!amount) return 'R 0';
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR',
+      minimumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const formatDate = (date) => {
+    if (!date) return 'Not set';
+    return new Date(date).toLocaleDateString('en-ZA');
   };
 
   if (loading) {
@@ -150,27 +199,19 @@ export default function ClientDetailPage({ params }) {
     );
   }
 
-  if (!client) {
+  if (error || !client) {
     return (
       <div className="container">
-        <div className="empty-state">Client not found</div>
-        <Link href="/clients" className="btn-secondary" style={{ marginTop: '1rem', display: 'inline-block' }}>← Back to Clients</Link>
+        <div className="error-container">
+          <h2>Error</h2>
+          <p>{error || 'Client not found'}</p>
+          <Link href="/clients" className="btn-secondary">Back to Clients</Link>
+        </div>
       </div>
     );
   }
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 0
-    }).format(amount || 0);
-  };
-
-  const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString();
-  };
+  const hasRelatedRecords = jobs.length > 0 || quotes.length > 0;
 
   return (
     <div className="container">
@@ -179,7 +220,7 @@ export default function ClientDetailPage({ params }) {
           <Link href="/clients" className="back-link">← Back to Clients</Link>
           <div className="header-title">
             <h1>{client.client_name}</h1>
-            {client.contact_person && <p className="contact">{client.contact_person}</p>}
+            {client.contact_person && <p className="contact">Contact: {client.contact_person}</p>}
           </div>
         </div>
         <div className="header-actions">
@@ -188,112 +229,129 @@ export default function ClientDetailPage({ params }) {
           </button>
           <button 
             onClick={deleteClient} 
-            disabled={deleting || jobs.length > 0 || quotes.length > 0}
-            className={`btn-delete ${(jobs.length > 0 || quotes.length > 0) ? 'btn-delete-disabled' : ''}`}
-            title={jobs.length > 0 ? `Cannot delete: Has ${jobs.length} job(s)` : quotes.length > 0 ? `Cannot delete: Has ${quotes.length} quote(s)` : 'Delete client'}
+            disabled={deleting || hasRelatedRecords}
+            className={`btn-delete ${hasRelatedRecords ? 'btn-delete-disabled' : ''}`}
+            title={hasRelatedRecords ? `Cannot delete: Has ${jobs.length} job(s) and ${quotes.length} quote(s)` : 'Delete client'}
           >
             {deleting ? 'Deleting...' : 'Delete Client'}
           </button>
         </div>
       </div>
 
+      {/* Warning if client has records */}
+      {hasRelatedRecords && (
+        <div className="warning-card">
+          <h4>⚠️ Cannot Delete This Client</h4>
+          <p>This client has existing records that prevent deletion:</p>
+          <ul>
+            {jobs.length > 0 && <li>• {jobs.length} active job(s)</li>}
+            {quotes.length > 0 && <li>• {quotes.length} active quote(s)</li>}
+          </ul>
+          <p className="warning-note">Please delete or reassign these records before deleting the client.</p>
+        </div>
+      )}
+
       {/* Client Information Card */}
       <div className="card">
         <h3>Client Information</h3>
         {editing ? (
           <div className="edit-form">
-            <div className="form-group">
-              <label>Client Name</label>
-              <input 
-                type="text"
-                value={formData.client_name || ''} 
-                onChange={e => setFormData({...formData, client_name: e.target.value})} 
-              />
+            <div className="form-row">
+              <div className="form-group full-width">
+                <label>Client Name *</label>
+                <input 
+                  type="text"
+                  value={formData.client_name || ''} 
+                  onChange={e => setFormData({...formData, client_name: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Contact Person</label>
+                <input 
+                  type="text"
+                  value={formData.contact_person || ''} 
+                  onChange={e => setFormData({...formData, contact_person: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Email</label>
+                <input 
+                  type="email"
+                  value={formData.email || ''} 
+                  onChange={e => setFormData({...formData, email: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Phone</label>
+                <input 
+                  type="tel"
+                  value={formData.phone || ''} 
+                  onChange={e => setFormData({...formData, phone: e.target.value})} 
+                />
+              </div>
+              <div className="form-group full-width">
+                <label>Address</label>
+                <textarea 
+                  value={formData.client_address || ''} 
+                  onChange={e => setFormData({...formData, client_address: e.target.value})} 
+                  rows="3"
+                />
+              </div>
+              <div className="form-group">
+                <label>Signup Date</label>
+                <input 
+                  type="date"
+                  value={formData.signup_date || ''} 
+                  onChange={e => setFormData({...formData, signup_date: e.target.value})} 
+                />
+              </div>
             </div>
-            <div className="form-group">
-              <label>Contact Person</label>
-              <input 
-                type="text"
-                value={formData.contact_person || ''} 
-                onChange={e => setFormData({...formData, contact_person: e.target.value})} 
-              />
+            <div className="form-actions">
+              <button onClick={updateClient} className="btn-primary">Save Changes</button>
+              <button onClick={() => setEditing(false)} className="btn-secondary">Cancel</button>
             </div>
-            <div className="form-group">
-              <label>Email</label>
-              <input 
-                type="email"
-                value={formData.email || ''} 
-                onChange={e => setFormData({...formData, email: e.target.value})} 
-              />
-            </div>
-            <div className="form-group">
-              <label>Phone</label>
-              <input 
-                type="text"
-                value={formData.phone || ''} 
-                onChange={e => setFormData({...formData, phone: e.target.value})} 
-              />
-            </div>
-            <div className="form-group">
-              <label>Address</label>
-              <textarea 
-                value={formData.client_address || ''} 
-                onChange={e => setFormData({...formData, client_address: e.target.value})} 
-                rows="3"
-              />
-            </div>
-            <div className="form-group">
-              <label>Signup Date</label>
-              <input 
-                type="date"
-                value={formData.signup_date || ''} 
-                onChange={e => setFormData({...formData, signup_date: e.target.value})} 
-              />
-            </div>
-            <button onClick={updateClient} className="btn-primary">Save Changes</button>
           </div>
         ) : (
           <div className="info-grid">
             <div className="info-item">
+              <span className="label">Client Name:</span>
+              <span className="value">{client.client_name || '-'}</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Contact Person:</span>
+              <span className="value">{client.contact_person || '-'}</span>
+            </div>
+            <div className="info-item">
               <span className="label">Email:</span>
-              <span>{client.email || '-'}</span>
+              <span className="value">{client.email || '-'}</span>
             </div>
             <div className="info-item">
               <span className="label">Phone:</span>
-              <span>{client.phone || '-'}</span>
+              <span className="value">{client.phone || '-'}</span>
             </div>
             <div className="info-item full-width">
               <span className="label">Address:</span>
-              <span>{client.client_address || '-'}</span>
+              <span className="value">{client.client_address || '-'}</span>
             </div>
             <div className="info-item">
-              <span className="label">Signed Up:</span>
-              <span>{formatDate(client.signup_date)}</span>
+              <span className="label">Signup Date:</span>
+              <span className="value">{formatDate(client.signup_date)}</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Client Since:</span>
+              <span className="value">{formatDate(client.created_at)}</span>
             </div>
             <div className="info-item">
               <span className="label">Total Jobs:</span>
-              <span>{jobs.length}</span>
+              <span className="value">{jobs.length}</span>
             </div>
             <div className="info-item">
               <span className="label">Total Quotes:</span>
-              <span>{quotes.length}</span>
+              <span className="value">{quotes.length}</span>
             </div>
           </div>
         )}
       </div>
-
-      {/* Warning if client has records */}
-      {(jobs.length > 0 || quotes.length > 0) && (
-        <div className="warning-card">
-          <h4>⚠️ Cannot Delete This Client</h4>
-          <p>This client has existing records that prevent deletion:</p>
-          <ul>
-            {jobs.length > 0 && <li>• {jobs.length} active job(s): {jobs.map(j => j.job_number).join(', ')}</li>}
-            {quotes.length > 0 && <li>• {quotes.length} active quote(s): {quotes.map(q => q.quote_number).join(', ')}</li>}
-          </ul>
-          <p className="warning-note">Please delete or reassign these records before deleting the client.</p>
-        </div>
-      )}
 
       {/* Quotes Section */}
       <div className="section">
@@ -319,12 +377,14 @@ export default function ClientDetailPage({ params }) {
                 {quotes.map(quote => (
                   <tr key={quote.id}>
                     <td className="quote-number">{quote.quote_number}</td>
-                    <td className="quote-date">{formatDate(quote.quote_date)}</td>
-                    <td className="quote-amount">{formatCurrency(quote.total_amount)}</td>
-                    <td className="quote-status">
-                      <span className={`status-badge status-${quote.status}`}>{quote.status}</span>
+                    <td>{formatDate(quote.quote_date)}</td>
+                    <td>{formatCurrency(quote.total_amount)}</td>
+                    <td>
+                      <span className={`status-badge status-${quote.status}`}>
+                        {quote.status?.toUpperCase() || 'DRAFT'}
+                      </span>
                     </td>
-                    <td className="quote-actions">
+                    <td>
                       <Link href={`/quotes/${quote.id}`} className="action-link">View</Link>
                     </td>
                   </tr>
@@ -359,12 +419,14 @@ export default function ClientDetailPage({ params }) {
                 {jobs.map(job => (
                   <tr key={job.id}>
                     <td className="job-number">{job.job_number}</td>
-                    <td className="job-po">{job.po_number || '-'}</td>
-                    <td className="job-amount">{formatCurrency(job.po_amount)}</td>
-                    <td className="job-status">
-                      <span className={`status-badge status-${job.po_status}`}>{job.po_status}</span>
+                    <td>{job.po_number || '-'}</td>
+                    <td>{formatCurrency(job.po_amount)}</td>
+                    <td>
+                      <span className={`status-badge status-${job.po_status}`}>
+                        {job.po_status?.toUpperCase() || 'PENDING'}
+                      </span>
                     </td>
-                    <td className="job-actions">
+                    <td>
                       <Link href={`/jobs/${job.id}`} className="action-link">View</Link>
                     </td>
                   </tr>
@@ -377,7 +439,7 @@ export default function ClientDetailPage({ params }) {
 
       <style jsx>{`
         .container {
-          max-width: 1280px;
+          max-width: 1200px;
           margin: 0 auto;
           padding: 2rem;
         }
@@ -401,7 +463,7 @@ export default function ClientDetailPage({ params }) {
         }
         .header-title h1 {
           margin: 0;
-          font-size: 1.5rem;
+          font-size: 1.875rem;
           color: #1e293b;
         }
         .contact {
@@ -412,24 +474,11 @@ export default function ClientDetailPage({ params }) {
           display: flex;
           gap: 0.75rem;
         }
-        .card {
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 0.75rem;
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-        }
-        .card h3 {
-          margin: 0 0 1rem 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: #1e293b;
-        }
         .warning-card {
           background: #fef3c7;
           border: 1px solid #f59e0b;
           border-radius: 0.75rem;
-          padding: 1.5rem;
+          padding: 1rem 1.5rem;
           margin-bottom: 1.5rem;
         }
         .warning-card h4 {
@@ -448,6 +497,21 @@ export default function ClientDetailPage({ params }) {
         .warning-note {
           font-size: 0.875rem;
           margin-top: 0.5rem;
+        }
+        .card {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        .card h3 {
+          margin: 0 0 1rem 0;
+          font-size: 1rem;
+          font-weight: 600;
+          color: #1e293b;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid #e2e8f0;
         }
         .section {
           background: white;
@@ -471,26 +535,35 @@ export default function ClientDetailPage({ params }) {
         .info-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 0.75rem;
+          gap: 1rem;
         }
         .info-item {
           display: flex;
           padding: 0.5rem;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid #f1f5f9;
         }
         .info-item .label {
-          width: 100px;
+          width: 120px;
           font-weight: 500;
           color: #64748b;
         }
-        .info-item span:last-child {
+        .info-item .value {
+          flex: 1;
           color: #1e293b;
         }
         .full-width {
           grid-column: span 2;
         }
+        .edit-form .form-row {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+        }
         .edit-form .form-group {
           margin-bottom: 1rem;
+        }
+        .edit-form .full-width {
+          grid-column: span 2;
         }
         .edit-form label {
           display: block;
@@ -498,6 +571,7 @@ export default function ClientDetailPage({ params }) {
           font-size: 0.75rem;
           font-weight: 500;
           color: #64748b;
+          text-transform: uppercase;
         }
         .edit-form input,
         .edit-form textarea {
@@ -508,6 +582,14 @@ export default function ClientDetailPage({ params }) {
           background: white;
           color: #1e293b;
         }
+        .form-actions {
+          display: flex;
+          gap: 1rem;
+          justify-content: flex-end;
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
         .btn-primary {
           background: #22c55e;
           color: white;
@@ -515,6 +597,20 @@ export default function ClientDetailPage({ params }) {
           border: none;
           border-radius: 0.375rem;
           cursor: pointer;
+        }
+        .btn-primary:hover {
+          background: #16a34a;
+        }
+        .btn-secondary {
+          background: #64748b;
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+        }
+        .btn-secondary:hover {
+          background: #475569;
         }
         .btn-edit {
           background: #10b981;
@@ -524,6 +620,9 @@ export default function ClientDetailPage({ params }) {
           border-radius: 0.375rem;
           cursor: pointer;
         }
+        .btn-edit:hover {
+          background: #059669;
+        }
         .btn-delete {
           background: #ef4444;
           color: white;
@@ -532,13 +631,13 @@ export default function ClientDetailPage({ params }) {
           border-radius: 0.375rem;
           cursor: pointer;
         }
+        .btn-delete:hover:not(:disabled) {
+          background: #dc2626;
+        }
         .btn-delete-disabled {
           background: #fca5a5;
           cursor: not-allowed;
           opacity: 0.6;
-        }
-        .btn-delete:hover:not(:disabled) {
-          background: #dc2626;
         }
         .btn-small {
           background: #22c55e;
@@ -547,6 +646,9 @@ export default function ClientDetailPage({ params }) {
           border-radius: 0.375rem;
           text-decoration: none;
           font-size: 0.75rem;
+        }
+        .btn-small:hover {
+          background: #16a34a;
         }
         .table-container {
           overflow-x: auto;
@@ -568,9 +670,6 @@ export default function ClientDetailPage({ params }) {
           text-transform: uppercase;
           color: #64748b;
         }
-        .data-table td {
-          color: #1e293b;
-        }
         .action-link {
           color: #22c55e;
           text-decoration: none;
@@ -583,6 +682,10 @@ export default function ClientDetailPage({ params }) {
           text-align: center;
           padding: 2rem;
           color: #64748b;
+        }
+        .error-container {
+          text-align: center;
+          padding: 4rem;
         }
         .status-badge {
           display: inline-block;
@@ -597,6 +700,7 @@ export default function ClientDetailPage({ params }) {
         .status-draft { background: #f3f4f6; color: #4b5563; }
         .quote-number, .job-number {
           font-weight: 500;
+          color: #22c55e;
         }
         @media (max-width: 768px) {
           .container {
@@ -606,6 +710,12 @@ export default function ClientDetailPage({ params }) {
             grid-template-columns: 1fr;
           }
           .full-width {
+            grid-column: span 1;
+          }
+          .edit-form .form-row {
+            grid-template-columns: 1fr;
+          }
+          .edit-form .full-width {
             grid-column: span 1;
           }
           .header-actions {
