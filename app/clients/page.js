@@ -1,4 +1,4 @@
-// app/clients/page.js - Ensure it fetches after navigation
+// app/clients/page.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,10 +12,13 @@ export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchClients();
+    } else if (!isAuthenticated) {
+      setLoading(false);
     }
   }, [isAuthenticated, token]);
 
@@ -41,6 +44,8 @@ export default function ClientsPage() {
         clientsData = data;
       } else if (data.data && Array.isArray(data.data)) {
         clientsData = data.data;
+      } else {
+        clientsData = [];
       }
       
       setClients(clientsData);
@@ -52,34 +57,89 @@ export default function ClientsPage() {
     }
   };
 
-  // Add an effect to refetch when coming back from new client page
-  useEffect(() => {
-    const handleFocus = () => {
-      if (isAuthenticated && token) {
-        fetchClients();
+  const deleteClient = async (clientId, clientName) => {
+    if (!confirm(`Delete client "${clientName}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    setDeletingId(clientId);
+    
+    try {
+      const response = await fetch(`/api/clients/${clientId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        // Remove the deleted client from the list
+        setClients(clients.filter(c => c.id !== clientId));
+        alert(`Client "${clientName}" deleted successfully!`);
+      } else {
+        // Show detailed error message
+        if (data.hasJobs && data.hasQuotes) {
+          alert(`Cannot delete "${clientName}". This client has ${data.jobCount} job(s) and ${data.quoteCount} quote(s). Please delete or reassign these records first.`);
+        } else if (data.hasJobs) {
+          alert(`Cannot delete "${clientName}". This client has ${data.jobCount} job(s). Please delete or reassign these jobs first.`);
+        } else if (data.hasQuotes) {
+          alert(`Cannot delete "${clientName}". This client has ${data.quoteCount} quote(s). Please delete or reassign these quotes first.`);
+        } else {
+          alert(data.error || 'Failed to delete client');
+        }
       }
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [isAuthenticated, token]);
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      alert('Failed to delete client. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const formatDate = (date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString();
+  };
 
   if (loading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading clients...</p>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+          }
+          .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #22c55e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="container">
+    <div className="clients-container">
       <div className="page-header">
         <div>
           <h1>Clients</h1>
           <p>Manage your client database</p>
         </div>
-        <Link href="/clients/new" className="btn-primary">New Client</Link>
+        <Link href="/clients/new" className="btn-primary">+ New Client</Link>
       </div>
 
       {error && (
@@ -89,31 +149,71 @@ export default function ClientsPage() {
         </div>
       )}
 
-      <div className="cards-grid">
+      <div className="clients-grid">
         {clients.length === 0 && !error ? (
           <div className="empty-state">
-            <p>No clients found. Create your first client.</p>
+            <div className="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor"/>
+                <circle cx="12" cy="7" r="4" stroke="currentColor"/>
+              </svg>
+            </div>
+            <h3>No Clients Found</h3>
+            <p>Create your first client to get started.</p>
+            <Link href="/clients/new" className="btn-primary">Create Client</Link>
           </div>
         ) : (
-          clients.map((client) => (
-            <Link key={client.id} href={`/clients/${client.id}`} className="client-card">
-              <div className="client-name">{client.client_name}</div>
-              <div className="client-contact">{client.contact_person || 'No contact person'}</div>
-              <div className="client-email">{client.email || 'No email'}</div>
-              <div className="client-footer">
-                <span className="view-link">View Details →</span>
-              </div>
-            </Link>
-          ))
+          <table className="clients-table">
+            <thead>
+              <tr>
+                <th>Client Name</th>
+                <th>Contact Person</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Signup Date</th>
+                <th>Jobs</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.map((client) => (
+                <tr key={client.id} className="client-row">
+                  <td className="client-name">
+                    <Link href={`/clients/${client.id}`} className="client-link">
+                      {client.client_name}
+                    </Link>
+                   </td>
+                  <td className="contact-person">{client.contact_person || '-'}</td>
+                  <td className="email">{client.email || '-'}</td>
+                  <td className="phone">{client.phone || '-'}</td>
+                  <td className="signup-date">{formatDate(client.signup_date)}</td>
+                  <td className="jobs-count">{client.total_jobs || 0}</td>
+                  <td className="actions">
+                    <Link href={`/clients/${client.id}`} className="action-btn view">
+                      View
+                    </Link>
+                    <button 
+                      onClick={() => deleteClient(client.id, client.client_name)}
+                      disabled={deletingId === client.id}
+                      className="action-btn delete"
+                    >
+                      {deletingId === client.id ? '...' : 'Delete'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
       <style jsx>{`
-        .container {
-          max-width: 1280px;
+        .clients-container {
+          max-width: 1400px;
           margin: 0 auto;
           padding: 2rem;
         }
+
         .page-header {
           display: flex;
           justify-content: space-between;
@@ -122,33 +222,18 @@ export default function ClientsPage() {
           flex-wrap: wrap;
           gap: 1rem;
         }
+
         .page-header h1 {
           font-size: 1.875rem;
           font-weight: 600;
-          margin-bottom: 0.25rem;
           color: #1e293b;
+          margin-bottom: 0.25rem;
         }
+
         .page-header p {
           color: #64748b;
         }
-        .loading-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          min-height: 400px;
-        }
-        .loading-spinner {
-          width: 40px;
-          height: 40px;
-          border: 3px solid #e2e8f0;
-          border-top-color: #22c55e;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
+
         .btn-primary {
           background: #22c55e;
           color: white;
@@ -160,9 +245,11 @@ export default function ClientsPage() {
           font-weight: 500;
           transition: background 0.2s;
         }
+
         .btn-primary:hover {
           background: #16a34a;
         }
+
         .error-message {
           background: #fee2e2;
           color: #dc2626;
@@ -175,6 +262,7 @@ export default function ClientsPage() {
           flex-wrap: wrap;
           gap: 1rem;
         }
+
         .retry-btn {
           background: #dc2626;
           color: white;
@@ -183,61 +271,128 @@ export default function ClientsPage() {
           border-radius: 0.375rem;
           cursor: pointer;
         }
-        .cards-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 1.5rem;
-        }
-        .client-card {
+
+        .clients-grid {
           background: white;
           border: 1px solid #e2e8f0;
           border-radius: 0.75rem;
-          padding: 1.25rem;
-          text-decoration: none;
-          transition: all 0.2s;
-          display: block;
+          overflow-x: auto;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        .client-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-          border-color: #22c55e;
+
+        .clients-table {
+          width: 100%;
+          border-collapse: collapse;
+          min-width: 800px;
         }
+
+        .clients-table th {
+          text-align: left;
+          padding: 0.75rem 1rem;
+          background: #f8fafc;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #64748b;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .clients-table td {
+          padding: 0.75rem 1rem;
+          border-bottom: 1px solid #e2e8f0;
+          font-size: 0.875rem;
+          color: #1e293b;
+        }
+
+        .client-row:hover {
+          background: #f8fafc;
+        }
+
         .client-name {
           font-weight: 600;
-          font-size: 1rem;
-          color: #1e293b;
-          margin-bottom: 0.5rem;
         }
-        .client-contact {
-          font-size: 0.75rem;
-          color: #64748b;
-          margin-bottom: 0.25rem;
-        }
-        .client-email {
-          font-size: 0.7rem;
-          color: #94a3b8;
-          margin-bottom: 0.75rem;
-        }
-        .client-footer {
-          text-align: right;
-          padding-top: 0.5rem;
-          border-top: 1px solid #e2e8f0;
-        }
-        .view-link {
-          font-size: 0.7rem;
+
+        .client-link {
           color: #22c55e;
+          text-decoration: none;
         }
+
+        .client-link:hover {
+          text-decoration: underline;
+        }
+
+        .contact-person, .email, .phone, .signup-date, .jobs-count {
+          color: #1e293b;
+        }
+
+        .actions {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          white-space: nowrap;
+        }
+
+        .action-btn {
+          display: inline-block;
+          padding: 0.25rem 0.75rem;
+          border-radius: 0.375rem;
+          font-size: 0.7rem;
+          text-decoration: none;
+          transition: all 0.2s;
+          cursor: pointer;
+          border: none;
+        }
+
+        .action-btn.view {
+          background: #22c55e;
+          color: white;
+        }
+
+        .action-btn.view:hover {
+          background: #16a34a;
+        }
+
+        .action-btn.delete {
+          background: #ef4444;
+          color: white;
+        }
+
+        .action-btn.delete:hover {
+          background: #dc2626;
+        }
+
+        .action-btn.delete:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .empty-state {
           text-align: center;
-          padding: 3rem;
-          color: #64748b;
+          padding: 4rem 2rem;
         }
+
+        .empty-icon {
+          margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+          margin-bottom: 0.5rem;
+          color: #1e293b;
+        }
+
+        .empty-state p {
+          color: #64748b;
+          margin-bottom: 1.5rem;
+        }
+
         @media (max-width: 768px) {
-          .container {
+          .clients-container {
             padding: 1rem;
           }
-          .cards-grid {
-            grid-template-columns: 1fr;
+          .clients-table th,
+          .clients-table td {
+            padding: 0.5rem;
           }
         }
       `}</style>
