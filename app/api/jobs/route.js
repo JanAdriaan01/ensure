@@ -37,8 +37,6 @@ export async function GET(request) {
       ORDER BY j.id DESC
     `);
     
-    console.log(`Jobs API: Returning ${result.rows.length} jobs`);
-    
     return NextResponse.json({ 
       success: true, 
       data: result.rows 

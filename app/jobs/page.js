@@ -1,7 +1,7 @@
 // app/jobs/page.js
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth';
 
@@ -207,12 +207,13 @@ export default function JobsPage() {
                         <button 
                           className={`expand-btn ${isExpanded ? 'expanded' : ''}`}
                           onClick={() => toggleExpand(job.id)}
+                          aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="6 9 12 15 18 9"></polyline>
                           </svg>
                         </button>
-                      </td>
+                       </td>
                       <td className="job-number">
                         <Link href={`/jobs/${job.id}`}>
                           {job.job_number || `JOB-${job.id}`}
@@ -273,7 +274,7 @@ export default function JobsPage() {
                               </div>
                             </div>
 
-                            {/* Invoicing Details - Fixed to show correct amounts */}
+                            {/* Invoicing Details */}
                             <div className="expanded-section">
                               <h4>Invoicing Details</h4>
                               <div className="invoice-summary">
@@ -337,7 +338,7 @@ export default function JobsPage() {
                                       </tr>
                                     ))}
                                   </tbody>
-                                </table>
+                                 </table>
                                 {details.invoices.length > 5 && (
                                   <Link href={`/jobs/${job.id}/invoicing`} className="view-all-link">
                                     View all {details.invoices.length} invoices →
