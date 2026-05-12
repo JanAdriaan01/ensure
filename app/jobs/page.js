@@ -34,6 +34,13 @@ export default function JobsPage() {
         jobsArray = data.data;
       }
       
+      console.log('Jobs with invoicing data:', jobsArray.map(j => ({ 
+        id: j.id, 
+        job_number: j.job_number, 
+        po_amount: j.po_amount, 
+        total_invoiced: j.total_invoiced 
+      })));
+      
       setJobs(jobsArray);
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -73,7 +80,7 @@ export default function JobsPage() {
   };
 
   const formatCurrency = (amount) => {
-    if (!amount) return 'R 0';
+    if (!amount || amount === 0) return 'R 0';
     return new Intl.NumberFormat('en-ZA', { 
       style: 'currency', 
       currency: 'ZAR', 
@@ -81,11 +88,14 @@ export default function JobsPage() {
     }).format(amount);
   };
 
+  // Calculate invoicing progress based on total_invoiced vs po_amount
   const calculateProgress = (job) => {
-    const totalInvoiced = job.total_invoiced || 0;
-    const poAmount = job.po_amount || 0;
-    if (!poAmount) return 0;
-    return Math.min(100, Math.round((totalInvoiced / poAmount) * 100));
+    const totalInvoiced = parseFloat(job.total_invoiced) || 0;
+    const poAmount = parseFloat(job.po_amount) || 0;
+    
+    if (!poAmount || poAmount === 0) return 0;
+    const percentage = (totalInvoiced / poAmount) * 100;
+    return Math.min(100, Math.round(percentage));
   };
 
   const getProgressColor = (percentage) => {
@@ -184,12 +194,15 @@ export default function JobsPage() {
               {jobs.map(job => {
                 const progress = calculateProgress(job);
                 const progressColor = getProgressColor(progress);
+                const totalInvoiced = parseFloat(job.total_invoiced) || 0;
+                const poAmount = parseFloat(job.po_amount) || 0;
+                const remainingToInvoice = poAmount - totalInvoiced;
                 const isExpanded = expandedRow === job.id;
                 const details = jobDetails[job.id];
                 
                 return (
-                  <>
-                    <tr key={job.id} className="job-row">
+                  <React.Fragment key={job.id}>
+                    <tr className="job-row">
                       <td className="expand-cell">
                         <button 
                           className={`expand-btn ${isExpanded ? 'expanded' : ''}`}
@@ -207,8 +220,8 @@ export default function JobsPage() {
                       </td>
                       <td className="client-name">{job.client_name || 'Unknown'}</td>
                       <td className="po-number">{job.po_number || '-'}</td>
-                      <td className="amount">{formatCurrency(job.po_amount)}</td>
-                      <td className="amount">{formatCurrency(job.total_invoiced || 0)}</td>
+                      <td className="amount">{formatCurrency(poAmount)}</td>
+                      <td className="amount">{formatCurrency(totalInvoiced)}</td>
                       <td className="progress-cell">
                         <div className="progress-wrapper">
                           <div className="progress-bar-bg">
@@ -260,32 +273,38 @@ export default function JobsPage() {
                               </div>
                             </div>
 
-                            {/* Invoicing Details */}
-                            {details?.summaries && (
-                              <div className="expanded-section">
-                                <h4>Invoicing Summary</h4>
-                                <div className="invoice-summary">
-                                  <div className="summary-item">
-                                    <span className="summary-label">Total Invoiced</span>
-                                    <span className="summary-value">{formatCurrency(details.summaries.total_invoiced)}</span>
-                                  </div>
-                                  <div className="summary-item">
-                                    <span className="summary-label">Total Paid</span>
-                                    <span className="summary-value">{formatCurrency(details.summaries.total_paid)}</span>
-                                  </div>
-                                  <div className="summary-item">
-                                    <span className="summary-label">Outstanding</span>
-                                    <span className="summary-value" style={{ color: details.summaries.total_outstanding > 0 ? '#dc2626' : '#10b981' }}>
-                                      {formatCurrency(details.summaries.total_outstanding)}
-                                    </span>
-                                  </div>
-                                  <div className="summary-item">
-                                    <span className="summary-label">Remaining to Invoice</span>
-                                    <span className="summary-value">{formatCurrency(details.summaries.po_remaining)}</span>
+                            {/* Invoicing Details - Fixed to show correct amounts */}
+                            <div className="expanded-section">
+                              <h4>Invoicing Details</h4>
+                              <div className="invoice-summary">
+                                <div className="summary-item">
+                                  <span className="summary-label">PO Amount</span>
+                                  <span className="summary-value">{formatCurrency(poAmount)}</span>
+                                </div>
+                                <div className="summary-item">
+                                  <span className="summary-label">Total Invoiced</span>
+                                  <span className="summary-value">{formatCurrency(totalInvoiced)}</span>
+                                </div>
+                                <div className="summary-item">
+                                  <span className="summary-label">Remaining to Invoice</span>
+                                  <span className="summary-value" style={{ color: remainingToInvoice > 0 ? '#22c55e' : '#10b981' }}>
+                                    {formatCurrency(remainingToInvoice)}
+                                  </span>
+                                </div>
+                                <div className="summary-item">
+                                  <span className="summary-label">Invoicing Progress</span>
+                                  <div className="progress-wrapper" style={{ marginTop: '0.5rem' }}>
+                                    <div className="progress-bar-bg" style={{ flex: 1 }}>
+                                      <div 
+                                        className="progress-bar-fill" 
+                                        style={{ width: `${progress}%`, backgroundColor: progressColor }}
+                                      />
+                                    </div>
+                                    <span className="progress-text">{progress}%</span>
                                   </div>
                                 </div>
                               </div>
-                            )}
+                            </div>
 
                             {/* Recent Invoices */}
                             {details?.invoices && details.invoices.length > 0 && (
@@ -342,7 +361,7 @@ export default function JobsPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -559,7 +578,6 @@ export default function JobsPage() {
           background: #16a34a;
         }
 
-        /* Expanded Row Styles */
         .expanded-row {
           background: #f8fafc;
         }
@@ -614,7 +632,7 @@ export default function JobsPage() {
 
         .invoice-summary {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
           gap: 1rem;
         }
 

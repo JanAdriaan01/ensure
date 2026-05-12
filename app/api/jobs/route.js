@@ -9,11 +9,11 @@ export async function GET(request) {
   try {
     const auth = await verifyAuth(request);
     
-    // Don't block on authentication - return jobs even if not authenticated for testing
-    // But log the auth status
-    console.log('Auth status:', auth.authenticated);
+    if (!auth.authenticated) {
+      return NextResponse.json({ success: true, data: [] });
+    }
     
-    // Get ALL jobs - no filtering since database already has correct po_status
+    // Get jobs with invoicing totals from the jobs table
     const result = await query(`
       SELECT 
         j.id,
@@ -27,6 +27,10 @@ export async function GET(request) {
         j.po_amount,
         j.total_budget,
         j.created_at,
+        COALESCE(j.total_invoiced, 0) as total_invoiced,
+        COALESCE(j.total_paid, 0) as total_paid,
+        COALESCE(j.remaining_balance, j.po_amount) as remaining_balance,
+        COALESCE(j.invoicing_progress, 0) as invoicing_progress,
         c.client_name
       FROM jobs j
       LEFT JOIN clients c ON j.client_id = c.id
@@ -35,7 +39,6 @@ export async function GET(request) {
     
     console.log(`Jobs API: Returning ${result.rows.length} jobs`);
     
-    // Return in the format the frontend expects
     return NextResponse.json({ 
       success: true, 
       data: result.rows 
@@ -43,7 +46,6 @@ export async function GET(request) {
     
   } catch (error) {
     console.error('Jobs API error:', error);
-    // Return empty array on error, not null
     return NextResponse.json({ success: true, data: [] });
   }
 }
