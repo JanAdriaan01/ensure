@@ -1,3 +1,4 @@
+// app/clients/new/page.js
 'use client';
 
 import { useState } from 'react';
@@ -7,7 +8,7 @@ import { useAuth } from '@/app/hooks/useAuth';
 
 export default function NewClientPage() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
@@ -18,6 +19,19 @@ export default function NewClientPage() {
     phone: '',
     signup_date: new Date().toISOString().split('T')[0]
   });
+
+  // Redirect if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="form-container">
+        <div className="page-header">
+          <h1>Authentication Required</h1>
+          <p>Please log in to create clients.</p>
+          <Link href="/login" className="btn-primary">Go to Login</Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -41,12 +55,15 @@ export default function NewClientPage() {
       
       const data = await res.json();
       
-      if (res.ok && data.success) {
+      if (res.ok && data.id) {
+        // Successfully created - redirect to clients list
         router.push('/clients');
+        router.refresh(); // Force refresh the clients page
       } else {
         setError(data.error || 'Failed to create client');
       }
     } catch (err) {
+      console.error('Error creating client:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -71,64 +88,75 @@ export default function NewClientPage() {
       <form onSubmit={handleSubmit} className="form-card">
         <div className="form-grid">
           <div className="form-group full-width">
-            <label>Client Name *</label>
+            <label htmlFor="client_name">Client Name *</label>
             <input
+              id="client_name"
               type="text"
               name="client_name"
               value={formData.client_name}
               onChange={handleChange}
               required
+              autoComplete="organization"
               placeholder="e.g., ABC Corporation"
             />
           </div>
 
           <div className="form-group">
-            <label>Contact Person</label>
+            <label htmlFor="contact_person">Contact Person</label>
             <input
+              id="contact_person"
               type="text"
               name="contact_person"
               value={formData.contact_person}
               onChange={handleChange}
+              autoComplete="name"
               placeholder="Full name"
             />
           </div>
 
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor="email">Email</label>
             <input
+              id="email"
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
+              autoComplete="email"
               placeholder="contact@company.com"
             />
           </div>
 
           <div className="form-group">
-            <label>Phone</label>
+            <label htmlFor="phone">Phone</label>
             <input
+              id="phone"
               type="tel"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
+              autoComplete="tel"
               placeholder="+27 12 345 6789"
             />
           </div>
 
           <div className="form-group full-width">
-            <label>Address</label>
+            <label htmlFor="client_address">Address</label>
             <textarea
+              id="client_address"
               name="client_address"
               value={formData.client_address}
               onChange={handleChange}
               rows="3"
+              autoComplete="street-address"
               placeholder="Street address, city, postal code"
             />
           </div>
 
           <div className="form-group">
-            <label>Signup Date</label>
+            <label htmlFor="signup_date">Signup Date</label>
             <input
+              id="signup_date"
               type="date"
               name="signup_date"
               value={formData.signup_date}
@@ -155,32 +183,32 @@ export default function NewClientPage() {
           margin-bottom: 2rem;
         }
         .back-link {
-          color: var(--text-tertiary);
+          color: #64748b;
           text-decoration: none;
           display: inline-block;
           margin-bottom: 0.5rem;
           font-size: 0.875rem;
         }
         .back-link:hover {
-          color: var(--primary);
+          color: #22c55e;
         }
         .page-header h1 {
           margin: 0;
           font-size: 1.5rem;
           font-weight: 600;
-          color: var(--text-primary);
+          color: #1e293b;
         }
         .error-message {
-          background: var(--danger-bg);
-          color: var(--danger-dark);
+          background: #fee2e2;
+          color: #dc2626;
           padding: 0.75rem;
           border-radius: 0.5rem;
           margin-bottom: 1rem;
           font-size: 0.875rem;
         }
         .form-card {
-          background: var(--card-bg);
-          border: 1px solid var(--card-border);
+          background: white;
+          border: 1px solid #e2e8f0;
           border-radius: 0.75rem;
           padding: 2rem;
         }
@@ -200,27 +228,23 @@ export default function NewClientPage() {
           font-size: 0.75rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          color: var(--text-secondary);
+          color: #64748b;
         }
         .form-group input,
         .form-group textarea {
           width: 100%;
           padding: 0.625rem;
-          border: 1px solid var(--border-medium);
+          border: 1px solid #e2e8f0;
           border-radius: 0.375rem;
           font-size: 0.875rem;
-          background: var(--bg-primary);
-          color: var(--text-primary);
+          background: white;
+          color: #1e293b;
         }
         .form-group input:focus,
         .form-group textarea:focus {
           outline: none;
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .form-group input::placeholder,
-        .form-group textarea::placeholder {
-          color: var(--text-muted);
+          border-color: #22c55e;
+          box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
         }
         .form-actions {
           display: flex;
@@ -228,10 +252,10 @@ export default function NewClientPage() {
           justify-content: flex-end;
           margin-top: 1rem;
           padding-top: 1rem;
-          border-top: 1px solid var(--border-light);
+          border-top: 1px solid #e2e8f0;
         }
         .btn-primary {
-          background: var(--primary);
+          background: #22c55e;
           color: white;
           padding: 0.5rem 1rem;
           border: none;
@@ -242,14 +266,14 @@ export default function NewClientPage() {
           transition: background 0.2s;
         }
         .btn-primary:hover {
-          background: var(--primary-dark);
+          background: #16a34a;
         }
         .btn-primary:disabled {
           opacity: 0.6;
           cursor: not-allowed;
         }
         .btn-secondary {
-          background: var(--secondary);
+          background: #64748b;
           color: white;
           padding: 0.5rem 1rem;
           border-radius: 0.375rem;
@@ -260,7 +284,7 @@ export default function NewClientPage() {
           transition: background 0.2s;
         }
         .btn-secondary:hover {
-          background: var(--secondary-dark);
+          background: #475569;
         }
         @media (max-width: 640px) {
           .form-container {

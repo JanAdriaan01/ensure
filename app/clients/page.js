@@ -1,267 +1,161 @@
-// app/clients/new/page.js
+// app/clients/page.js - Ensure it fetches after navigation
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/hooks/useAuth';
 
-export default function NewClientPage() {
+export default function ClientsPage() {
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    client_name: '',
-    contact_person: '',
-    client_address: '',
-    email: '',
-    phone: '',
-    signup_date: new Date().toISOString().split('T')[0]
-  });
 
-  // Redirect if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="form-container">
-        <div className="page-header">
-          <h1>Authentication Required</h1>
-          <p>Please log in to create clients.</p>
-          <Link href="/login" className="btn-primary">Go to Login</Link>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      fetchClients();
+    }
+  }, [isAuthenticated, token]);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError('');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
+  const fetchClients = async () => {
     try {
-      const res = await fetch('/api/clients', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch('/api/clients', {
+        headers: {
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
+        }
       });
       
-      const data = await res.json();
-      
-      if (res.ok) {
-        router.push('/clients');
-      } else {
-        setError(data.error || 'Failed to create client');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+      
+      const data = await response.json();
+      
+      let clientsData = [];
+      if (Array.isArray(data)) {
+        clientsData = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        clientsData = data.data;
+      }
+      
+      setClients(clientsData);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      setError('Failed to load clients. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Add an effect to refetch when coming back from new client page
+  useEffect(() => {
+    const handleFocus = () => {
+      if (isAuthenticated && token) {
+        fetchClients();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isAuthenticated, token]);
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading clients...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="form-container">
+    <div className="container">
       <div className="page-header">
         <div>
-          <Link href="/clients" className="back-link">← Back to Clients</Link>
-          <h1>Add New Client</h1>
+          <h1>Clients</h1>
+          <p>Manage your client database</p>
         </div>
+        <Link href="/clients/new" className="btn-primary">New Client</Link>
       </div>
 
       {error && (
         <div className="error-message">
           {error}
+          <button onClick={fetchClients} className="retry-btn">Retry</button>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="form-card">
-        <div className="form-grid">
-          <div className="form-group full-width">
-            <label htmlFor="client_name">Client Name *</label>
-            <input
-              id="client_name"
-              type="text"
-              name="client_name"
-              value={formData.client_name}
-              onChange={handleChange}
-              required
-              autoComplete="organization"
-              placeholder="e.g., ABC Corporation"
-            />
+      <div className="cards-grid">
+        {clients.length === 0 && !error ? (
+          <div className="empty-state">
+            <p>No clients found. Create your first client.</p>
           </div>
-
-          <div className="form-group">
-            <label htmlFor="contact_person">Contact Person</label>
-            <input
-              id="contact_person"
-              type="text"
-              name="contact_person"
-              value={formData.contact_person}
-              onChange={handleChange}
-              autoComplete="name"
-              placeholder="Full name"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              autoComplete="email"
-              placeholder="contact@company.com"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="phone">Phone</label>
-            <input
-              id="phone"
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              autoComplete="tel"
-              placeholder="+27 12 345 6789"
-            />
-          </div>
-
-          <div className="form-group full-width">
-            <label htmlFor="client_address">Address</label>
-            <textarea
-              id="client_address"
-              name="client_address"
-              value={formData.client_address}
-              onChange={handleChange}
-              rows="3"
-              autoComplete="street-address"
-              placeholder="Street address, city, postal code"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="signup_date">Signup Date</label>
-            <input
-              id="signup_date"
-              type="date"
-              name="signup_date"
-              value={formData.signup_date}
-              onChange={handleChange}
-            />
-          </div>
-        </div>
-
-        <div className="form-actions">
-          <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? 'Creating...' : 'Create Client'}
-          </button>
-          <Link href="/clients" className="btn-secondary">Cancel</Link>
-        </div>
-      </form>
+        ) : (
+          clients.map((client) => (
+            <Link key={client.id} href={`/clients/${client.id}`} className="client-card">
+              <div className="client-name">{client.client_name}</div>
+              <div className="client-contact">{client.contact_person || 'No contact person'}</div>
+              <div className="client-email">{client.email || 'No email'}</div>
+              <div className="client-footer">
+                <span className="view-link">View Details →</span>
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
 
       <style jsx>{`
-        .form-container {
-          max-width: 800px;
+        .container {
+          max-width: 1280px;
           margin: 0 auto;
           padding: 2rem;
         }
         .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           margin-bottom: 2rem;
-        }
-        .back-link {
-          color: var(--text-tertiary);
-          text-decoration: none;
-          display: inline-block;
-          margin-bottom: 0.5rem;
-          font-size: 0.875rem;
-        }
-        .back-link:hover {
-          color: var(--primary);
+          flex-wrap: wrap;
+          gap: 1rem;
         }
         .page-header h1 {
-          margin: 0;
-          font-size: 1.5rem;
+          font-size: 1.875rem;
           font-weight: 600;
-          color: var(--text-primary);
+          margin-bottom: 0.25rem;
+          color: #1e293b;
         }
-        .error-message {
-          background: #fee2e2;
-          color: #dc2626;
-          padding: 0.75rem;
-          border-radius: 0.5rem;
-          margin-bottom: 1rem;
-          font-size: 0.875rem;
+        .page-header p {
+          color: #64748b;
         }
-        .form-card {
-          background: var(--card-bg);
-          border: 1px solid var(--card-border);
-          border-radius: 0.75rem;
-          padding: 2rem;
-        }
-        .form-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 1.5rem;
-          margin-bottom: 2rem;
-        }
-        .full-width {
-          grid-column: span 2;
-        }
-        .form-group label {
-          display: block;
-          margin-bottom: 0.375rem;
-          font-weight: 500;
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: var(--text-secondary);
-        }
-        .form-group input,
-        .form-group textarea {
-          width: 100%;
-          padding: 0.625rem;
-          border: 1px solid var(--border-medium);
-          border-radius: 0.375rem;
-          font-size: 0.875rem;
-          background: var(--bg-primary);
-          color: var(--text-primary);
-        }
-        .form-group input:focus,
-        .form-group textarea:focus {
-          outline: none;
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
-        }
-        .form-group input::placeholder,
-        .form-group textarea::placeholder {
-          color: var(--text-muted);
-        }
-        .form-actions {
+        .loading-container {
           display: flex;
-          gap: 1rem;
-          justify-content: flex-end;
-          margin-top: 1rem;
-          padding-top: 1rem;
-          border-top: 1px solid var(--border-light);
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 400px;
+        }
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid #e2e8f0;
+          border-top-color: #22c55e;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
         .btn-primary {
           background: #22c55e;
           color: white;
           padding: 0.5rem 1rem;
-          border: none;
-          border-radius: 0.375rem;
-          cursor: pointer;
+          border-radius: 0.5rem;
+          text-decoration: none;
+          display: inline-block;
           font-size: 0.875rem;
           font-weight: 500;
           transition: background 0.2s;
@@ -269,46 +163,81 @@ export default function NewClientPage() {
         .btn-primary:hover {
           background: #16a34a;
         }
-        .btn-primary:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
+        .error-message {
+          background: #fee2e2;
+          color: #dc2626;
+          padding: 1rem;
+          border-radius: 0.5rem;
+          margin-bottom: 1rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 1rem;
         }
-        .btn-secondary {
-          background: var(--secondary);
+        .retry-btn {
+          background: #dc2626;
           color: white;
-          padding: 0.5rem 1rem;
+          padding: 0.25rem 0.75rem;
+          border: none;
           border-radius: 0.375rem;
+          cursor: pointer;
+        }
+        .cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: 1.5rem;
+        }
+        .client-card {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.75rem;
+          padding: 1.25rem;
           text-decoration: none;
-          font-size: 0.875rem;
-          font-weight: 500;
-          display: inline-block;
-          transition: background 0.2s;
+          transition: all 0.2s;
+          display: block;
         }
-        .btn-secondary:hover {
-          background: var(--secondary-dark);
+        .client-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          border-color: #22c55e;
         }
-        @media (max-width: 640px) {
-          .form-container {
+        .client-name {
+          font-weight: 600;
+          font-size: 1rem;
+          color: #1e293b;
+          margin-bottom: 0.5rem;
+        }
+        .client-contact {
+          font-size: 0.75rem;
+          color: #64748b;
+          margin-bottom: 0.25rem;
+        }
+        .client-email {
+          font-size: 0.7rem;
+          color: #94a3b8;
+          margin-bottom: 0.75rem;
+        }
+        .client-footer {
+          text-align: right;
+          padding-top: 0.5rem;
+          border-top: 1px solid #e2e8f0;
+        }
+        .view-link {
+          font-size: 0.7rem;
+          color: #22c55e;
+        }
+        .empty-state {
+          text-align: center;
+          padding: 3rem;
+          color: #64748b;
+        }
+        @media (max-width: 768px) {
+          .container {
             padding: 1rem;
           }
-          .form-card {
-            padding: 1.5rem;
-          }
-          .form-grid {
+          .cards-grid {
             grid-template-columns: 1fr;
-            gap: 1rem;
-          }
-          .full-width {
-            grid-column: span 1;
-          }
-          .form-actions {
-            flex-direction: column-reverse;
-            gap: 0.75rem;
-          }
-          .form-actions button,
-          .form-actions a {
-            width: 100%;
-            text-align: center;
           }
         }
       `}</style>
