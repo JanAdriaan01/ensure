@@ -46,7 +46,6 @@ export default function ClientDetailPage({ params }) {
       
       const clientData = await clientRes.json();
       
-      // Check if we got an error response
       if (clientData.error) {
         setError(clientData.error);
         setLoading(false);
@@ -72,7 +71,7 @@ export default function ClientDetailPage({ params }) {
       }
       setQuotes(quotesArray);
       
-      // Fetch jobs for this client
+      // Fetch jobs for this client (using client_site_id or organization_id)
       const jobsRes = await fetch(`/api/jobs?client_id=${params.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -112,6 +111,7 @@ export default function ClientDetailPage({ params }) {
         setClient(updatedClient);
         setEditing(false);
         alert('Client updated successfully!');
+        fetchClientData();
       } else {
         const error = await res.json();
         alert(error.error || 'Failed to update client');
@@ -123,19 +123,12 @@ export default function ClientDetailPage({ params }) {
   };
 
   const deleteClient = async () => {
-    // Check if client has jobs
-    if (jobs.length > 0) {
-      alert(`Cannot delete "${client?.client_name}". This client has ${jobs.length} active job(s). Please delete or reassign these jobs first.`);
+    if (jobs.length > 0 || quotes.length > 0) {
+      alert(`Cannot delete this client. They have ${jobs.length} job(s) and ${quotes.length} quote(s).`);
       return;
     }
     
-    // Check if client has quotes
-    if (quotes.length > 0) {
-      alert(`Cannot delete "${client?.client_name}". This client has ${quotes.length} active quote(s). Please delete or reassign these quotes first.`);
-      return;
-    }
-    
-    if (!confirm(`Delete client "${client?.client_name}"? This action cannot be undone.`)) {
+    if (!confirm(`Delete client "${client?.first_name} ${client?.last_name}"? This action cannot be undone.`)) {
       return;
     }
     
@@ -152,7 +145,7 @@ export default function ClientDetailPage({ params }) {
       const data = await res.json();
       
       if (res.ok && data.success) {
-        alert(`Client "${client?.client_name}" deleted successfully!`);
+        alert('Client deleted successfully!');
         router.push('/clients');
       } else {
         alert(data.error || 'Failed to delete client');
@@ -240,9 +233,6 @@ export default function ClientDetailPage({ params }) {
             text-decoration: none;
             display: inline-block;
           }
-          .btn-secondary:hover {
-            background: #475569;
-          }
         `}</style>
       </div>
     );
@@ -256,8 +246,9 @@ export default function ClientDetailPage({ params }) {
         <div>
           <Link href="/clients" className="back-link">← Back to Clients</Link>
           <div className="header-title">
-            <h1>{client.client_name}</h1>
-            {client.contact_person && <p className="contact">Contact: {client.contact_person}</p>}
+            <h1>{client.first_name} {client.last_name}</h1>
+            {client.job_title && <p className="contact">{client.job_title}</p>}
+            {client.organization_name && <p className="organization">{client.organization_name}</p>}
           </div>
         </div>
         <div className="header-actions">
@@ -292,26 +283,31 @@ export default function ClientDetailPage({ params }) {
         {editing ? (
           <div className="edit-form">
             <div className="form-row">
-              <div className="form-group full-width">
-                <label>Client Name *</label>
+              <div className="form-group">
+                <label>First Name *</label>
                 <input 
                   type="text"
-                  value={formData.client_name || ''} 
-                  onChange={e => setFormData({...formData, client_name: e.target.value})} 
+                  name="first_name"
+                  value={formData.first_name || ''} 
+                  onChange={e => setFormData({...formData, first_name: e.target.value})} 
                 />
               </div>
               <div className="form-group">
-                <label>Contact Person</label>
+                <label>Last Name *</label>
                 <input 
                   type="text"
-                  value={formData.contact_person || ''} 
-                  onChange={e => setFormData({...formData, contact_person: e.target.value})} 
+                  name="last_name"
+                  value={formData.last_name || ''} 
+                  onChange={e => setFormData({...formData, last_name: e.target.value})} 
                 />
               </div>
+            </div>
+            <div className="form-row">
               <div className="form-group">
                 <label>Email</label>
                 <input 
                   type="email"
+                  name="email"
                   value={formData.email || ''} 
                   onChange={e => setFormData({...formData, email: e.target.value})} 
                 />
@@ -320,26 +316,98 @@ export default function ClientDetailPage({ params }) {
                 <label>Phone</label>
                 <input 
                   type="tel"
+                  name="phone"
                   value={formData.phone || ''} 
                   onChange={e => setFormData({...formData, phone: e.target.value})} 
                 />
               </div>
-              <div className="form-group full-width">
-                <label>Address</label>
-                <textarea 
-                  value={formData.client_address || ''} 
-                  onChange={e => setFormData({...formData, client_address: e.target.value})} 
-                  rows="3"
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Mobile</label>
+                <input 
+                  type="tel"
+                  name="mobile"
+                  value={formData.mobile || ''} 
+                  onChange={e => setFormData({...formData, mobile: e.target.value})} 
                 />
               </div>
               <div className="form-group">
-                <label>Signup Date</label>
+                <label>Job Title</label>
                 <input 
-                  type="date"
-                  value={formData.signup_date || ''} 
-                  onChange={e => setFormData({...formData, signup_date: e.target.value})} 
+                  type="text"
+                  name="job_title"
+                  value={formData.job_title || ''} 
+                  onChange={e => setFormData({...formData, job_title: e.target.value})} 
                 />
               </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Department</label>
+                <input 
+                  type="text"
+                  name="department"
+                  value={formData.department || ''} 
+                  onChange={e => setFormData({...formData, department: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Date of Birth</label>
+                <input 
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth || ''} 
+                  onChange={e => setFormData({...formData, date_of_birth: e.target.value})} 
+                />
+              </div>
+            </div>
+            <div className="form-group full-width">
+              <label>Address Line 1</label>
+              <input 
+                type="text"
+                name="address_line1"
+                value={formData.address_line1 || ''} 
+                onChange={e => setFormData({...formData, address_line1: e.target.value})} 
+              />
+            </div>
+            <div className="form-group full-width">
+              <label>Address Line 2</label>
+              <input 
+                type="text"
+                name="address_line2"
+                value={formData.address_line2 || ''} 
+                onChange={e => setFormData({...formData, address_line2: e.target.value})} 
+              />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>City</label>
+                <input 
+                  type="text"
+                  name="city"
+                  value={formData.city || ''} 
+                  onChange={e => setFormData({...formData, city: e.target.value})} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Postal Code</label>
+                <input 
+                  type="text"
+                  name="postal_code"
+                  value={formData.postal_code || ''} 
+                  onChange={e => setFormData({...formData, postal_code: e.target.value})} 
+                />
+              </div>
+            </div>
+            <div className="form-group full-width">
+              <label>Notes</label>
+              <textarea 
+                name="notes"
+                value={formData.notes || ''} 
+                onChange={e => setFormData({...formData, notes: e.target.value})} 
+                rows="3"
+              />
             </div>
             <div className="form-actions">
               <button onClick={updateClient} className="btn-primary">Save Changes</button>
@@ -349,12 +417,8 @@ export default function ClientDetailPage({ params }) {
         ) : (
           <div className="info-grid">
             <div className="info-item">
-              <span className="label">Client Name:</span>
-              <span className="value">{client.client_name || '-'}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Contact Person:</span>
-              <span className="value">{client.contact_person || '-'}</span>
+              <span className="label">Full Name:</span>
+              <span className="value">{client.first_name} {client.last_name}</span>
             </div>
             <div className="info-item">
               <span className="label">Email:</span>
@@ -364,18 +428,42 @@ export default function ClientDetailPage({ params }) {
               <span className="label">Phone:</span>
               <span className="value">{client.phone || '-'}</span>
             </div>
+            <div className="info-item">
+              <span className="label">Mobile:</span>
+              <span className="value">{client.mobile || '-'}</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Organization:</span>
+              <span className="value">{client.organization_name || '-'}</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Job Title:</span>
+              <span className="value">{client.job_title || '-'}</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Department:</span>
+              <span className="value">{client.department || '-'}</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Date of Birth:</span>
+              <span className="value">{formatDate(client.date_of_birth)}</span>
+            </div>
             <div className="info-item full-width">
               <span className="label">Address:</span>
-              <span className="value">{client.client_address || '-'}</span>
+              <span className="value">
+                {client.address_line1 && <div>{client.address_line1}</div>}
+                {client.address_line2 && <div>{client.address_line2}</div>}
+                {client.city && <div>{client.city}</div>}
+                {client.postal_code && <div>Postal Code: {client.postal_code}</div>}
+                {!client.address_line1 && !client.city && '-'}
+              </span>
             </div>
-            <div className="info-item">
-              <span className="label">Signup Date:</span>
-              <span className="value">{formatDate(client.signup_date)}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Client Since:</span>
-              <span className="value">{formatDate(client.created_at)}</span>
-            </div>
+            {client.notes && (
+              <div className="info-item full-width">
+                <span className="label">Notes:</span>
+                <span className="value">{client.notes}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -488,12 +576,12 @@ export default function ClientDetailPage({ params }) {
         }
         .header-title h1 {
           margin: 0;
-          font-size: 1.875rem;
+          font-size: 1.5rem;
           color: #1e293b;
         }
-        .contact {
+        .contact, .organization {
           color: #64748b;
-          margin: 0.25rem 0 0 0;
+          margin: 0.25rem 0 0;
         }
         .header-actions {
           display: flex;
@@ -581,8 +669,9 @@ export default function ClientDetailPage({ params }) {
         }
         .edit-form .form-row {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: 1fr 1fr;
           gap: 1rem;
+          margin-bottom: 1rem;
         }
         .edit-form .form-group {
           margin-bottom: 1rem;
@@ -672,9 +761,6 @@ export default function ClientDetailPage({ params }) {
           text-decoration: none;
           font-size: 0.75rem;
         }
-        .btn-small:hover {
-          background: #16a34a;
-        }
         .table-container {
           overflow-x: auto;
         }
@@ -682,18 +768,19 @@ export default function ClientDetailPage({ params }) {
           width: 100%;
           border-collapse: collapse;
         }
-        .data-table th,
-        .data-table td {
-          padding: 0.75rem;
-          text-align: left;
-          border-bottom: 1px solid #e2e8f0;
-        }
         .data-table th {
+          padding: 0.75rem;
           background: #f8fafc;
           font-weight: 600;
           font-size: 0.75rem;
           text-transform: uppercase;
           color: #64748b;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .data-table td {
+          padding: 0.75rem;
+          border-bottom: 1px solid #e2e8f0;
+          color: #1e293b;
         }
         .action-link {
           color: #22c55e;

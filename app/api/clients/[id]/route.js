@@ -19,24 +19,18 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 });
     }
     
-    const result = await query(
-      `SELECT 
-        c.id,
-        c.client_name,
-        c.contact_person,
-        c.client_address,
-        c.signup_date,
-        c.email,
-        c.phone,
-        c.created_at,
-        COUNT(DISTINCT j.id) as total_jobs,
-        COALESCE(SUM(j.po_amount), 0) as total_value
+    const result = await query(`
+      SELECT 
+        c.*,
+        o.organization_name,
+        STRING_AGG(DISTINCT cs.site_name, ', ') as site_names
       FROM clients c
-      LEFT JOIN jobs j ON c.id = j.client_id
+      LEFT JOIN organizations o ON c.organization_id = o.id
+      LEFT JOIN client_site_assignments csa ON c.id = csa.client_id
+      LEFT JOIN client_sites cs ON csa.client_site_id = cs.id
       WHERE c.id = $1
-      GROUP BY c.id`,
-      [clientId]
-    );
+      GROUP BY c.id, o.organization_name
+    `, [clientId]);
     
     if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
@@ -61,25 +55,31 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     
     const { 
-      client_name, 
-      contact_person, 
-      email, 
-      phone, 
-      client_address, 
-      signup_date 
+      first_name, last_name, email, phone, mobile,
+      job_title, department, address_line1, address_line2,
+      city, postal_code, date_of_birth, notes
     } = body;
     
     const result = await query(
       `UPDATE clients SET 
-        client_name = COALESCE($1, client_name),
-        contact_person = COALESCE($2, contact_person),
+        first_name = COALESCE($1, first_name),
+        last_name = COALESCE($2, last_name),
         email = COALESCE($3, email),
         phone = COALESCE($4, phone),
-        client_address = COALESCE($5, client_address),
-        signup_date = COALESCE($6, signup_date)
-       WHERE id = $7 
-       RETURNING *`,
-      [client_name, contact_person, email, phone, client_address, signup_date, clientId]
+        mobile = COALESCE($5, mobile),
+        job_title = COALESCE($6, job_title),
+        department = COALESCE($7, department),
+        address_line1 = COALESCE($8, address_line1),
+        address_line2 = COALESCE($9, address_line2),
+        city = COALESCE($10, city),
+        postal_code = COALESCE($11, postal_code),
+        date_of_birth = COALESCE($12, date_of_birth),
+        notes = COALESCE($13, notes),
+        updated_at = NOW()
+      WHERE id = $14
+      RETURNING *`,
+      [first_name, last_name, email, phone, mobile, job_title, department,
+       address_line1, address_line2, city, postal_code, date_of_birth, notes, clientId]
     );
     
     if (result.rows.length === 0) {
@@ -103,54 +103,25 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
     const clientId = parseInt(id);
     
-    if (isNaN(clientId)) {
-      return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 });
+    // Check if client has jobs
+    const jobCheck = await query(`SELECT COUNT(*) FROM jobs WHERE client_id = $1`, [clientId]);
+    if (parseInt(jobCheck.rows[0].count) > 0) {
+      return NextResponse.json({ error: 'Cannot delete client with existing jobs' }, { status: 400 });
     }
     
-    // First, check if client exists
-    const clientCheck = await query(`SELECT id, client_name FROM clients WHERE id = $1`, [clientId]);
-    if (clientCheck.rows.length === 0) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    // Check if client has quotes
+    const quoteCheck = await query(`SELECT COUNT(*) FROM quotes WHERE client_id = $1`, [clientId]);
+    if (parseInt(quoteCheck.rows[0].count) > 0) {
+      return NextResponse.json({ error: 'Cannot delete client with existing quotes' }, { status: 400 });
     }
     
-    const clientName = clientCheck.rows[0].client_name;
+    // Delete client site assignments first
+    await query(`DELETE FROM client_site_assignments WHERE client_id = $1`, [clientId]);
     
-    // Check for jobs
-    const jobsCount = await query(`SELECT COUNT(*) as count FROM jobs WHERE client_id = $1`, [clientId]);
-    const hasJobs = parseInt(jobsCount.rows[0].count) > 0;
-    
-    // Check for quotes
-    const quotesCount = await query(`SELECT COUNT(*) as count FROM quotes WHERE client_id = $1`, [clientId]);
-    const hasQuotes = parseInt(quotesCount.rows[0].count) > 0;
-    
-    // If client has related records, prevent deletion
-    if (hasJobs || hasQuotes) {
-      let errorMessage = `Cannot delete "${clientName}".`;
-      if (hasJobs) {
-        errorMessage += ` This client has ${jobsCount.rows[0].count} job(s).`;
-      }
-      if (hasQuotes) {
-        errorMessage += ` This client has ${quotesCount.rows[0].count} quote(s).`;
-      }
-      errorMessage += ` Please delete or reassign these records first.`;
-      
-      return NextResponse.json({ 
-        error: errorMessage,
-        hasJobs: hasJobs,
-        hasQuotes: hasQuotes,
-        jobCount: parseInt(jobsCount.rows[0].count),
-        quoteCount: parseInt(quotesCount.rows[0].count)
-      }, { status: 400 });
-    }
-    
-    // No related records, safe to delete
+    // Delete client
     await query(`DELETE FROM clients WHERE id = $1`, [clientId]);
     
-    return NextResponse.json({ 
-      success: true, 
-      message: `Client "${clientName}" deleted successfully` 
-    });
-    
+    return NextResponse.json({ success: true, message: 'Client deleted successfully' });
   } catch (error) {
     console.error('DELETE client error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
