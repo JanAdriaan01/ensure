@@ -22,6 +22,7 @@ export default function ClientSiteDetailPage() {
 
   const fetchSite = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`/api/client-sites/${params.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -40,9 +41,32 @@ export default function ClientSiteDetailPage() {
       setSite(data);
     } catch (error) {
       console.error('Error fetching site:', error);
-      setError('Failed to load site details');
+      setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteSite = async () => {
+    if (!confirm(`Delete site "${site?.site_name}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/client-sites?id=${params.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        router.push('/client-sites');
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to delete site');
+      }
+    } catch (error) {
+      console.error('Error deleting site:', error);
+      alert('Failed to delete site');
     }
   };
 
@@ -110,12 +134,13 @@ export default function ClientSiteDetailPage() {
         </div>
         <div className="header-actions">
           <Link href={`/client-sites/${site.id}/edit`} className="btn-edit">Edit Site</Link>
+          <button onClick={deleteSite} className="btn-delete">Delete Site</button>
         </div>
       </div>
 
       <div className="details-grid">
         <div className="detail-card">
-          <h3>Organization</h3>
+          <h3>Organization Information</h3>
           <div className="detail-item">
             <span className="label">Organization:</span>
             <span className="value">{site.organization_name || '-'}</span>
@@ -146,8 +171,24 @@ export default function ClientSiteDetailPage() {
               {site.site_address && <div>{site.site_address}</div>}
               {site.city && <div>{site.city}</div>}
               {site.postal_code && <div>Postal Code: {site.postal_code}</div>}
-              {!site.site_address && !site.city && '-'}
+              {!site.site_address && !site.city && <span>-</span>}
             </span>
+          </div>
+        </div>
+
+        <div className="detail-card">
+          <h3>Site Status</h3>
+          <div className="detail-item">
+            <span className="label">Primary Site:</span>
+            <span className="value">{site.is_primary ? 'Yes' : 'No'}</span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Created:</span>
+            <span className="value">{new Date(site.created_at).toLocaleDateString()}</span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Last Updated:</span>
+            <span className="value">{new Date(site.updated_at).toLocaleDateString()}</span>
           </div>
         </div>
       </div>
@@ -190,12 +231,24 @@ export default function ClientSiteDetailPage() {
           display: inline-block;
           margin-left: 0.5rem;
         }
+        .header-actions {
+          display: flex;
+          gap: 0.75rem;
+        }
         .btn-edit {
           background: #3b82f6;
           color: white;
           padding: 0.5rem 1rem;
           border-radius: 0.5rem;
           text-decoration: none;
+        }
+        .btn-delete {
+          background: #ef4444;
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 0.5rem;
+          border: none;
+          cursor: pointer;
         }
         .details-grid {
           display: grid;

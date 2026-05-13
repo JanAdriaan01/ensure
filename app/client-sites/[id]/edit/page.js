@@ -16,73 +16,17 @@ export default function EditClientSitePage() {
   const [organizations, setOrganizations] = useState([]);
   
   const [formData, setFormData] = useState({
+    id: '',
     organization_id: '',
     site_name: '',
-    site_type: '',
-    site_code: '',
     contact_person: '',
     email: '',
     phone: '',
     site_address: '',
     city: '',
     postal_code: '',
-    site_manager: '',
-    operating_hours: '',
-    is_primary: false,
-    safety_level: 'moderate',
-    access_level: 'moderate',
-    power_requirement: '',
-    clearance_required: '',
-    environment_types: [],
-    special_equipment: [],
-    restricted_zones: [],
-    notes: ''
+    is_primary: false
   });
-
-  const siteTypes = [
-    'Warehouse', 'Office', 'Retail Store', 'Distribution Center',
-    'Manufacturing Plant', 'Construction Site', 'Depot', 'Branch',
-    'Head Office', 'Regional Office', 'Service Center', 'Other'
-  ];
-
-  const environmentOptions = [
-    { value: 'outdoor', label: 'Outdoor' },
-    { value: 'indoor', label: 'Indoor' },
-    { value: 'office', label: 'Office' },
-    { value: 'warehouse_4m', label: 'Warehouse (4m)' },
-    { value: 'warehouse_5m', label: 'Warehouse (5m)' },
-    { value: 'production', label: 'Production' },
-    { value: 'clean_room', label: 'Clean Room' },
-    { value: 'cold_storage', label: 'Cold Storage' },
-    { value: 'hazardous', label: 'Hazardous' },
-    { value: 'confined_space', label: 'Confined Space' },
-    { value: 'high_risk', label: 'High Risk' }
-  ];
-
-  const equipmentOptions = [
-    { value: 'hard_hat', label: 'Hard Hat' },
-    { value: 'safety_vest', label: 'Safety Vest' },
-    { value: 'safety_glasses', label: 'Safety Glasses' },
-    { value: 'steel_toe_boots', label: 'Steel Toe Boots' },
-    { value: 'gloves', label: 'Gloves' },
-    { value: 'ear_protection', label: 'Ear Protection' },
-    { value: 'respirator', label: 'Respirator' },
-    { value: 'harness', label: 'Safety Harness' },
-    { value: 'gas_detector', label: 'Gas Detector' },
-    { value: 'fire_extinguisher', label: 'Fire Extinguisher' }
-  ];
-
-  const restrictedZoneOptions = [
-    { value: 'machinery_area', label: 'Machinery Area' },
-    { value: 'electrical_room', label: 'Electrical Room' },
-    { value: 'chemical_storage', label: 'Chemical Storage' },
-    { value: 'roof_area', label: 'Roof Area' },
-    { value: 'pit_area', label: 'Pit Area' },
-    { value: 'confined_space', label: 'Confined Space' },
-    { value: 'restricted_office', label: 'Restricted Office' },
-    { value: 'data_center', label: 'Data Center' },
-    { value: 'laboratory', label: 'Laboratory' }
-  ];
 
   useEffect(() => {
     if (isAuthenticated && token) {
@@ -109,7 +53,18 @@ export default function EditClientSitePage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      setFormData(data);
+      setFormData({
+        id: data.id,
+        organization_id: data.organization_id,
+        site_name: data.site_name || '',
+        contact_person: data.contact_person || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        site_address: data.site_address || '',
+        city: data.city || '',
+        postal_code: data.postal_code || '',
+        is_primary: data.is_primary || false
+      });
     } catch (error) {
       console.error('Error fetching site:', error);
       setError('Failed to load site data');
@@ -124,18 +79,7 @@ export default function EditClientSitePage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    setError('');
-  };
-
-  const handleMultiSelect = (arrayName, value) => {
-    setFormData(prev => {
-      const currentArray = prev[arrayName] || [];
-      if (currentArray.includes(value)) {
-        return { ...prev, [arrayName]: currentArray.filter(v => v !== value) };
-      } else {
-        return { ...prev, [arrayName]: [...currentArray, value] };
-      }
-    });
+    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -146,7 +90,7 @@ export default function EditClientSitePage() {
       return;
     }
     
-    if (!formData.site_name) {
+    if (!formData.site_name || formData.site_name.trim() === '') {
       setError('Site name is required');
       return;
     }
@@ -155,7 +99,7 @@ export default function EditClientSitePage() {
     setError('');
 
     try {
-      const response = await fetch(`/api/client-sites/${params.id}`, {
+      const response = await fetch('/api/client-sites', {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -172,6 +116,7 @@ export default function EditClientSitePage() {
         setError(data.error || 'Failed to update client site');
       }
     } catch (err) {
+      console.error('Error:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setSaving(false);
@@ -183,6 +128,26 @@ export default function EditClientSitePage() {
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading site data...</p>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+          }
+          .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #22c55e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -197,61 +162,78 @@ export default function EditClientSitePage() {
         </div>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="form-card">
-        {/* Same form fields as new page, but pre-populated with formData */}
-        <div className="form-section">
-          <h3>Organization *</h3>
+        <div className="form-group">
+          <label>Organization *</label>
+          <select
+            name="organization_id"
+            value={formData.organization_id}
+            onChange={handleChange}
+            required
+            disabled
+            style={{ backgroundColor: '#f3f4f6' }}
+          >
+            <option value="">-- Select an Organization --</option>
+            {organizations.map(org => (
+              <option key={org.id} value={org.id}>
+                {org.organization_name}
+              </option>
+            ))}
+          </select>
+          <small className="field-note">Organization cannot be changed after creation</small>
+        </div>
+
+        <div className="form-group">
+          <label>Site Name *</label>
+          <input
+            type="text"
+            name="site_name"
+            value={formData.site_name}
+            onChange={handleChange}
+            required
+            placeholder="e.g., Johannesburg Branch"
+          />
+        </div>
+
+        <div className="form-row">
           <div className="form-group">
-            <label>Select Organization</label>
-            <select
-              name="organization_id"
-              value={formData.organization_id}
+            <label>Contact Person</label>
+            <input
+              type="text"
+              name="contact_person"
+              value={formData.contact_person}
               onChange={handleChange}
-              required
-            >
-              <option value="">-- Select an Organization --</option>
-              {organizations.map(org => (
-                <option key={org.id} value={org.id}>
-                  {org.organization_name}
-                </option>
-              ))}
-            </select>
+              placeholder="Site contact name"
+            />
+          </div>
+          <div className="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="site@company.com"
+            />
           </div>
         </div>
 
-        <div className="form-section">
-          <h3>Basic Site Information</h3>
+        <div className="form-row">
           <div className="form-group">
-            <label>Site Name *</label>
+            <label>Phone</label>
             <input
-              type="text"
-              name="site_name"
-              value={formData.site_name}
+              type="tel"
+              name="phone"
+              value={formData.phone}
               onChange={handleChange}
-              required
+              placeholder="+27 11 123 4567"
             />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Site Type</label>
-              <select name="site_type" value={formData.site_type || ''} onChange={handleChange}>
-                <option value="">Select Type</option>
-                {siteTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Site Code</label>
-              <input
-                type="text"
-                name="site_code"
-                value={formData.site_code || ''}
-                onChange={handleChange}
-              />
-            </div>
           </div>
           <div className="form-group">
             <label className="checkbox-label">
@@ -266,191 +248,36 @@ export default function EditClientSitePage() {
           </div>
         </div>
 
-        <div className="form-section">
-          <h3>Environment Types</h3>
-          <div className="options-grid">
-            {environmentOptions.map(env => (
-              <label key={env.value} className="option-card">
-                <input
-                  type="checkbox"
-                  checked={formData.environment_types?.includes(env.value)}
-                  onChange={() => handleMultiSelect('environment_types', env.value)}
-                />
-                <span>{env.label}</span>
-              </label>
-            ))}
-          </div>
+        <div className="form-group">
+          <label>Address</label>
+          <textarea
+            name="site_address"
+            value={formData.site_address}
+            onChange={handleChange}
+            rows="2"
+            placeholder="Street address"
+          />
         </div>
 
-        <div className="form-section">
-          <h3>Safety & Access Levels</h3>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Safety Level</label>
-              <select name="safety_level" value={formData.safety_level || 'moderate'} onChange={handleChange}>
-                <option value="easy">Easy - Standard safety protocols</option>
-                <option value="moderate">Moderate - Enhanced safety protocols</option>
-                <option value="strict">Strict - Full PPE & special training</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Access Level</label>
-              <select name="access_level" value={formData.access_level || 'moderate'} onChange={handleChange}>
-                <option value="easy">Easy - Public access</option>
-                <option value="moderate">Moderate - Controlled access</option>
-                <option value="strict">Strict - Restricted access</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Power Requirement</label>
-              <input
-                type="text"
-                name="power_requirement"
-                value={formData.power_requirement || ''}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="form-group">
-              <label>Clearance Required</label>
-              <input
-                type="text"
-                name="clearance_required"
-                value={formData.clearance_required || ''}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3>Special Equipment Required</h3>
-          <div className="options-grid">
-            {equipmentOptions.map(equip => (
-              <label key={equip.value} className="option-card">
-                <input
-                  type="checkbox"
-                  checked={formData.special_equipment?.includes(equip.value)}
-                  onChange={() => handleMultiSelect('special_equipment', equip.value)}
-                />
-                <span>{equip.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3>Restricted Zones</h3>
-          <div className="options-grid">
-            {restrictedZoneOptions.map(zone => (
-              <label key={zone.value} className="option-card">
-                <input
-                  type="checkbox"
-                  checked={formData.restricted_zones?.includes(zone.value)}
-                  onChange={() => handleMultiSelect('restricted_zones', zone.value)}
-                />
-                <span>{zone.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3>Contact Information</h3>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Contact Person</label>
-              <input
-                type="text"
-                name="contact_person"
-                value={formData.contact_person || ''}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email || ''}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Phone</label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone || ''}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="form-group">
-              <label>Site Manager</label>
-              <input
-                type="text"
-                name="site_manager"
-                value={formData.site_manager || ''}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3>Address Information</h3>
+        <div className="form-row">
           <div className="form-group">
-            <label>Site Address</label>
-            <textarea
-              name="site_address"
-              value={formData.site_address || ''}
-              onChange={handleChange}
-              rows="2"
-            />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>City</label>
-              <input
-                type="text"
-                name="city"
-                value={formData.city || ''}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="form-group">
-              <label>Postal Code</label>
-              <input
-                type="text"
-                name="postal_code"
-                value={formData.postal_code || ''}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h3>Additional Information</h3>
-          <div className="form-group">
-            <label>Operating Hours</label>
+            <label>City</label>
             <input
               type="text"
-              name="operating_hours"
-              value={formData.operating_hours || ''}
+              name="city"
+              value={formData.city}
               onChange={handleChange}
+              placeholder="City"
             />
           </div>
           <div className="form-group">
-            <label>Notes</label>
-            <textarea
-              name="notes"
-              value={formData.notes || ''}
+            <label>Postal Code</label>
+            <input
+              type="text"
+              name="postal_code"
+              value={formData.postal_code}
               onChange={handleChange}
-              rows="3"
+              placeholder="Postal code"
             />
           </div>
         </div>
@@ -464,43 +291,153 @@ export default function EditClientSitePage() {
       </form>
 
       <style jsx>{`
-        .form-container { max-width: 900px; margin: 0 auto; padding: 2rem; }
-        .page-header { margin-bottom: 2rem; }
-        .back-link { color: #64748b; text-decoration: none; display: inline-block; margin-bottom: 0.5rem; font-size: 0.875rem; }
-        .back-link:hover { color: #22c55e; }
-        .page-header h1 { margin: 0; font-size: 1.5rem; font-weight: 600; color: #1e293b; }
-        .page-header p { margin: 0.25rem 0 0; color: #64748b; }
-        .error-message { background: #fee2e2; color: #dc2626; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; }
-        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; }
-        .loading-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #22c55e; border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .form-card { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; overflow: hidden; }
-        .form-section { padding: 1.5rem; border-bottom: 1px solid #e2e8f0; }
-        .form-section:last-child { border-bottom: none; }
-        .form-section h3 { margin: 0 0 0.5rem 0; font-size: 1rem; font-weight: 600; color: #1e293b; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-        .form-group { display: flex; flex-direction: column; margin-bottom: 1rem; }
-        .form-group label { margin-bottom: 0.375rem; font-weight: 500; font-size: 0.75rem; text-transform: uppercase; color: #64748b; }
-        .form-group input, .form-group select, .form-group textarea { padding: 0.625rem; border: 1px solid #e2e8f0; border-radius: 0.375rem; font-size: 0.875rem; background: white; color: #1e293b; }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.1); }
-        .checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; text-transform: none; }
-        .checkbox-label input { width: auto; }
-        .options-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem; margin-top: 0.5rem; }
-        .option-card { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 0.375rem; cursor: pointer; }
-        .option-card:hover { background: #f8fafc; border-color: #22c55e; }
-        .option-card input { margin: 0; }
-        .form-actions { display: flex; gap: 1rem; justify-content: flex-end; padding: 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; }
-        .btn-primary { background: #22c55e; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
-        .btn-primary:hover { background: #16a34a; }
-        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-secondary { background: #64748b; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.875rem; font-weight: 500; }
-        .btn-secondary:hover { background: #475569; }
-        @media (max-width: 768px) {
-          .form-container { padding: 1rem; }
-          .form-row { grid-template-columns: 1fr; }
-          .options-grid { grid-template-columns: 1fr; }
-          .form-actions { flex-direction: column; }
-          .form-actions button, .form-actions a { width: 100%; text-align: center; }
+        .form-container {
+          max-width: 700px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
+        .page-header {
+          margin-bottom: 2rem;
+        }
+        .back-link {
+          color: #64748b;
+          text-decoration: none;
+          display: inline-block;
+          margin-bottom: 0.5rem;
+          font-size: 0.875rem;
+        }
+        .back-link:hover {
+          color: #22c55e;
+        }
+        .page-header h1 {
+          margin: 0;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #1e293b;
+        }
+        .page-header p {
+          margin: 0.25rem 0 0;
+          color: #64748b;
+        }
+        .error-message {
+          background: #fee2e2;
+          color: #dc2626;
+          padding: 0.75rem;
+          border-radius: 0.5rem;
+          margin-bottom: 1rem;
+          font-size: 0.875rem;
+        }
+        .form-card {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+        }
+        .form-group {
+          margin-bottom: 1rem;
+        }
+        .form-group label {
+          display: block;
+          margin-bottom: 0.375rem;
+          font-weight: 500;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+        .field-note {
+          font-size: 0.7rem;
+          color: #94a3b8;
+          margin-top: 0.25rem;
+          display: block;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+          width: 100%;
+          padding: 0.625rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          background: white;
+          color: #1e293b;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+          outline: none;
+          border-color: #22c55e;
+          box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
+        }
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        .checkbox-label {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          text-transform: none;
+          margin-top: 0.375rem;
+        }
+        .checkbox-label input {
+          width: auto;
+        }
+        .form-actions {
+          display: flex;
+          gap: 1rem;
+          justify-content: flex-end;
+          margin-top: 1.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
+        .btn-primary {
+          background: #22c55e;
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          font-weight: 500;
+        }
+        .btn-primary:hover {
+          background: #16a34a;
+        }
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .btn-secondary {
+          background: #64748b;
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 0.375rem;
+          text-decoration: none;
+          font-size: 0.875rem;
+          font-weight: 500;
+          display: inline-block;
+        }
+        .btn-secondary:hover {
+          background: #475569;
+        }
+        @media (max-width: 640px) {
+          .form-container {
+            padding: 1rem;
+          }
+          .form-row {
+            grid-template-columns: 1fr;
+          }
+          .form-actions {
+            flex-direction: column;
+          }
+          .form-actions button,
+          .form-actions a {
+            width: 100%;
+            text-align: center;
+          }
         }
       `}</style>
     </div>

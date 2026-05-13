@@ -12,6 +12,7 @@ export default function NewClientSitePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [organizations, setOrganizations] = useState([]);
+  const [fetchingOrgs, setFetchingOrgs] = useState(true);
   
   const [formData, setFormData] = useState({
     organization_id: '',
@@ -33,6 +34,7 @@ export default function NewClientSitePage() {
 
   const fetchOrganizations = async () => {
     try {
+      setFetchingOrgs(true);
       const response = await fetch('/api/organizations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -40,6 +42,9 @@ export default function NewClientSitePage() {
       setOrganizations(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching organizations:', error);
+      setError('Failed to load organizations');
+    } finally {
+      setFetchingOrgs(false);
     }
   };
 
@@ -49,6 +54,7 @@ export default function NewClientSitePage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -59,7 +65,7 @@ export default function NewClientSitePage() {
       return;
     }
     
-    if (!formData.site_name) {
+    if (!formData.site_name || formData.site_name.trim() === '') {
       setError('Site name is required');
       return;
     }
@@ -85,159 +91,349 @@ export default function NewClientSitePage() {
         setError(data.error || 'Failed to create client site');
       }
     } catch (err) {
+      console.error('Error:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  if (fetchingOrgs) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading organizations...</p>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+          }
+          .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #22c55e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem', textAlign: 'center' }}>
+      <div className="auth-container">
         <h1>Authentication Required</h1>
         <p>Please log in to create client sites.</p>
-        <Link href="/login" style={{ background: '#22c55e', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', textDecoration: 'none', display: 'inline-block' }}>
-          Go to Login
-        </Link>
+        <Link href="/login" className="btn-primary">Go to Login</Link>
+        <style jsx>{`
+          .auth-container {
+            max-width: 600px;
+            margin: 4rem auto;
+            text-align: center;
+            padding: 2rem;
+          }
+          .btn-primary {
+            background: #22c55e;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 1rem;
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <Link href="/client-sites" style={{ color: '#64748b', textDecoration: 'none', display: 'inline-block', marginBottom: '0.5rem' }}>← Back to Client Sites</Link>
-        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600, color: '#1e293b' }}>Create New Client Site</h1>
-        <p style={{ margin: '0.25rem 0 0', color: '#64748b' }}>Add a branch location under an organization</p>
+    <div className="form-container">
+      <div className="page-header">
+        <div>
+          <Link href="/client-sites" className="back-link">← Back to Client Sites</Link>
+          <h1>Create New Client Site</h1>
+          <p>Add a branch location under an organization</p>
+        </div>
       </div>
 
       {error && (
-        <div style={{ background: '#fee2e2', color: '#dc2626', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
+        <div className="error-message">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '1.5rem' }}>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Organization *</label>
+      <form onSubmit={handleSubmit} className="form-card">
+        <div className="form-group">
+          <label>Organization *</label>
           <select
             name="organization_id"
             value={formData.organization_id}
             onChange={handleChange}
             required
-            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
           >
             <option value="">-- Select an Organization --</option>
             {organizations.map(org => (
-              <option key={org.id} value={org.id}>{org.organization_name}</option>
+              <option key={org.id} value={org.id}>
+                {org.organization_name}
+              </option>
             ))}
           </select>
         </div>
 
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Site Name *</label>
+        <div className="form-group">
+          <label>Site Name *</label>
           <input
             type="text"
             name="site_name"
             value={formData.site_name}
             onChange={handleChange}
             required
-            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-            placeholder="e.g., Johannesburg Branch"
+            placeholder="e.g., Johannesburg Branch, Cape Town Warehouse"
           />
         </div>
 
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Contact Person</label>
-          <input
-            type="text"
-            name="contact_person"
-            value={formData.contact_person}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-            placeholder="Site contact name"
-          />
+        <div className="form-row">
+          <div className="form-group">
+            <label>Contact Person</label>
+            <input
+              type="text"
+              name="contact_person"
+              value={formData.contact_person}
+              onChange={handleChange}
+              placeholder="Site contact name"
+            />
+          </div>
+          <div className="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="site@company.com"
+            />
+          </div>
         </div>
 
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Email</label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-            placeholder="site@company.com"
-          />
+        <div className="form-row">
+          <div className="form-group">
+            <label>Phone</label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="+27 11 123 4567"
+            />
+          </div>
+          <div className="form-group">
+            <label>Primary Site</label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                name="is_primary"
+                checked={formData.is_primary}
+                onChange={handleChange}
+              />
+              Mark as primary site for this organization
+            </label>
+          </div>
         </div>
 
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Phone</label>
-          <input
-            type="tel"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-            placeholder="+27 11 123 4567"
-          />
-        </div>
-
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Address</label>
+        <div className="form-group">
+          <label>Address</label>
           <textarea
             name="site_address"
             value={formData.site_address}
             onChange={handleChange}
             rows="2"
-            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
             placeholder="Street address"
           />
         </div>
 
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>City</label>
-          <input
-            type="text"
-            name="city"
-            value={formData.city}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-            placeholder="City"
-          />
-        </div>
-
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Postal Code</label>
-          <input
-            type="text"
-            name="postal_code"
-            value={formData.postal_code}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-            placeholder="Postal code"
-          />
-        </div>
-
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+        <div className="form-row">
+          <div className="form-group">
+            <label>City</label>
             <input
-              type="checkbox"
-              name="is_primary"
-              checked={formData.is_primary}
+              type="text"
+              name="city"
+              value={formData.city}
               onChange={handleChange}
+              placeholder="City"
             />
-            Mark as primary site for this organization
-          </label>
+          </div>
+          <div className="form-group">
+            <label>Postal Code</label>
+            <input
+              type="text"
+              name="postal_code"
+              value={formData.postal_code}
+              onChange={handleChange}
+              placeholder="Postal code"
+            />
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-          <button type="submit" disabled={loading} style={{ background: '#22c55e', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}>
+        <div className="form-actions">
+          <button type="submit" disabled={loading} className="btn-primary">
             {loading ? 'Creating...' : 'Create Client Site'}
           </button>
-          <Link href="/client-sites" style={{ background: '#64748b', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>Cancel</Link>
+          <Link href="/client-sites" className="btn-secondary">Cancel</Link>
         </div>
       </form>
+
+      <style jsx>{`
+        .form-container {
+          max-width: 700px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
+        .page-header {
+          margin-bottom: 2rem;
+        }
+        .back-link {
+          color: #64748b;
+          text-decoration: none;
+          display: inline-block;
+          margin-bottom: 0.5rem;
+          font-size: 0.875rem;
+        }
+        .back-link:hover {
+          color: #22c55e;
+        }
+        .page-header h1 {
+          margin: 0;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #1e293b;
+        }
+        .page-header p {
+          margin: 0.25rem 0 0;
+          color: #64748b;
+        }
+        .error-message {
+          background: #fee2e2;
+          color: #dc2626;
+          padding: 0.75rem;
+          border-radius: 0.5rem;
+          margin-bottom: 1rem;
+          font-size: 0.875rem;
+        }
+        .form-card {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+        }
+        .form-group {
+          margin-bottom: 1rem;
+        }
+        .form-group label {
+          display: block;
+          margin-bottom: 0.375rem;
+          font-weight: 500;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+          width: 100%;
+          padding: 0.625rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          background: white;
+          color: #1e293b;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+          outline: none;
+          border-color: #22c55e;
+          box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
+        }
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        .checkbox-label {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          text-transform: none;
+          margin-top: 0.375rem;
+        }
+        .checkbox-label input {
+          width: auto;
+        }
+        .form-actions {
+          display: flex;
+          gap: 1rem;
+          justify-content: flex-end;
+          margin-top: 1.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
+        .btn-primary {
+          background: #22c55e;
+          color: white;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          font-weight: 500;
+        }
+        .btn-primary:hover {
+          background: #16a34a;
+        }
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .btn-secondary {
+          background: #64748b;
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 0.375rem;
+          text-decoration: none;
+          font-size: 0.875rem;
+          font-weight: 500;
+          display: inline-block;
+        }
+        .btn-secondary:hover {
+          background: #475569;
+        }
+        @media (max-width: 640px) {
+          .form-container {
+            padding: 1rem;
+          }
+          .form-row {
+            grid-template-columns: 1fr;
+          }
+          .form-actions {
+            flex-direction: column;
+          }
+          .form-actions button,
+          .form-actions a {
+            width: 100%;
+            text-align: center;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -29,13 +29,10 @@ export default function ClientSitesPage() {
       }
       
       const data = await response.json();
-      console.log('Fetched sites:', data);
-      
-      const sitesArray = Array.isArray(data) ? data : [];
-      setSites(sitesArray);
+      setSites(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching sites:', error);
-      setError('Failed to load client sites');
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -73,7 +70,7 @@ export default function ClientSitesPage() {
   if (error) {
     return (
       <div className="error-container">
-        <h2>Error</h2>
+        <h2>Error Loading Client Sites</h2>
         <p>{error}</p>
         <button onClick={fetchSites} className="retry-btn">Retry</button>
         <style jsx>{`
@@ -110,7 +107,7 @@ export default function ClientSitesPage() {
           <p>No client sites found. Create your first site.</p>
         </div>
       ) : (
-        <div className="sites-grid">
+        <div className="table-wrapper">
           <table className="sites-table">
             <thead>
               <tr>
@@ -119,23 +116,41 @@ export default function ClientSitesPage() {
                 <th>Contact Person</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th>Primary</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {sites.map(site => (
                 <tr key={site.id}>
-                  <td className="site-name">
-                    {site.site_name}
-                    {site.is_primary && <span className="primary-badge">Primary</span>}
-                  </td>
+                  <td className="site-name">{site.site_name}</td>
                   <td>{site.organization_name || '-'}</td>
                   <td>{site.contact_person || '-'}</td>
                   <td>{site.email || '-'}</td>
                   <td>{site.phone || '-'}</td>
+                  <td>{site.is_primary ? 'Yes' : 'No'}</td>
                   <td className="actions">
                     <Link href={`/client-sites/${site.id}`} className="btn-view">View</Link>
                     <Link href={`/client-sites/${site.id}/edit`} className="btn-edit">Edit</Link>
+                    <button 
+                      onClick={async () => {
+                        if (confirm(`Delete site "${site.site_name}"?`)) {
+                          const res = await fetch(`/api/client-sites?id=${site.id}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                          });
+                          if (res.ok) {
+                            fetchSites();
+                          } else {
+                            const data = await res.json();
+                            alert(data.error || 'Failed to delete');
+                          }
+                        }
+                      }}
+                      className="btn-delete"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -146,7 +161,7 @@ export default function ClientSitesPage() {
 
       <style jsx>{`
         .container {
-          max-width: 1200px;
+          max-width: 1400px;
           margin: 0 auto;
           padding: 2rem;
         }
@@ -173,8 +188,9 @@ export default function ClientSitesPage() {
           padding: 0.5rem 1rem;
           border-radius: 0.5rem;
           text-decoration: none;
+          display: inline-block;
         }
-        .sites-grid {
+        .table-wrapper {
           background: white;
           border: 1px solid #e2e8f0;
           border-radius: 0.75rem;
@@ -183,7 +199,7 @@ export default function ClientSitesPage() {
         .sites-table {
           width: 100%;
           border-collapse: collapse;
-          min-width: 700px;
+          min-width: 900px;
         }
         .sites-table th {
           text-align: left;
@@ -203,18 +219,10 @@ export default function ClientSitesPage() {
         .site-name {
           font-weight: 600;
         }
-        .primary-badge {
-          background: #22c55e;
-          color: white;
-          padding: 0.125rem 0.375rem;
-          border-radius: 0.25rem;
-          font-size: 0.6rem;
-          margin-left: 0.5rem;
-          display: inline-block;
-        }
         .actions {
           display: flex;
           gap: 0.5rem;
+          flex-wrap: wrap;
         }
         .btn-view {
           background: #22c55e;
@@ -223,6 +231,7 @@ export default function ClientSitesPage() {
           border-radius: 0.375rem;
           text-decoration: none;
           font-size: 0.75rem;
+          display: inline-block;
         }
         .btn-edit {
           background: #3b82f6;
@@ -230,6 +239,16 @@ export default function ClientSitesPage() {
           padding: 0.25rem 0.75rem;
           border-radius: 0.375rem;
           text-decoration: none;
+          font-size: 0.75rem;
+          display: inline-block;
+        }
+        .btn-delete {
+          background: #ef4444;
+          color: white;
+          padding: 0.25rem 0.75rem;
+          border-radius: 0.375rem;
+          border: none;
+          cursor: pointer;
           font-size: 0.75rem;
         }
         .empty-state {
