@@ -61,6 +61,26 @@ export default function OrganizationsPage() {
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading organizations...</p>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+          }
+          .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #22c55e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -116,9 +136,6 @@ export default function OrganizationsPage() {
         .page-header p { color: #64748b; margin: 0.25rem 0 0; }
         .btn-primary { background: #22c55e; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; }
         .error-message { background: #fee2e2; color: #dc2626; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; }
-        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; }
-        .loading-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #22c55e; border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
         .organizations-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.5rem; }
         .org-card { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; transition: all 0.2s; }
         .org-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: #22c55e; }
@@ -132,6 +149,10 @@ export default function OrganizationsPage() {
         .btn-edit { background: #3b82f6; color: white; padding: 0.25rem 0.75rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.75rem; }
         .btn-delete { background: #ef4444; color: white; padding: 0.25rem 0.75rem; border-radius: 0.375rem; border: none; cursor: pointer; font-size: 0.75rem; }
         .empty-state { text-align: center; padding: 4rem; color: #64748b; }
+        @media (max-width: 768px) {
+          .container { padding: 1rem; }
+          .organizations-grid { grid-template-columns: 1fr; }
+        }
       `}</style>
     </div>
   );
