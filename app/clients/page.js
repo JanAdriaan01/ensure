@@ -1,4 +1,4 @@
-// app/clients/page.js
+// app/clients/page.js - Ensure it handles array response
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -19,11 +19,28 @@ export default function ClientsPage() {
 
   const fetchClients = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/clients', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
       const data = await response.json();
-      setClients(data);
+      console.log('API Response:', data); // Debug log
+      
+      // Ensure we always have an array
+      let clientsArray = [];
+      if (Array.isArray(data)) {
+        clientsArray = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        clientsArray = data.data;
+      } else if (data.success && data.data) {
+        clientsArray = data.data;
+      } else {
+        clientsArray = [];
+      }
+      
+      setClients(clientsArray);
+      console.log('Clients loaded:', clientsArray.length);
     } catch (error) {
       console.error('Error fetching clients:', error);
       setError('Failed to load clients');
@@ -71,19 +88,19 @@ export default function ClientsPage() {
       <div className="page-header">
         <div>
           <h1>Clients</h1>
-          <p>Manage your client contacts</p>
+          <p>Manage your client contacts ({clients.length} total)</p>
         </div>
         <Link href="/clients/new" className="btn-primary">+ New Client</Link>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
-      <div className="clients-grid">
-        {clients.length === 0 ? (
-          <div className="empty-state">
-            <p>No clients found. Create your first client.</p>
-          </div>
-        ) : (
+      {clients.length === 0 ? (
+        <div className="empty-state">
+          <p>No clients found. Create your first client.</p>
+        </div>
+      ) : (
+        <div className="clients-grid">
           <table className="clients-table">
             <thead>
               <tr>
@@ -100,11 +117,11 @@ export default function ClientsPage() {
                 <tr key={client.id}>
                   <td className="client-name">
                     {client.first_name} {client.last_name}
-                  </td>
-                  <td>{client.email || '-'}</td>
-                  <td>{client.phone || client.mobile || '-'}</td>
-                  <td>{client.organization_name || '-'}</td>
-                  <td>{client.job_title || '-'}</td>
+                   </td>
+                  <td className="client-email">{client.email || '-'}</td>
+                  <td className="client-phone">{client.phone || client.mobile || '-'}</td>
+                  <td className="client-org">{client.organization_name || '-'}</td>
+                  <td className="client-title">{client.job_title || '-'}</td>
                   <td className="actions">
                     <Link href={`/clients/${client.id}`} className="btn-view">
                       View Details
@@ -114,8 +131,8 @@ export default function ClientsPage() {
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
 
       <style jsx>{`
         .container {
@@ -161,7 +178,7 @@ export default function ClientsPage() {
         .clients-table {
           width: 100%;
           border-collapse: collapse;
-          min-width: 800px;
+          min-width: 700px;
         }
         .clients-table th {
           text-align: left;
@@ -196,6 +213,24 @@ export default function ClientsPage() {
           text-align: center;
           padding: 4rem;
           color: #64748b;
+        }
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 400px;
+        }
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid #e2e8f0;
+          border-top-color: #22c55e;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
         @media (max-width: 768px) {
           .container {
