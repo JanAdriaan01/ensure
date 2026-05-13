@@ -16,71 +16,14 @@ export default function NewClientSitePage() {
   const [formData, setFormData] = useState({
     organization_id: '',
     site_name: '',
-    site_type: '',
-    site_code: '',
     contact_person: '',
     email: '',
     phone: '',
     site_address: '',
     city: '',
     postal_code: '',
-    site_manager: '',
-    operating_hours: '',
-    is_primary: false,
-    safety_level: 'moderate',
-    access_level: 'moderate',
-    power_requirement: '',
-    clearance_required: '',
-    environment_types: [],
-    special_equipment: [],
-    restricted_zones: [],
-    notes: ''
+    is_primary: false
   });
-
-  const siteTypes = [
-    'Warehouse', 'Office', 'Retail Store', 'Distribution Center',
-    'Manufacturing Plant', 'Construction Site', 'Depot', 'Branch',
-    'Head Office', 'Regional Office', 'Service Center', 'Other'
-  ];
-
-  const environmentOptions = [
-    { value: 'outdoor', label: 'Outdoor' },
-    { value: 'indoor', label: 'Indoor' },
-    { value: 'office', label: 'Office' },
-    { value: 'warehouse_4m', label: 'Warehouse (4m)' },
-    { value: 'warehouse_5m', label: 'Warehouse (5m)' },
-    { value: 'production', label: 'Production' },
-    { value: 'clean_room', label: 'Clean Room' },
-    { value: 'cold_storage', label: 'Cold Storage' },
-    { value: 'hazardous', label: 'Hazardous' },
-    { value: 'confined_space', label: 'Confined Space' },
-    { value: 'high_risk', label: 'High Risk' }
-  ];
-
-  const equipmentOptions = [
-    { value: 'hard_hat', label: 'Hard Hat' },
-    { value: 'safety_vest', label: 'Safety Vest' },
-    { value: 'safety_glasses', label: 'Safety Glasses' },
-    { value: 'steel_toe_boots', label: 'Steel Toe Boots' },
-    { value: 'gloves', label: 'Gloves' },
-    { value: 'ear_protection', label: 'Ear Protection' },
-    { value: 'respirator', label: 'Respirator' },
-    { value: 'harness', label: 'Safety Harness' },
-    { value: 'gas_detector', label: 'Gas Detector' },
-    { value: 'fire_extinguisher', label: 'Fire Extinguisher' }
-  ];
-
-  const restrictedZoneOptions = [
-    { value: 'machinery_area', label: 'Machinery Area' },
-    { value: 'electrical_room', label: 'Electrical Room' },
-    { value: 'chemical_storage', label: 'Chemical Storage' },
-    { value: 'roof_area', label: 'Roof Area' },
-    { value: 'pit_area', label: 'Pit Area' },
-    { value: 'confined_space', label: 'Confined Space' },
-    { value: 'restricted_office', label: 'Restricted Office' },
-    { value: 'data_center', label: 'Data Center' },
-    { value: 'laboratory', label: 'Laboratory' }
-  ];
 
   useEffect(() => {
     if (isAuthenticated && token) {
@@ -97,7 +40,6 @@ export default function NewClientSitePage() {
       setOrganizations(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching organizations:', error);
-      setError('Failed to load organizations');
     }
   };
 
@@ -107,18 +49,6 @@ export default function NewClientSitePage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    setError('');
-  };
-
-  const handleMultiSelect = (arrayName, value) => {
-    setFormData(prev => {
-      const currentArray = prev[arrayName] || [];
-      if (currentArray.includes(value)) {
-        return { ...prev, [arrayName]: currentArray.filter(v => v !== value) };
-      } else {
-        return { ...prev, [arrayName]: [...currentArray, value] };
-      }
-    });
   };
 
   const handleSubmit = async (e) => {
@@ -163,352 +93,151 @@ export default function NewClientSitePage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="form-container">
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem', textAlign: 'center' }}>
         <h1>Authentication Required</h1>
         <p>Please log in to create client sites.</p>
-        <Link href="/login" className="btn-primary">Go to Login</Link>
+        <Link href="/login" style={{ background: '#22c55e', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', textDecoration: 'none', display: 'inline-block' }}>
+          Go to Login
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="form-container">
-      <div className="page-header">
-        <div>
-          <Link href="/client-sites" className="back-link">← Back to Client Sites</Link>
-          <h1>Create New Client Site</h1>
-          <p>Add a branch location or site under an organization</p>
-        </div>
+    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ marginBottom: '2rem' }}>
+        <Link href="/client-sites" style={{ color: '#64748b', textDecoration: 'none', display: 'inline-block', marginBottom: '0.5rem' }}>← Back to Client Sites</Link>
+        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600, color: '#1e293b' }}>Create New Client Site</h1>
+        <p style={{ margin: '0.25rem 0 0', color: '#64748b' }}>Add a branch location under an organization</p>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div style={{ background: '#fee2e2', color: '#dc2626', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
+          {error}
+        </div>
+      )}
 
-      <form onSubmit={handleSubmit} className="form-card">
-        {/* Organization Selection */}
-        <div className="form-section">
-          <h3>Organization *</h3>
-          <div className="form-group">
-            <label>Select Organization</label>
-            <select
-              name="organization_id"
-              value={formData.organization_id}
-              onChange={handleChange}
-              required
-            >
-              <option value="">-- Select an Organization --</option>
-              {organizations.map(org => (
-                <option key={org.id} value={org.id}>
-                  {org.organization_name}
-                </option>
-              ))}
-            </select>
-          </div>
+      <form onSubmit={handleSubmit} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '1.5rem' }}>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Organization *</label>
+          <select
+            name="organization_id"
+            value={formData.organization_id}
+            onChange={handleChange}
+            required
+            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+          >
+            <option value="">-- Select an Organization --</option>
+            {organizations.map(org => (
+              <option key={org.id} value={org.id}>{org.organization_name}</option>
+            ))}
+          </select>
         </div>
 
-        {/* Basic Site Information */}
-        <div className="form-section">
-          <h3>Basic Site Information</h3>
-          <div className="form-group">
-            <label>Site Name *</label>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Site Name *</label>
+          <input
+            type="text"
+            name="site_name"
+            value={formData.site_name}
+            onChange={handleChange}
+            required
+            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+            placeholder="e.g., Johannesburg Branch"
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Contact Person</label>
+          <input
+            type="text"
+            name="contact_person"
+            value={formData.contact_person}
+            onChange={handleChange}
+            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+            placeholder="Site contact name"
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Email</label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+            placeholder="site@company.com"
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Phone</label>
+          <input
+            type="tel"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+            placeholder="+27 11 123 4567"
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Address</label>
+          <textarea
+            name="site_address"
+            value={formData.site_address}
+            onChange={handleChange}
+            rows="2"
+            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+            placeholder="Street address"
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>City</label>
+          <input
+            type="text"
+            name="city"
+            value={formData.city}
+            onChange={handleChange}
+            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+            placeholder="City"
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.375rem', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>Postal Code</label>
+          <input
+            type="text"
+            name="postal_code"
+            value={formData.postal_code}
+            onChange={handleChange}
+            style={{ width: '100%', padding: '0.625rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+            placeholder="Postal code"
+          />
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input
-              type="text"
-              name="site_name"
-              value={formData.site_name}
+              type="checkbox"
+              name="is_primary"
+              checked={formData.is_primary}
               onChange={handleChange}
-              required
-              placeholder="e.g., Johannesburg Branch"
             />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Site Type</label>
-              <select name="site_type" value={formData.site_type} onChange={handleChange}>
-                <option value="">Select Type</option>
-                {siteTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Site Code</label>
-              <input
-                type="text"
-                name="site_code"
-                value={formData.site_code}
-                onChange={handleChange}
-                placeholder="e.g., JHB-001"
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                name="is_primary"
-                checked={formData.is_primary}
-                onChange={handleChange}
-              />
-              Mark as primary site for this organization
-            </label>
-          </div>
+            Mark as primary site for this organization
+          </label>
         </div>
 
-        {/* Environment Types */}
-        <div className="form-section">
-          <h3>Environment Types</h3>
-          <p className="section-note">Select all that apply</p>
-          <div className="options-grid">
-            {environmentOptions.map(env => (
-              <label key={env.value} className="option-card">
-                <input
-                  type="checkbox"
-                  checked={formData.environment_types.includes(env.value)}
-                  onChange={() => handleMultiSelect('environment_types', env.value)}
-                />
-                <span>{env.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Safety & Access */}
-        <div className="form-section">
-          <h3>Safety & Access Levels</h3>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Safety Level</label>
-              <select name="safety_level" value={formData.safety_level} onChange={handleChange}>
-                <option value="easy">Easy - Standard safety protocols</option>
-                <option value="moderate">Moderate - Enhanced safety protocols</option>
-                <option value="strict">Strict - Full PPE & special training</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Access Level</label>
-              <select name="access_level" value={formData.access_level} onChange={handleChange}>
-                <option value="easy">Easy - Public access</option>
-                <option value="moderate">Moderate - Controlled access</option>
-                <option value="strict">Strict - Restricted access</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Power Requirement</label>
-              <input
-                type="text"
-                name="power_requirement"
-                value={formData.power_requirement}
-                onChange={handleChange}
-                placeholder="e.g., 220V, 3-Phase"
-              />
-            </div>
-            <div className="form-group">
-              <label>Clearance Required</label>
-              <input
-                type="text"
-                name="clearance_required"
-                value={formData.clearance_required}
-                onChange={handleChange}
-                placeholder="e.g., Security clearance"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Special Equipment */}
-        <div className="form-section">
-          <h3>Special Equipment Required</h3>
-          <p className="section-note">Select all that apply</p>
-          <div className="options-grid">
-            {equipmentOptions.map(equip => (
-              <label key={equip.value} className="option-card">
-                <input
-                  type="checkbox"
-                  checked={formData.special_equipment.includes(equip.value)}
-                  onChange={() => handleMultiSelect('special_equipment', equip.value)}
-                />
-                <span>{equip.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Restricted Zones */}
-        <div className="form-section">
-          <h3>Restricted Zones</h3>
-          <p className="section-note">Select all that apply</p>
-          <div className="options-grid">
-            {restrictedZoneOptions.map(zone => (
-              <label key={zone.value} className="option-card">
-                <input
-                  type="checkbox"
-                  checked={formData.restricted_zones.includes(zone.value)}
-                  onChange={() => handleMultiSelect('restricted_zones', zone.value)}
-                />
-                <span>{zone.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Contact Information */}
-        <div className="form-section">
-          <h3>Contact Information</h3>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Contact Person</label>
-              <input
-                type="text"
-                name="contact_person"
-                value={formData.contact_person}
-                onChange={handleChange}
-                placeholder="Site contact name"
-              />
-            </div>
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="site@company.com"
-              />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Phone</label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="+27 11 123 4567"
-              />
-            </div>
-            <div className="form-group">
-              <label>Site Manager</label>
-              <input
-                type="text"
-                name="site_manager"
-                value={formData.site_manager}
-                onChange={handleChange}
-                placeholder="Site manager name"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Address Information */}
-        <div className="form-section">
-          <h3>Address Information</h3>
-          <div className="form-group">
-            <label>Site Address</label>
-            <textarea
-              name="site_address"
-              value={formData.site_address}
-              onChange={handleChange}
-              rows="2"
-              placeholder="Street address"
-            />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>City</label>
-              <input
-                type="text"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                placeholder="City"
-              />
-            </div>
-            <div className="form-group">
-              <label>Postal Code</label>
-              <input
-                type="text"
-                name="postal_code"
-                value={formData.postal_code}
-                onChange={handleChange}
-                placeholder="Postal code"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Operating Hours & Notes */}
-        <div className="form-section">
-          <h3>Additional Information</h3>
-          <div className="form-group">
-            <label>Operating Hours</label>
-            <input
-              type="text"
-              name="operating_hours"
-              value={formData.operating_hours}
-              onChange={handleChange}
-              placeholder="e.g., Mon-Fri 9am-5pm"
-            />
-          </div>
-          <div className="form-group">
-            <label>Notes</label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows="3"
-              placeholder="Additional notes..."
-            />
-          </div>
-        </div>
-
-        <div className="form-actions">
-          <button type="submit" disabled={loading} className="btn-primary">
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          <button type="submit" disabled={loading} style={{ background: '#22c55e', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}>
             {loading ? 'Creating...' : 'Create Client Site'}
           </button>
-          <Link href="/client-sites" className="btn-secondary">Cancel</Link>
+          <Link href="/client-sites" style={{ background: '#64748b', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>Cancel</Link>
         </div>
       </form>
-
-      <style jsx>{`
-        .form-container { max-width: 900px; margin: 0 auto; padding: 2rem; }
-        .page-header { margin-bottom: 2rem; }
-        .back-link { color: #64748b; text-decoration: none; display: inline-block; margin-bottom: 0.5rem; font-size: 0.875rem; }
-        .back-link:hover { color: #22c55e; }
-        .page-header h1 { margin: 0; font-size: 1.5rem; font-weight: 600; color: #1e293b; }
-        .page-header p { margin: 0.25rem 0 0; color: #64748b; }
-        .error-message { background: #fee2e2; color: #dc2626; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; }
-        .form-card { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; overflow: hidden; }
-        .form-section { padding: 1.5rem; border-bottom: 1px solid #e2e8f0; }
-        .form-section:last-child { border-bottom: none; }
-        .form-section h3 { margin: 0 0 0.5rem 0; font-size: 1rem; font-weight: 600; color: #1e293b; }
-        .section-note { font-size: 0.75rem; color: #64748b; margin-bottom: 1rem; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-        .form-group { display: flex; flex-direction: column; margin-bottom: 1rem; }
-        .form-group label { margin-bottom: 0.375rem; font-weight: 500; font-size: 0.75rem; text-transform: uppercase; color: #64748b; }
-        .form-group input, .form-group select, .form-group textarea { padding: 0.625rem; border: 1px solid #e2e8f0; border-radius: 0.375rem; font-size: 0.875rem; background: white; color: #1e293b; }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.1); }
-        .checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; text-transform: none; }
-        .checkbox-label input { width: auto; }
-        .options-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem; margin-top: 0.5rem; }
-        .option-card { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 0.375rem; cursor: pointer; }
-        .option-card:hover { background: #f8fafc; border-color: #22c55e; }
-        .option-card input { margin: 0; }
-        .form-actions { display: flex; gap: 1rem; justify-content: flex-end; padding: 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; }
-        .btn-primary { background: #22c55e; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
-        .btn-primary:hover { background: #16a34a; }
-        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-secondary { background: #64748b; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.875rem; font-weight: 500; }
-        .btn-secondary:hover { background: #475569; }
-        @media (max-width: 768px) {
-          .form-container { padding: 1rem; }
-          .form-row { grid-template-columns: 1fr; }
-          .options-grid { grid-template-columns: 1fr; }
-          .form-actions { flex-direction: column; }
-          .form-actions button, .form-actions a { width: 100%; text-align: center; }
-        }
-      `}</style>
     </div>
   );
 }
