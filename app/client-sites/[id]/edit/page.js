@@ -1,15 +1,17 @@
-// app/client-sites/new/page.js
+// app/client-sites/[id]/edit/page.js
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth';
 
-export default function NewClientSitePage() {
+export default function EditClientSitePage() {
   const router = useRouter();
+  const params = useParams();
   const { token, isAuthenticated } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [organizations, setOrganizations] = useState([]);
   
@@ -85,6 +87,7 @@ export default function NewClientSitePage() {
   useEffect(() => {
     if (isAuthenticated && token) {
       fetchOrganizations();
+      fetchSite();
     }
   }, [isAuthenticated, token]);
 
@@ -97,7 +100,21 @@ export default function NewClientSitePage() {
       setOrganizations(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching organizations:', error);
-      setError('Failed to load organizations');
+    }
+  };
+
+  const fetchSite = async () => {
+    try {
+      const response = await fetch(`/api/client-sites/${params.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setFormData(data);
+    } catch (error) {
+      console.error('Error fetching site:', error);
+      setError('Failed to load site data');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -134,12 +151,12 @@ export default function NewClientSitePage() {
       return;
     }
     
-    setLoading(true);
+    setSaving(true);
     setError('');
 
     try {
-      const response = await fetch('/api/client-sites', {
-        method: 'POST',
+      const response = await fetch(`/api/client-sites/${params.id}`, {
+        method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -152,21 +169,20 @@ export default function NewClientSitePage() {
       if (response.ok) {
         router.push('/client-sites');
       } else {
-        setError(data.error || 'Failed to create client site');
+        setError(data.error || 'Failed to update client site');
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  if (!isAuthenticated) {
+  if (loading) {
     return (
-      <div className="form-container">
-        <h1>Authentication Required</h1>
-        <p>Please log in to create client sites.</p>
-        <Link href="/login" className="btn-primary">Go to Login</Link>
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading site data...</p>
       </div>
     );
   }
@@ -176,15 +192,15 @@ export default function NewClientSitePage() {
       <div className="page-header">
         <div>
           <Link href="/client-sites" className="back-link">← Back to Client Sites</Link>
-          <h1>Create New Client Site</h1>
-          <p>Add a branch location or site under an organization</p>
+          <h1>Edit Client Site</h1>
+          <p>Update site information</p>
         </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
       <form onSubmit={handleSubmit} className="form-card">
-        {/* Organization Selection */}
+        {/* Same form fields as new page, but pre-populated with formData */}
         <div className="form-section">
           <h3>Organization *</h3>
           <div className="form-group">
@@ -205,7 +221,6 @@ export default function NewClientSitePage() {
           </div>
         </div>
 
-        {/* Basic Site Information */}
         <div className="form-section">
           <h3>Basic Site Information</h3>
           <div className="form-group">
@@ -216,13 +231,12 @@ export default function NewClientSitePage() {
               value={formData.site_name}
               onChange={handleChange}
               required
-              placeholder="e.g., Johannesburg Branch"
             />
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>Site Type</label>
-              <select name="site_type" value={formData.site_type} onChange={handleChange}>
+              <select name="site_type" value={formData.site_type || ''} onChange={handleChange}>
                 <option value="">Select Type</option>
                 {siteTypes.map(type => (
                   <option key={type} value={type}>{type}</option>
@@ -234,9 +248,8 @@ export default function NewClientSitePage() {
               <input
                 type="text"
                 name="site_code"
-                value={formData.site_code}
+                value={formData.site_code || ''}
                 onChange={handleChange}
-                placeholder="e.g., JHB-001"
               />
             </div>
           </div>
@@ -253,16 +266,14 @@ export default function NewClientSitePage() {
           </div>
         </div>
 
-        {/* Environment Types */}
         <div className="form-section">
           <h3>Environment Types</h3>
-          <p className="section-note">Select all that apply</p>
           <div className="options-grid">
             {environmentOptions.map(env => (
               <label key={env.value} className="option-card">
                 <input
                   type="checkbox"
-                  checked={formData.environment_types.includes(env.value)}
+                  checked={formData.environment_types?.includes(env.value)}
                   onChange={() => handleMultiSelect('environment_types', env.value)}
                 />
                 <span>{env.label}</span>
@@ -271,13 +282,12 @@ export default function NewClientSitePage() {
           </div>
         </div>
 
-        {/* Safety & Access */}
         <div className="form-section">
           <h3>Safety & Access Levels</h3>
           <div className="form-row">
             <div className="form-group">
               <label>Safety Level</label>
-              <select name="safety_level" value={formData.safety_level} onChange={handleChange}>
+              <select name="safety_level" value={formData.safety_level || 'moderate'} onChange={handleChange}>
                 <option value="easy">Easy - Standard safety protocols</option>
                 <option value="moderate">Moderate - Enhanced safety protocols</option>
                 <option value="strict">Strict - Full PPE & special training</option>
@@ -285,7 +295,7 @@ export default function NewClientSitePage() {
             </div>
             <div className="form-group">
               <label>Access Level</label>
-              <select name="access_level" value={formData.access_level} onChange={handleChange}>
+              <select name="access_level" value={formData.access_level || 'moderate'} onChange={handleChange}>
                 <option value="easy">Easy - Public access</option>
                 <option value="moderate">Moderate - Controlled access</option>
                 <option value="strict">Strict - Restricted access</option>
@@ -298,9 +308,8 @@ export default function NewClientSitePage() {
               <input
                 type="text"
                 name="power_requirement"
-                value={formData.power_requirement}
+                value={formData.power_requirement || ''}
                 onChange={handleChange}
-                placeholder="e.g., 220V, 3-Phase"
               />
             </div>
             <div className="form-group">
@@ -308,24 +317,21 @@ export default function NewClientSitePage() {
               <input
                 type="text"
                 name="clearance_required"
-                value={formData.clearance_required}
+                value={formData.clearance_required || ''}
                 onChange={handleChange}
-                placeholder="e.g., Security clearance"
               />
             </div>
           </div>
         </div>
 
-        {/* Special Equipment */}
         <div className="form-section">
           <h3>Special Equipment Required</h3>
-          <p className="section-note">Select all that apply</p>
           <div className="options-grid">
             {equipmentOptions.map(equip => (
               <label key={equip.value} className="option-card">
                 <input
                   type="checkbox"
-                  checked={formData.special_equipment.includes(equip.value)}
+                  checked={formData.special_equipment?.includes(equip.value)}
                   onChange={() => handleMultiSelect('special_equipment', equip.value)}
                 />
                 <span>{equip.label}</span>
@@ -334,16 +340,14 @@ export default function NewClientSitePage() {
           </div>
         </div>
 
-        {/* Restricted Zones */}
         <div className="form-section">
           <h3>Restricted Zones</h3>
-          <p className="section-note">Select all that apply</p>
           <div className="options-grid">
             {restrictedZoneOptions.map(zone => (
               <label key={zone.value} className="option-card">
                 <input
                   type="checkbox"
-                  checked={formData.restricted_zones.includes(zone.value)}
+                  checked={formData.restricted_zones?.includes(zone.value)}
                   onChange={() => handleMultiSelect('restricted_zones', zone.value)}
                 />
                 <span>{zone.label}</span>
@@ -352,7 +356,6 @@ export default function NewClientSitePage() {
           </div>
         </div>
 
-        {/* Contact Information */}
         <div className="form-section">
           <h3>Contact Information</h3>
           <div className="form-row">
@@ -361,9 +364,8 @@ export default function NewClientSitePage() {
               <input
                 type="text"
                 name="contact_person"
-                value={formData.contact_person}
+                value={formData.contact_person || ''}
                 onChange={handleChange}
-                placeholder="Site contact name"
               />
             </div>
             <div className="form-group">
@@ -371,9 +373,8 @@ export default function NewClientSitePage() {
               <input
                 type="email"
                 name="email"
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={handleChange}
-                placeholder="site@company.com"
               />
             </div>
           </div>
@@ -383,9 +384,8 @@ export default function NewClientSitePage() {
               <input
                 type="tel"
                 name="phone"
-                value={formData.phone}
+                value={formData.phone || ''}
                 onChange={handleChange}
-                placeholder="+27 11 123 4567"
               />
             </div>
             <div className="form-group">
@@ -393,25 +393,22 @@ export default function NewClientSitePage() {
               <input
                 type="text"
                 name="site_manager"
-                value={formData.site_manager}
+                value={formData.site_manager || ''}
                 onChange={handleChange}
-                placeholder="Site manager name"
               />
             </div>
           </div>
         </div>
 
-        {/* Address Information */}
         <div className="form-section">
           <h3>Address Information</h3>
           <div className="form-group">
             <label>Site Address</label>
             <textarea
               name="site_address"
-              value={formData.site_address}
+              value={formData.site_address || ''}
               onChange={handleChange}
               rows="2"
-              placeholder="Street address"
             />
           </div>
           <div className="form-row">
@@ -420,9 +417,8 @@ export default function NewClientSitePage() {
               <input
                 type="text"
                 name="city"
-                value={formData.city}
+                value={formData.city || ''}
                 onChange={handleChange}
-                placeholder="City"
               />
             </div>
             <div className="form-group">
@@ -430,15 +426,13 @@ export default function NewClientSitePage() {
               <input
                 type="text"
                 name="postal_code"
-                value={formData.postal_code}
+                value={formData.postal_code || ''}
                 onChange={handleChange}
-                placeholder="Postal code"
               />
             </div>
           </div>
         </div>
 
-        {/* Operating Hours & Notes */}
         <div className="form-section">
           <h3>Additional Information</h3>
           <div className="form-group">
@@ -446,26 +440,24 @@ export default function NewClientSitePage() {
             <input
               type="text"
               name="operating_hours"
-              value={formData.operating_hours}
+              value={formData.operating_hours || ''}
               onChange={handleChange}
-              placeholder="e.g., Mon-Fri 9am-5pm"
             />
           </div>
           <div className="form-group">
             <label>Notes</label>
             <textarea
               name="notes"
-              value={formData.notes}
+              value={formData.notes || ''}
               onChange={handleChange}
               rows="3"
-              placeholder="Additional notes..."
             />
           </div>
         </div>
 
         <div className="form-actions">
-          <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? 'Creating...' : 'Create Client Site'}
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
           <Link href="/client-sites" className="btn-secondary">Cancel</Link>
         </div>
@@ -479,11 +471,13 @@ export default function NewClientSitePage() {
         .page-header h1 { margin: 0; font-size: 1.5rem; font-weight: 600; color: #1e293b; }
         .page-header p { margin: 0.25rem 0 0; color: #64748b; }
         .error-message { background: #fee2e2; color: #dc2626; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; }
+        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #22c55e; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .form-card { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; overflow: hidden; }
         .form-section { padding: 1.5rem; border-bottom: 1px solid #e2e8f0; }
         .form-section:last-child { border-bottom: none; }
         .form-section h3 { margin: 0 0 0.5rem 0; font-size: 1rem; font-weight: 600; color: #1e293b; }
-        .section-note { font-size: 0.75rem; color: #64748b; margin-bottom: 1rem; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
         .form-group { display: flex; flex-direction: column; margin-bottom: 1rem; }
         .form-group label { margin-bottom: 0.375rem; font-weight: 500; font-size: 0.75rem; text-transform: uppercase; color: #64748b; }
