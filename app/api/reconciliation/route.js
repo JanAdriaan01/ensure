@@ -14,8 +14,6 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'month';
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
 
     // Get invoices data
     const invoicesResult = await query(`
@@ -70,39 +68,46 @@ export async function GET(request) {
       LIMIT 12
     `);
 
-    // Get recent transactions
+    // Get recent transactions - FIXED: removed client_name from jobs and quotes
     const recentResult = await query(`
       SELECT 
         'invoice' as type,
-        id,
-        invoice_number as reference,
-        total_amount as amount,
-        status,
-        created_at as date,
-        client_name
-      FROM invoices
-      WHERE status != 'draft'
+        i.id,
+        i.invoice_number as reference,
+        i.total_amount as amount,
+        i.status,
+        i.created_at as date,
+        COALESCE(i.client_name, 'Unknown') as client_name
+      FROM invoices i
+      WHERE i.status != 'draft'
+      
       UNION ALL
+      
       SELECT 
         'job' as type,
-        id,
-        job_number as reference,
-        po_amount as amount,
-        po_status as status,
-        created_at as date,
-        client_name
-      FROM jobs
-      WHERE po_status = 'approved'
+        j.id,
+        j.job_number as reference,
+        j.po_amount as amount,
+        j.po_status as status,
+        j.created_at as date,
+        COALESCE(c.client_name, 'Unknown') as client_name
+      FROM jobs j
+      LEFT JOIN clients c ON j.client_id = c.id
+      WHERE j.po_status = 'approved'
+      
       UNION ALL
+      
       SELECT 
         'quote' as type,
-        id,
-        quote_number as reference,
-        total_amount as amount,
-        status,
-        created_at as date,
-        client_name
-      FROM quotes
+        q.id,
+        q.quote_number as reference,
+        q.total_amount as amount,
+        q.status,
+        q.created_at as date,
+        COALESCE(c.client_name, 'Unknown') as client_name
+      FROM quotes q
+      LEFT JOIN clients c ON q.client_id = c.id
+      
       ORDER BY date DESC
       LIMIT 20
     `);
@@ -113,27 +118,27 @@ export async function GET(request) {
 
     // Calculate variances
     const variance = {
-      invoiced_vs_po: invoices.total_invoiced - jobs.total_po_value,
-      paid_vs_invoiced: invoices.total_paid - invoices.total_invoiced,
-      quotes_vs_jobs: quotes.total_quote_value - jobs.total_po_value
+      invoiced_vs_po: (parseFloat(invoices.total_invoiced) || 0) - (parseFloat(jobs.total_po_value) || 0),
+      paid_vs_invoiced: (parseFloat(invoices.total_paid) || 0) - (parseFloat(invoices.total_invoiced) || 0),
+      quotes_vs_jobs: (parseFloat(quotes.total_quote_value) || 0) - (parseFloat(jobs.total_po_value) || 0)
     };
 
     return NextResponse.json({
       success: true,
       data: {
         summary: {
-          total_invoiced: parseFloat(invoices.total_invoiced),
-          total_paid: parseFloat(invoices.total_paid),
-          total_pending: parseFloat(invoices.total_pending),
-          total_overdue: parseFloat(invoices.total_overdue),
-          total_po_value: parseFloat(jobs.total_po_value),
-          total_quote_value: parseFloat(quotes.total_quote_value),
-          invoice_count: parseInt(invoices.invoice_count),
-          paid_count: parseInt(invoices.paid_count),
-          pending_count: parseInt(invoices.pending_count),
-          overdue_count: parseInt(invoices.overdue_count),
-          job_count: parseInt(jobs.job_count),
-          quote_count: parseInt(quotes.quote_count),
+          total_invoiced: parseFloat(invoices.total_invoiced) || 0,
+          total_paid: parseFloat(invoices.total_paid) || 0,
+          total_pending: parseFloat(invoices.total_pending) || 0,
+          total_overdue: parseFloat(invoices.total_overdue) || 0,
+          total_po_value: parseFloat(jobs.total_po_value) || 0,
+          total_quote_value: parseFloat(quotes.total_quote_value) || 0,
+          invoice_count: parseInt(invoices.invoice_count) || 0,
+          paid_count: parseInt(invoices.paid_count) || 0,
+          pending_count: parseInt(invoices.pending_count) || 0,
+          overdue_count: parseInt(invoices.overdue_count) || 0,
+          job_count: parseInt(jobs.job_count) || 0,
+          quote_count: parseInt(quotes.quote_count) || 0,
           variance: variance
         },
         monthly: monthlyResult.rows,
