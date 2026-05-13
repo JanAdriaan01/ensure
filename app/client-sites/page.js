@@ -1,141 +1,182 @@
-// app/api/client-sites/[id]/route.js
-export const dynamic = 'force-dynamic';
+// app/client-sites/page.js
+'use client';
 
-import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/app/hooks/useAuth';
 
-export async function GET(request, { params }) {
-  try {
-    const auth = await verifyAuth(request);
-    if (!auth.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export default function ClientSitesPage() {
+  const { token, isAuthenticated } = useAuth();
+  const [sites, setSites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-    const { id } = await params;
-    const siteId = parseInt(id);
-    
-    if (isNaN(siteId)) {
-      return NextResponse.json({ error: 'Invalid site ID' }, { status: 400 });
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      fetchSites();
     }
-    
-    const result = await query(`
-      SELECT 
-        cs.*,
-        o.organization_name
-      FROM client_sites cs
-      LEFT JOIN organizations o ON cs.organization_id = o.id
-      WHERE cs.id = $1
-    `, [siteId]);
-    
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Client site not found' }, { status: 404 });
-    }
-    
-    return NextResponse.json(result.rows[0]);
-  } catch (error) {
-    console.error('GET client site error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
+  }, [isAuthenticated, token]);
 
-export async function PUT(request, { params }) {
-  try {
-    const auth = await verifyAuth(request);
-    if (!auth.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const fetchSites = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/client-sites', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Fetched sites:', data);
+      
+      // Ensure we have an array
+      const sitesArray = Array.isArray(data) ? data : [];
+      setSites(sitesArray);
+    } catch (error) {
+      console.error('Error fetching sites:', error);
+      setError('Failed to load client sites');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const { id } = await params;
-    const siteId = parseInt(id);
-    const body = await request.json();
-    
-    const {
-      site_name, site_type, site_code,
-      contact_person, email, phone, site_address, city, postal_code,
-      site_manager, operating_hours, is_primary,
-      environment_types, safety_level, access_level,
-      power_requirement, clearance_required,
-      special_equipment, restricted_zones, notes
-    } = body;
-    
-    // Get current site to check organization_id
-    const currentSite = await query(`SELECT organization_id FROM client_sites WHERE id = $1`, [siteId]);
-    if (currentSite.rows.length === 0) {
-      return NextResponse.json({ error: 'Client site not found' }, { status: 404 });
-    }
-    
-    const organization_id = currentSite.rows[0].organization_id;
-    
-    // If this is primary, unset other primary sites for this organization
-    if (is_primary) {
-      await query(`UPDATE client_sites SET is_primary = FALSE WHERE organization_id = $1 AND id != $2`, [organization_id, siteId]);
-    }
-    
-    const result = await query(
-      `UPDATE client_sites SET
-        site_name = COALESCE($1, site_name),
-        site_type = COALESCE($2, site_type),
-        site_code = COALESCE($3, site_code),
-        contact_person = COALESCE($4, contact_person),
-        email = COALESCE($5, email),
-        phone = COALESCE($6, phone),
-        site_address = COALESCE($7, site_address),
-        city = COALESCE($8, city),
-        postal_code = COALESCE($9, postal_code),
-        site_manager = COALESCE($10, site_manager),
-        operating_hours = COALESCE($11, operating_hours),
-        is_primary = COALESCE($12, is_primary),
-        environment_types = COALESCE($13, environment_types),
-        safety_level = COALESCE($14, safety_level),
-        access_level = COALESCE($15, access_level),
-        power_requirement = COALESCE($16, power_requirement),
-        clearance_required = COALESCE($17, clearance_required),
-        special_equipment = COALESCE($18, special_equipment),
-        restricted_zones = COALESCE($19, restricted_zones),
-        notes = COALESCE($20, notes),
-        updated_at = NOW()
-      WHERE id = $21
-      RETURNING *`,
-      [
-        site_name, site_type, site_code,
-        contact_person, email, phone, site_address, city, postal_code,
-        site_manager, operating_hours, is_primary,
-        environment_types, safety_level, access_level,
-        power_requirement, clearance_required,
-        special_equipment, restricted_zones, notes,
-        siteId
-      ]
+  if (loading) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <div style={{ 
+          width: '40px', 
+          height: '40px', 
+          border: '3px solid #e2e8f0', 
+          borderTopColor: '#22c55e', 
+          borderRadius: '50%', 
+          animation: 'spin 1s linear infinite',
+          margin: '0 auto 1rem'
+        }}></div>
+        <p>Loading client sites...</p>
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
     );
-    
-    return NextResponse.json(result.rows[0]);
-  } catch (error) {
-    console.error('PUT client site error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
 
-export async function DELETE(request, { params }) {
-  try {
-    const auth = await verifyAuth(request);
-    if (!auth.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const siteId = parseInt(id);
-    
-    // Check if site has any client assignments
-    const assignmentCheck = await query(`SELECT COUNT(*) FROM client_site_assignments WHERE client_site_id = $1`, [siteId]);
-    if (parseInt(assignmentCheck.rows[0].count) > 0) {
-      return NextResponse.json({ error: 'Cannot delete site with assigned clients' }, { status: 400 });
-    }
-    
-    await query(`DELETE FROM client_sites WHERE id = $1`, [siteId]);
-    
-    return NextResponse.json({ success: true, message: 'Client site deleted successfully' });
-  } catch (error) {
-    console.error('DELETE client site error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <h2>Error</h2>
+        <p>{error}</p>
+        <button onClick={fetchSites} style={{ 
+          background: '#22c55e', 
+          color: 'white', 
+          padding: '0.5rem 1rem', 
+          border: 'none', 
+          borderRadius: '0.5rem', 
+          cursor: 'pointer' 
+        }}>
+          Retry
+        </button>
+      </div>
+    );
   }
+
+  return (
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.875rem', color: '#1e293b', margin: 0 }}>Client Sites</h1>
+          <p style={{ color: '#64748b', margin: '0.25rem 0 0' }}>Manage branch locations and sites ({sites.length} total)</p>
+        </div>
+        <Link href="/client-sites/new" style={{ 
+          background: '#22c55e', 
+          color: 'white', 
+          padding: '0.5rem 1rem', 
+          borderRadius: '0.5rem', 
+          textDecoration: 'none' 
+        }}>
+          + New Site
+        </Link>
+      </div>
+
+      {sites.length === 0 ? (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '4rem', 
+          background: 'white', 
+          borderRadius: '0.75rem', 
+          border: '1px solid #e2e8f0' 
+        }}>
+          <p>No client sites found. Create your first site.</p>
+        </div>
+      ) : (
+        <div style={{ 
+          background: 'white', 
+          border: '1px solid #e2e8f0', 
+          borderRadius: '0.75rem', 
+          overflowX: 'auto' 
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Site Name</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Organization</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Type</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Contact</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sites.map(site => (
+                <tr key={site.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '0.75rem 1rem', fontWeight: 500 }}>
+                    {site.site_name}
+                    {site.is_primary && (
+                      <span style={{ 
+                        background: '#22c55e', 
+                        color: 'white', 
+                        padding: '0.125rem 0.375rem', 
+                        borderRadius: '0.25rem', 
+                        fontSize: '0.6rem', 
+                        marginLeft: '0.5rem',
+                        display: 'inline-block'
+                      }}>Primary</span>
+                    )}
+                   </td>
+                  <td style={{ padding: '0.75rem 1rem' }}>{site.organization_name || '-'}</td>
+                  <td style={{ padding: '0.75rem 1rem' }}>{site.site_type || '-'}</td>
+                  <td style={{ padding: '0.75rem 1rem' }}>{site.contact_person || '-'}</td>
+                  <td style={{ padding: '0.75rem 1rem' }}>
+                    <Link href={`/client-sites/${site.id}`} style={{ 
+                      background: '#22c55e', 
+                      color: 'white', 
+                      padding: '0.25rem 0.75rem', 
+                      borderRadius: '0.375rem', 
+                      textDecoration: 'none', 
+                      fontSize: '0.75rem',
+                      marginRight: '0.5rem'
+                    }}>
+                      View
+                    </Link>
+                    <Link href={`/client-sites/${site.id}/edit`} style={{ 
+                      background: '#3b82f6', 
+                      color: 'white', 
+                      padding: '0.25rem 0.75rem', 
+                      borderRadius: '0.375rem', 
+                      textDecoration: 'none', 
+                      fontSize: '0.75rem' 
+                    }}>
+                      Edit
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
