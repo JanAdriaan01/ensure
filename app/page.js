@@ -22,6 +22,11 @@ export default function DashboardPage() {
     pendingOHS: 0
   });
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -121,7 +126,7 @@ export default function DashboardPage() {
     }).format(amount);
   };
 
-  if (authLoading || loading) {
+  if (!mounted || authLoading || loading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
@@ -137,7 +142,7 @@ export default function DashboardPage() {
           .loading-spinner {
             width: 40px;
             height: 40px;
-            border: 3px solid var(--border-light);
+            border: 3px solid #e2e8f0;
             border-top-color: #22c55e;
             border-radius: 50%;
             animation: spin 1s linear infinite;
@@ -301,12 +306,10 @@ export default function DashboardPage() {
     }
   ];
 
-  const isDarkMode = theme === 'dark';
-
   return (
     <div className="dashboard-container">
       {/* Banner - Charcoal Grey in both modes */}
-      <div className={`welcome-section ${isDarkMode ? 'dark-mode' : 'light-mode'}`}>
+      <div className="welcome-section">
         <div className="welcome-content">
           <div className="greeting">
             <span className="greeting-icon">
@@ -464,28 +467,16 @@ export default function DashboardPage() {
           padding: 2rem;
         }
 
-        /* Banner - Same charcoal grey for both modes */
+        /* Banner - Fixed charcoal grey for all themes */
         .welcome-section {
+          background: #2d2d2d;
+          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 1px);
+          background-size: 24px 24px;
           border-radius: 1rem;
           padding: 1.5rem;
           margin-bottom: 2rem;
-          transition: all 0.3s ease;
-        }
-
-        /* Light mode banner */
-        .welcome-section.light-mode {
-          background: #2d2d2d;
-          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 1px);
-          background-size: 24px 24px;
           border: 1px solid #404040;
-        }
-
-        /* Dark mode banner - same charcoal grey */
-        .welcome-section.dark-mode {
-          background: #2d2d2d;
-          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 1px);
-          background-size: 24px 24px;
-          border: 1px solid #404040;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.1);
         }
 
         .welcome-content {
@@ -545,7 +536,7 @@ export default function DashboardPage() {
           color: #c0c0c0;
         }
 
-        /* Profile Card */
+        /* Profile Card - Uses theme variables */
         .profile-card {
           background: var(--card-bg);
           border: 1px solid var(--border-light);
@@ -613,7 +604,7 @@ export default function DashboardPage() {
           text-decoration: underline;
         }
 
-        /* Stats Grid - Cards use theme variables */
+        /* Stats Grid */
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
