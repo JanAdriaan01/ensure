@@ -301,7 +301,7 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard-container">
-      {/* Matte Black Greeting Banner */}
+      {/* Charcoal Grey Matte Banner */}
       <div className="welcome-section">
         <div className="welcome-content">
           <div className="greeting">
@@ -329,7 +329,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Profile Card - Updated for better contrast */}
+      {/* Profile Card */}
       <div className="profile-card">
         <div className="profile-avatar">
           {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
@@ -460,13 +460,16 @@ export default function DashboardPage() {
           padding: 2rem;
         }
 
-        /* Matte Black Greeting Banner */
+        /* Charcoal Grey Matte Banner */
         .welcome-section {
-          background: #1a1a1a;
+          background: #2d2d2d;
+          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 1px);
+          background-size: 24px 24px;
           border-radius: 1rem;
           padding: 1.5rem;
           margin-bottom: 2rem;
-          border: 1px solid #2a2a2a;
+          border: 1px solid #3d3d3d;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.1);
         }
 
         .welcome-content {
@@ -498,7 +501,7 @@ export default function DashboardPage() {
         }
 
         .greeting p {
-          color: #a3a3a3;
+          color: #c0c0c0;
           margin: 0;
           font-size: 0.875rem;
         }
@@ -523,7 +526,7 @@ export default function DashboardPage() {
 
         .date {
           font-size: 0.75rem;
-          color: #a3a3a3;
+          color: #c0c0c0;
         }
 
         /* Profile Card */
@@ -730,7 +733,7 @@ export default function DashboardPage() {
 
         /* Quick Actions */
         .quick-actions-section {
-          margin-top: 0.5rem;
+          margin-bottom: 1rem;
         }
 
         .quick-actions-section h3 {
