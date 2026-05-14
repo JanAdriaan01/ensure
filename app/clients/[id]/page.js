@@ -12,11 +12,15 @@ export default function ClientDetailPage({ params }) {
   const [client, setClient] = useState(null);
   const [quotes, setQuotes] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [assignedSites, setAssignedSites] = useState([]);
+  const [availableSites, setAvailableSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
+  const [selectedSites, setSelectedSites] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [sitesLoading, setSitesLoading] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && token && params.id) {
@@ -55,6 +59,14 @@ export default function ClientDetailPage({ params }) {
       setClient(clientData);
       setFormData(clientData);
       
+      // Fetch assigned sites for this client
+      const assignedRes = await fetch(`/api/client-site-assignments?client_id=${params.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const assignedData = await assignedRes.json();
+      const assignedSitesList = Array.isArray(assignedData) ? assignedData : [];
+      setAssignedSites(assignedSitesList);
+      
       // Fetch quotes for this client
       const quotesRes = await fetch(`/api/quotes?client_id=${params.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -71,7 +83,7 @@ export default function ClientDetailPage({ params }) {
       }
       setQuotes(quotesArray);
       
-      // Fetch jobs for this client (using client_site_id or organization_id)
+      // Fetch jobs for this client
       const jobsRes = await fetch(`/api/jobs?client_id=${params.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -95,8 +107,35 @@ export default function ClientDetailPage({ params }) {
     }
   };
 
+  const fetchSitesForOrganization = async (organizationId) => {
+    if (!organizationId) return;
+    
+    setSitesLoading(true);
+    try {
+      const response = await fetch(`/api/client-sites?organization_id=${organizationId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setAvailableSites(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching sites:', error);
+      setAvailableSites([]);
+    } finally {
+      setSitesLoading(false);
+    }
+  };
+
+  const handleEditClick = () => {
+    setEditing(true);
+    setSelectedSites(assignedSites.map(site => site.client_site_id));
+    if (client?.organization_id) {
+      fetchSitesForOrganization(client.organization_id);
+    }
+  };
+
   const updateClient = async () => {
     try {
+      // Update client info
       const res = await fetch(`/api/clients/${params.id}`, {
         method: 'PUT',
         headers: { 
@@ -106,19 +145,34 @@ export default function ClientDetailPage({ params }) {
         body: JSON.stringify(formData)
       });
       
-      if (res.ok) {
-        const updatedClient = await res.json();
-        setClient(updatedClient);
-        setEditing(false);
-        alert('Client updated successfully!');
-        fetchClientData();
-      } else {
-        const error = await res.json();
-        alert(error.error || 'Failed to update client');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to update client');
       }
+      
+      // Update site assignments
+      const assignRes = await fetch('/api/client-site-assignments', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          client_id: parseInt(params.id),
+          site_ids: selectedSites
+        })
+      });
+      
+      if (!assignRes.ok) {
+        console.error('Failed to update site assignments');
+      }
+      
+      setEditing(false);
+      await fetchClientData();
+      alert('Client updated successfully!');
     } catch (error) {
       console.error('Error updating client:', error);
-      alert('Failed to update client');
+      alert(error.message || 'Failed to update client');
     }
   };
 
@@ -156,6 +210,14 @@ export default function ClientDetailPage({ params }) {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleSiteToggle = (siteId) => {
+    setSelectedSites(prev => 
+      prev.includes(siteId) 
+        ? prev.filter(id => id !== siteId)
+        : [...prev, siteId]
+    );
   };
 
   const formatCurrency = (amount) => {
@@ -252,8 +314,8 @@ export default function ClientDetailPage({ params }) {
           </div>
         </div>
         <div className="header-actions">
-          <button onClick={() => setEditing(!editing)} className="btn-edit">
-            {editing ? 'Cancel' : 'Edit'}
+          <button onClick={handleEditClick} className="btn-edit">
+            Edit
           </button>
           <button 
             onClick={deleteClient} 
@@ -400,6 +462,37 @@ export default function ClientDetailPage({ params }) {
                 />
               </div>
             </div>
+            
+            {/* Site Assignments Section */}
+            <div className="form-group full-width">
+              <label>Assigned Sites</label>
+              {sitesLoading ? (
+                <div className="sites-loading">Loading sites...</div>
+              ) : availableSites.length === 0 ? (
+                <div className="no-sites">
+                  <p>No sites available for this organization.</p>
+                  <Link href="/client-sites/new" className="btn-small">+ Create New Site</Link>
+                </div>
+              ) : (
+                <div className="sites-list">
+                  {availableSites.map(site => (
+                    <label key={site.id} className="site-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedSites.includes(site.id)}
+                        onChange={() => handleSiteToggle(site.id)}
+                      />
+                      <div className="site-info">
+                        <strong>{site.site_name}</strong>
+                        {site.site_type && <span className="site-type">({site.site_type})</span>}
+                        {site.site_address && <div className="site-address">{site.site_address}</div>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             <div className="form-group full-width">
               <label>Notes</label>
               <textarea 
@@ -415,56 +508,74 @@ export default function ClientDetailPage({ params }) {
             </div>
           </div>
         ) : (
-          <div className="info-grid">
-            <div className="info-item">
-              <span className="label">Full Name:</span>
-              <span className="value">{client.first_name} {client.last_name}</span>
+          <>
+            <div className="info-grid">
+              <div className="info-item">
+                <span className="label">Full Name:</span>
+                <span className="value">{client.first_name} {client.last_name}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Email:</span>
+                <span className="value">{client.email || '-'}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Phone:</span>
+                <span className="value">{client.phone || '-'}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Mobile:</span>
+                <span className="value">{client.mobile || '-'}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Organization:</span>
+                <span className="value">{client.organization_name || '-'}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Job Title:</span>
+                <span className="value">{client.job_title || '-'}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Department:</span>
+                <span className="value">{client.department || '-'}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Date of Birth:</span>
+                <span className="value">{formatDate(client.date_of_birth)}</span>
+              </div>
+              <div className="info-item full-width">
+                <span className="label">Address:</span>
+                <span className="value">
+                  {client.address_line1 && <div>{client.address_line1}</div>}
+                  {client.address_line2 && <div>{client.address_line2}</div>}
+                  {client.city && <div>{client.city}</div>}
+                  {client.postal_code && <div>Postal Code: {client.postal_code}</div>}
+                  {!client.address_line1 && !client.city && '-'}
+                </span>
+              </div>
             </div>
-            <div className="info-item">
-              <span className="label">Email:</span>
-              <span className="value">{client.email || '-'}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Phone:</span>
-              <span className="value">{client.phone || '-'}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Mobile:</span>
-              <span className="value">{client.mobile || '-'}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Organization:</span>
-              <span className="value">{client.organization_name || '-'}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Job Title:</span>
-              <span className="value">{client.job_title || '-'}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Department:</span>
-              <span className="value">{client.department || '-'}</span>
-            </div>
-            <div className="info-item">
-              <span className="label">Date of Birth:</span>
-              <span className="value">{formatDate(client.date_of_birth)}</span>
-            </div>
-            <div className="info-item full-width">
-              <span className="label">Address:</span>
-              <span className="value">
-                {client.address_line1 && <div>{client.address_line1}</div>}
-                {client.address_line2 && <div>{client.address_line2}</div>}
-                {client.city && <div>{client.city}</div>}
-                {client.postal_code && <div>Postal Code: {client.postal_code}</div>}
-                {!client.address_line1 && !client.city && '-'}
-              </span>
-            </div>
+            
+            {/* Assigned Sites Display */}
+            {assignedSites.length > 0 && (
+              <div className="assigned-sites">
+                <h4>Assigned Sites</h4>
+                <div className="sites-list-display">
+                  {assignedSites.map(site => (
+                    <div key={site.id} className="assigned-site">
+                      <span className="site-name">{site.site_name}</span>
+                      {site.site_address && <span className="site-address-display">{site.site_address}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {client.notes && (
               <div className="info-item full-width">
                 <span className="label">Notes:</span>
                 <span className="value">{client.notes}</span>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
@@ -626,6 +737,38 @@ export default function ClientDetailPage({ params }) {
           padding-bottom: 0.5rem;
           border-bottom: 1px solid #e2e8f0;
         }
+        .assigned-sites {
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
+        .assigned-sites h4 {
+          font-size: 0.875rem;
+          font-weight: 600;
+          margin: 0 0 0.75rem 0;
+          color: #1e293b;
+        }
+        .sites-list-display {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .assigned-site {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.5rem;
+          background: #f8fafc;
+          border-radius: 0.5rem;
+        }
+        .assigned-site .site-name {
+          font-weight: 500;
+          color: #1e293b;
+        }
+        .assigned-site .site-address-display {
+          font-size: 0.7rem;
+          color: #64748b;
+        }
         .section {
           background: white;
           border: 1px solid #e2e8f0;
@@ -696,6 +839,63 @@ export default function ClientDetailPage({ params }) {
           background: white;
           color: #1e293b;
         }
+        .sites-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          max-height: 200px;
+          overflow-y: auto;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.5rem;
+          padding: 0.5rem;
+        }
+        .site-checkbox {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          padding: 0.5rem;
+          cursor: pointer;
+          border-radius: 0.375rem;
+          transition: background 0.2s;
+        }
+        .site-checkbox:hover {
+          background: #f8fafc;
+        }
+        .site-checkbox input {
+          margin-top: 0.125rem;
+        }
+        .site-info {
+          flex: 1;
+        }
+        .site-info strong {
+          font-size: 0.875rem;
+          color: #1e293b;
+        }
+        .site-type {
+          font-size: 0.7rem;
+          color: #22c55e;
+          margin-left: 0.5rem;
+        }
+        .site-address {
+          font-size: 0.7rem;
+          color: #64748b;
+          margin-top: 0.25rem;
+        }
+        .sites-loading, .no-sites {
+          text-align: center;
+          padding: 1rem;
+          color: #64748b;
+        }
+        .btn-small {
+          display: inline-block;
+          margin-top: 0.5rem;
+          padding: 0.25rem 0.75rem;
+          background: #22c55e;
+          color: white;
+          border-radius: 0.375rem;
+          text-decoration: none;
+          font-size: 0.75rem;
+        }
         .form-actions {
           display: flex;
           gap: 1rem;
@@ -752,14 +952,6 @@ export default function ClientDetailPage({ params }) {
           background: #fca5a5;
           cursor: not-allowed;
           opacity: 0.6;
-        }
-        .btn-small {
-          background: #22c55e;
-          color: white;
-          padding: 0.25rem 0.75rem;
-          border-radius: 0.375rem;
-          text-decoration: none;
-          font-size: 0.75rem;
         }
         .table-container {
           overflow-x: auto;

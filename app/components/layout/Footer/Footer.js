@@ -1,3 +1,4 @@
+// app/components/Footer.js
 'use client';
 
 import Link from 'next/link';
@@ -57,9 +58,12 @@ export default function Footer() {
 
       <style jsx>{`
         .footer {
-          background: #1f2937;
+          background: #2d2d2d;
+          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 1px);
+          background-size: 24px 24px;
           color: #e5e7eb;
           margin-top: 3rem;
+          border-top: 1px solid #3d3d3d;
         }
         .footer-container {
           max-width: 1280px;
@@ -87,7 +91,7 @@ export default function Footer() {
         }
         .footer-tagline {
           font-size: 0.75rem;
-          color: #9ca3af;
+          color: #c0c0c0;
           margin: 0;
         }
         .footer-links {
@@ -108,15 +112,15 @@ export default function Footer() {
         }
         .link-group a {
           font-size: 0.75rem;
-          color: #9ca3af;
+          color: #c0c0c0;
           text-decoration: none;
           transition: color 0.2s;
         }
         .link-group a:hover {
-          color: white;
+          color: #22c55e;
         }
         .footer-bottom {
-          border-top: 1px solid #374151;
+          border-top: 1px solid #3d3d3d;
         }
         .footer-bottom-container {
           max-width: 1280px;
@@ -130,7 +134,7 @@ export default function Footer() {
         }
         .copyright {
           font-size: 0.7rem;
-          color: #9ca3af;
+          color: #c0c0c0;
         }
         @media (max-width: 768px) {
           .footer-container {
