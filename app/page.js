@@ -5,9 +5,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@/app/context/ThemeContext';
 
 export default function DashboardPage() {
   const { user, token, isAuthenticated, loading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const router = useRouter();
   const [greeting, setGreeting] = useState('');
   const [currentTime, setCurrentTime] = useState('');
@@ -299,10 +301,12 @@ export default function DashboardPage() {
     }
   ];
 
+  const isDarkMode = theme === 'dark';
+
   return (
     <div className="dashboard-container">
-      {/* Charcoal Grey Matte Banner */}
-      <div className="welcome-section">
+      {/* Banner - Charcoal Grey in both modes */}
+      <div className={`welcome-section ${isDarkMode ? 'dark-mode' : 'light-mode'}`}>
         <div className="welcome-content">
           <div className="greeting">
             <span className="greeting-icon">
@@ -460,16 +464,28 @@ export default function DashboardPage() {
           padding: 2rem;
         }
 
-        /* Charcoal Grey Matte Banner */
+        /* Banner - Same charcoal grey for both modes */
         .welcome-section {
-          background: #2d2d2d;
-          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 1px);
-          background-size: 24px 24px;
           border-radius: 1rem;
           padding: 1.5rem;
           margin-bottom: 2rem;
-          border: 1px solid #3d3d3d;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.1);
+          transition: all 0.3s ease;
+        }
+
+        /* Light mode banner */
+        .welcome-section.light-mode {
+          background: #2d2d2d;
+          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 1px);
+          background-size: 24px 24px;
+          border: 1px solid #404040;
+        }
+
+        /* Dark mode banner - same charcoal grey */
+        .welcome-section.dark-mode {
+          background: #2d2d2d;
+          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 1px);
+          background-size: 24px 24px;
+          border: 1px solid #404040;
         }
 
         .welcome-content {
@@ -597,7 +613,7 @@ export default function DashboardPage() {
           text-decoration: underline;
         }
 
-        /* Stats Grid */
+        /* Stats Grid - Cards use theme variables */
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
